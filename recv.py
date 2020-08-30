@@ -4,6 +4,7 @@ import logging
 import time
 
 import numpy as np
+from func_timeout import func_set_timeout
 
 import dsp
 import common
@@ -65,11 +66,11 @@ class Receiver:
                     silence_found_ind = i
                     #log.info(i)
                 elif(bit != 1):
-                    log.warning('WARNING: prefix symbol that is not 0 or 1 found')
+                    log.warning('WARNING: prefix symbol that is not 0 or 1 found')                   
             elif (silence_found == True):
-                if (bit == 0):
-                    if ((i - silence_found_ind) >= equalizer.carrier_silence_length):
-                        break
+                #if (bit == 0):
+                if ((i - silence_found_ind) >= equalizer.carrier_silence_length):
+                    break
                 #else:
                     #log.warning('WARNING: prefix carrier silence period ended prematurely')
 
@@ -116,11 +117,6 @@ class Receiver:
         noise_rms = dsp.rms(errors)
         signal_rms = dsp.rms(train_symbols)
         SNRs = 20.0 * np.log10(signal_rms / noise_rms)
-
-        self.plt.figure()
-        for (i, freq), snr in zip(enumerate(self.frequencies), SNRs):
-            log.debug('%5.1f kHz: SNR = %5.2f dB', freq / 1e3, snr)
-            self._constellation(symbols[:, i], train_symbols[:, i],'$F_c = {0} Hz$'.format(freq), index=i)
         
         if (error_rate > 0.1):
             log.warning('WARNING!: error rate during training is %4.1f%%' % (error_rate*100))
@@ -173,11 +169,11 @@ class Receiver:
         sampler.freq -= self.freq_err_gain * err
         sampler.offset -= err
 
-    def run(self, sampler, gain, output, timeout):
-        start = time.time()
-    
-        log.debug('Carrier Detected: Receiving')
+    @func_set_timeout(15)
+    def run(self, sampler, gain, output):
         symbols = dsp.Demux(sampler, omegas=self.omegas, Nsym=self.Nsym)
+        
+        log.debug('Carrier Detected: Receiving')
         self._prefix(symbols, gain=gain)
 
         filt = self._train(sampler, order=10, lookahead=10) #train the equalizer filter
@@ -187,6 +183,7 @@ class Receiver:
         bitstream = itertools.chain.from_iterable(bitstream)
 
         #this is where the receiver sends its output to the IL2P layer
+        output.reset()
         converter = common.BitPacker()
         for byte in itertools.chain.from_iterable(_to_bytes(bitstream, converter)):	
             (received, remaining) = output.addByte(byte)
@@ -196,8 +193,6 @@ class Receiver:
                 raise exceptions.IL2PHeaderDecodeError
             elif (remaining == 0):
                 raise exceptions.EndOfFrameDetected
-            elif ((time.time() - start) > timeout):
-                raise exceptions.ReceiverTimeout
 
     def report(self):
         if self.stats:
@@ -206,29 +201,6 @@ class Receiver:
             log.debug('Demodulated %.3f kB @ %.3f seconds (%.1f%% realtime)', self.stats['rx_bits'] / 8e3, duration, 100 * duration / audio_time if audio_time else 0)
             #log.info('Received %.3f kB @ %.3f seconds = %.3f kB/s', self.output_size * 1e-3, duration, self.output_size * 1e-3 / duration)
 
-            self.plt.figure()
-            symbol_list = np.array(self.stats['symbol_list'])
-            for i, freq in enumerate(self.frequencies):
-                self._constellation(symbol_list[i], self.modem.symbols,'$F_c = {0} Hz$'.format(freq), index=i)
-        self.plt.show()
-
-    def _constellation(self, y, symbols, title, index=None):
-        if index is not None:
-            Nfreq = len(self.frequencies)
-            height = np.floor(np.sqrt(Nfreq))
-            width = np.ceil(Nfreq / float(height))
-            self.plt.subplot(height, width, index + 1)
-
-        theta = np.linspace(0, 2*np.pi, 1000)
-        y = np.array(y)
-        self.plt.plot(y.real, y.imag, '.')
-        self.plt.plot(np.cos(theta), np.sin(theta), ':')
-        points = np.array(symbols)
-        self.plt.plot(points.real, points.imag, '+')
-        self.plt.grid('on')
-        self.plt.axis('equal')
-        self.plt.axis(np.array([-1, 1, -1, 1])*1.1)
-        self.plt.title(title)
 #@timeit
 def _to_bytes(bits, converter):
     for chunk in common.iterate(data=bits, size=8, func=tuple, truncate=True):

@@ -4,8 +4,8 @@ import collections
 import itertools
 import logging
 import time
-import numpy as np
 
+import numpy as np
 
 import dsp
 import equalizer
@@ -37,8 +37,6 @@ class Detector:
         counter = 0
         bufs = collections.deque([], maxlen=self.maxlen)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
-            if offset > self.max_offset:
-                raise exceptions.NoCarrierDetectedError
             bufs.append(buf)
 
             coeff = dsp.coherence(buf, self.omega)
@@ -46,6 +44,8 @@ class Detector:
                 counter += 1
             else:
                 counter = 0
+                if offset > self.max_offset:
+                    raise exceptions.NoCarrierDetectedError
 
             if counter == self.CARRIER_THRESHOLD:
                 return offset, bufs
@@ -61,16 +61,16 @@ class Detector:
         max_buf_len = 500
         buf = collections.deque([], maxlen=max_buf_len)
         
+        #while(True):
         while((time.time() - start) < timeout):
-            for i in range(100):
-                val = common.takeOne(samples) #read the next sample
-                if (len(buf) == max_buf_len):
-                    buf.popleft() #remove the oldest value
-                buf.append(val)
-                
-                if (val > squelch):
-                    buf = list(buf)
-                    return itertools.chain(buf, samples)
+            val = common.takeOne(samples) #read the next sample
+            if (len(buf) == max_buf_len):
+                buf.popleft() #remove the oldest value
+            buf.append(val)
+            
+            if (val > squelch):
+                buf = list(buf)
+                return itertools.chain(buf, samples)
                     
         raise exceptions.SquelchActive
 

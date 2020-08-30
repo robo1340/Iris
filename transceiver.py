@@ -9,10 +9,11 @@ import numpy as np
 import threading
 import time
 
+from func_timeout import func_set_timeout, FunctionTimedOut
+
 import pkg_resources
 import async_reader
 import audio
-import calib
 import main
 import common
 from common import Status
@@ -22,16 +23,9 @@ import IL2P
 
 import config
 
-
 # Python 3 has `buffer` attribute for byte-based I/O
 _stdin = getattr(sys.stdin, 'buffer', sys.stdin)
 _stdout = getattr(sys.stdout, 'buffer', sys.stdout)
-
-
-try:
-    import argcomplete
-except ImportError:
-    argcomplete = None
 
 log = logging.getLogger('__name__')
 
@@ -72,9 +66,8 @@ def chat_transceiver_func(args, stats, msg_send_queue, msg_receive_queue):
                     stats.rxs += 1
                     args.ui.update_rx_success_cnt(stats.rxs)
                 elif (ret_val == -1):
-                    pass
-                    #stats.rxf += 1
-                    #args.ui.update_rx_failure_cnt(stats.rxf)
+                    stats.rxf += 1
+                    args.ui.update_rx_failure_cnt(stats.rxf)
                 
                 if (msg_send_queue.empty() == False): #get the next frame from the send queue
                     args.ui.updateStatusIndicator(Status.TRANSMITTING)
@@ -86,12 +79,14 @@ def chat_transceiver_func(args, stats, msg_send_queue, msg_receive_queue):
                         stats.txs += 1
                         args.ui.update_tx_success_cnt(stats.txs)
                     else:
-                        pass
-                        #stats.txf += 1
-                        #args.ui.update_tx_failure_cnt(stats.txf)
+                        stats.txf += 1
+                        args.ui.update_tx_failure_cnt(stats.txf)
+                    args.ui.updateStatusIndicator(Status.SQUELCH_OPEN)
                     time.sleep(1) #sleep for just a bit after transmitting
                 else:
                     time.sleep(0)
+            except FunctionTimedOut:
+                print('\nERROR!:  main.recv or main.send timed out\n')
             except:
                 print('uncaught exception or keyboard interrupt')
             finally:

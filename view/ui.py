@@ -23,7 +23,6 @@ def timing_function(some_function):
     return wrapper
 '''
 
-
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
         try:
@@ -80,6 +79,7 @@ class GUI(tk.Tk):
       
     def __init__(self, send_queue):
         self.testTxEvent = threading.Event()
+        self.statusIndicatorLock = threading.Lock()
     
         self.send_queue = send_queue
         # super().__init__()
@@ -93,7 +93,6 @@ class GUI(tk.Tk):
         mainFrame = Frame(self, bd=1, relief='solid')
         mainFrame.place(x=0,y=0, width=GUI.getScreenWidth(100), height=GUI.getScreenLength(100))
         self.update()
-        
         
         w = lambda percent : int(mainFrame.winfo_width()*(percent*1.0/100))
         h = lambda percent : int(mainFrame.winfo_height()*(percent*1.0/100))
@@ -286,6 +285,8 @@ class GUI(tk.Tk):
         self.received_messages.append(newFrame)
     
     def updateStatusIndicator(self, status):
+        self.statusIndicatorLock.acquire()
+    
         if (status is Status.SQUELCH_OPEN):
             self.rxtx_indicator.configure(bg=GUI.indicator_rx1_color)
         elif (status is Status.CARRIER_DETECTED):
@@ -298,6 +299,8 @@ class GUI(tk.Tk):
             self.rxtx_indicator.configure(bg=GUI.indicator_tx_color)
         else:
             self.rxtx_indicator.configure(bg=GUI.indicator_inactive_color)
+            
+        self.statusIndicatorLock.release()
     
     @exception_suppressor
     def update_tx_success_cnt(self,val):
@@ -305,7 +308,7 @@ class GUI(tk.Tk):
         
     @exception_suppressor
     def update_tx_failure_cnt(self,val):
-        self.tx_failue_str.set(str(val))
+        self.tx_failure_str.set(str(val))
         
     @exception_suppressor
     def update_rx_success_cnt(self,val):
@@ -313,7 +316,7 @@ class GUI(tk.Tk):
         
     @exception_suppressor
     def update_rx_failure_cnt(self,val):
-        self.rx_failue_str.set(str(val))
+        self.rx_failure_str.set(str(val))
     
     def clearReceivedMessages(self):
         for lbl in self.received_messages:

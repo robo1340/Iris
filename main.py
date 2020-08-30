@@ -6,6 +6,7 @@ import time
 import queue
 
 import numpy as np
+from func_timeout import func_set_timeout, FunctionTimedOut
 
 import send as _send
 import recv as _recv
@@ -19,6 +20,8 @@ from common import Status
 import IL2P_API
 
 log = logging.getLogger(__name__)
+
+master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
    
 def encode_to_bits(data, framer=None):
     converter = common.BitPacker()
@@ -27,7 +30,7 @@ def encode_to_bits(data, framer=None):
             #print (converter.to_bits[byte])
             yield converter.to_bits[byte]
 
-
+@func_set_timeout(master_timeout)
 def send(config, src, dst):    
     sender = _send.Sender(dst, config=config)
     Fs = config.Fs
@@ -60,6 +63,7 @@ def send(config, src, dst):
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
 ##@ui a pointer to the ui object
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
+@func_set_timeout(master_timeout)
 def recv(config, src, dst, ui, pylab=None):
     reader = stream.Reader(src, data_type=common.loads)
     signal = itertools.chain.from_iterable(reader)
@@ -77,14 +81,13 @@ def recv(config, src, dst, ui, pylab=None):
         
         #now look for the carrier
         signal, amplitude, freq_error = detector.run(signal)
-        #ui.updateStatusIndicator(Status.CARRIER_DETECTED)
 
         freq = 1 / (1.0 + freq_error)  # receiver's compensated frequency
         gain = 1.0 / amplitude
         log.debug('Gain correction: %.3f Frequency correction: %.3f ppm', gain, (freq - 1) * 1e6)
 
         sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=freq)
-        receiver.run(sampler, gain=1.0/amplitude, output=dst, timeout=15) #this method will keep running until an exception occurs
+        receiver.run(sampler, gain=1.0/amplitude, output=dst) #this method will keep running until an exception occurs
 
     except exceptions.EndOfFrameDetected: #the full frame was received
         ui.updateStatusIndicator(Status.MESSAGE_RECEIVED)
@@ -92,21 +95,22 @@ def recv(config, src, dst, ui, pylab=None):
             return 1
         else:
             return -1
-    except exceptions.ReceiverTimeout:
-        ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
-        return -1
     except exceptions.IL2PHeaderDecodeError:
-        ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
         log.warning('WARNING: failed when pre-emptively decoding frame header')
-        time.sleep(5.0) #wait for the rest of the frame to be received before returning failure
+        ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
         return -1
     except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
         ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
         return 0
+    except FunctionTimedOut:
+        ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
+        print('\nERROR!:  receiver.run timed out\n')
+        return -1
     except BaseException: 
         ui.updateStatusIndicator(Status.SQUELCH_CLOSED)
         log.exception('Decoding failed')
         return -1
+    return 0
         
 ##@brief class used to pipe data to the link layer and tell it when the full packet has been received        
 class ReceiverPipe():
@@ -154,4 +158,10 @@ class ReceiverPipe():
                 return (self.recv_cnt, remaining)
         else: #the header has not been completely received
             return (self.recv_cnt, -1)
+            
+    def reset(self):
+        self.recv_cnt = 0
+        with self.recv_queue.mutex:
+            self.recv_queue.queue.clear()
+        
 
