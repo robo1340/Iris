@@ -17,7 +17,6 @@ from func_timeout import func_set_timeout, FunctionTimedOut
 import pkg_resources
 import async_reader
 import audio
-#import main
 import common
 from common import Status
 import send as _send
@@ -44,6 +43,11 @@ log = logging.getLogger('__name__')
 
 config = config.main_config
 
+##@brief main program function to send frames
+##@config Configuration object
+##@src a stream of bytes to be sent
+##@dst a stream to send bytes to
+##@return returns true when src is sent successfully, returns false when an exception occurs
 @func_set_timeout(master_timeout)
 def send(config, src, dst):    
     sender = _send.Sender(dst, config=config)
@@ -59,7 +63,6 @@ def send(config, src, dst):
 
         reader = stream.Reader(src, eof=True)
         data = itertools.chain.from_iterable(reader)
-        #bits = itertools.chain.from_iterable(encode_to_bits(data))
         sender.modulate(data)
 
         data_duration = sender.offset - training_duration
@@ -71,7 +74,7 @@ def send(config, src, dst):
         log.warning('WARNING: the sender failed, message may have not been fully sent')
         return False
 
-##@brief main program loop to receive IL2P packets
+##@brief program loop to receive frames
 ##@config Configuration object
 ##@src input stream containing raw audio data
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded

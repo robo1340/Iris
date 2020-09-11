@@ -8,7 +8,7 @@ class TextMessageObject():
         self.dst_callsign = dst_callsign
         self.expectAck = expectAck
         if ((self.expectAck == True) and (seq_num==None)): #if an ack is expected for this message and the seq_num passed in is the default
-            self.seq_num = random.randint(0,127) #choose a number from 1 to 127
+            self.seq_num = random.randint(1,127) #choose a number from 1 to 127
         elif ((self.expectAck == False) and (seq_num==None)):
             self.seq_num = 0
         else:

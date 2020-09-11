@@ -181,7 +181,7 @@ class Receiver:
         #this is where the receiver sends its output to the IL2P layer
         output.reset()
         converter = common.BitPacker()
-        for byte in itertools.chain.from_iterable(_to_bytes(bitstream, converter)):	
+        for byte in itertools.chain.from_iterable(self.__to_bytes(bitstream, converter)):	
             (received, remaining) = output.addByte(byte)
             self.output_size += 1   
             
@@ -197,7 +197,7 @@ class Receiver:
             log.debug('Demodulated %.3f kB @ %.3f seconds (%.1f%% realtime)', self.stats['rx_bits'] / 8e3, duration, 100 * duration / audio_time if audio_time else 0)
             #log.info('Received %.3f kB @ %.3f seconds = %.3f kB/s', self.output_size * 1e-3, duration, self.output_size * 1e-3 / duration)
 
-#@timeit
-def _to_bytes(bits, converter):
-    for chunk in common.iterate(data=bits, size=8, func=tuple, truncate=True):
-        yield [converter.to_byte[chunk]]
+    #@timeit
+    def __to_bytes(self, bits, converter):
+        for chunk in common.iterate(data=bits, size=8, func=tuple, truncate=True):
+            yield [converter.to_byte[chunk]]

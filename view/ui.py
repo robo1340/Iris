@@ -12,7 +12,8 @@ import functools
 import textwrap
 import random
 
-sys.path.insert(0,'..') #need to insert parent path to import something from common
+sys.path.insert(0,'..') #need to insert parent path to import something from messages
+from messages import TextMessageObject
 from common import Status
 
 '''
@@ -32,26 +33,6 @@ def exception_suppressor(func):
         except BaseException:
             pass
     return meta_function
-    
-class TextMessageObject():
-    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None):
-        self.msg_str = msg_str
-        self.src_callsign = src_callsign
-        self.dst_callsign = dst_callsign
-        self.expectAck = expectAck
-        if ((self.expectAck == True) and (seq_num==None)): #if an ack is expected for this message and the seq_num passed in is the default
-            self.seq_num = random.randint(0,127) #choose a number from 1 to 127
-        elif ((self.expectAck == False) and (seq_num==None)):
-            self.seq_num = 0
-        else:
-            self.seq_num = seq_num
-        
-    def getInfoString(self):
-        fmt = 'SRC Callsign: [{0:s}], DST Callsign: [{1:s}], Ack?: {3:s}, sequence#: {4:s}, Message: {2:s}'
-        return fmt.format(self.src_callsign, self.dst_callsign, self.msg_str.strip('\n'), str(self.expectAck), str(self.seq_num))
-       
-    def print(self):
-        print(self.getInfoString())
         
 class UI_Message():
     def __init__(self, msg, frame):
@@ -245,8 +226,9 @@ class GUI(tk.Tk):
 
         #Send Button
         def send_button_event_handler(event=None):
-            #get the text from the entry's and scrollbar. Massage the input a little bit if needed
-            messages = textwrap.wrap(scrollText.get('1.0',tk.END), 1023) #split the message string into multiple strings of maximum length 1023
+            chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]
+            
+            messages = chunks(scrollText.get('1.0',tk.END), 1023) #split the string the user entered into strings of max length 1023
             src = self.src_callsign_var.get()
             dst = self.dst_callsign_var.get().upper().ljust(6,' ')[0:6]
             ack = True if self.ackChecked.get() else False
