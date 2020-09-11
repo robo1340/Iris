@@ -9,6 +9,8 @@ from datetime import datetime
 import view.view_controller
 import threading
 import functools
+import textwrap
+import random
 
 sys.path.insert(0,'..') #need to insert parent path to import something from common
 from common import Status
@@ -30,6 +32,31 @@ def exception_suppressor(func):
         except BaseException:
             pass
     return meta_function
+    
+class TextMessageObject():
+    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None):
+        self.msg_str = msg_str
+        self.src_callsign = src_callsign
+        self.dst_callsign = dst_callsign
+        self.expectAck = expectAck
+        if ((self.expectAck == True) and (seq_num==None)): #if an ack is expected for this message and the seq_num passed in is the default
+            self.seq_num = random.randint(0,127) #choose a number from 1 to 127
+        elif ((self.expectAck == False) and (seq_num==None)):
+            self.seq_num = 0
+        else:
+            self.seq_num = seq_num
+        
+    def getInfoString(self):
+        fmt = 'SRC Callsign: [{0:s}], DST Callsign: [{1:s}], Ack?: {3:s}, sequence#: {4:s}, Message: {2:s}'
+        return fmt.format(self.src_callsign, self.dst_callsign, self.msg_str.strip('\n'), str(self.expectAck), str(self.seq_num))
+       
+    def print(self):
+        print(self.getInfoString())
+        
+class UI_Message():
+    def __init__(self, msg, frame):
+        self.ack_key = (msg.src_callsign,msg.dst_callsign,msg.seq_num) if (msg.expectAck == True) else ('','',0)
+        self.frame = frame
 
 #Creating Class MenuBar place on Top
 class MenuBar(tk.Menu):
@@ -68,7 +95,6 @@ class GUI(tk.Tk):
     indicator_tx_color = 'red'
     indicator_inactive_color = 'black'
 
-
     #Screen width and height for the Application
     default_width = 1024
     default_height = 650#768
@@ -76,14 +102,20 @@ class GUI(tk.Tk):
     #lambda functions that allow you to get a certain percentage of the application screen width or length
     getScreenWidth = lambda percent : int(GUI.default_width*(percent*1.0/100))
     getScreenLength = lambda percent : int(GUI.default_height*(percent*1.0/100))
-      
-    def __init__(self, send_queue):
+     
+    ##@brief instantiate the UI
+    ##@param il2p an IL2P_API object
+    ##@param dst_callsign_initial a string holding the initial value of the dst_callsign_entry
+    ##@param ackCheckedInitial an integer that should be 1 or 0 indicating the initial state of the ackCheckButton
+    def __init__(self, il2p, dst_callsign_initial, ackCheckedInitial):
         self.testTxEvent = threading.Event()
         self.statusIndicatorLock = threading.Lock()
+        self.messagesLock = threading.Lock()
     
-        self.send_queue = send_queue
+        self.il2p = il2p
+        self.msg_send_queue = il2p.msg_send_queue
         # super().__init__()
-        self.received_messages = []
+        self.messages = []
         
         tk.Tk.__init__(self)
         menubar = MenuBar(self)
@@ -116,9 +148,20 @@ class GUI(tk.Tk):
         
         #Address Variable which stores the Address 
         self.src_callsign_var = StringVar()
-        self.src_callsign_var.set('BAYWAX')
+        
+        def src_callsign_changed_event_handler(name, index, mode):
+            pre_var = self.src_callsign_var.get() #the callsign before being massaged
+            post_var = self.src_callsign_var.get().upper().ljust(6,' ')[0:6] #the callsign after being massaged
+            if (pre_var != post_var):
+                self.src_callsign_var.set(post_var)
+            il2p.setMyCallsign(self.src_callsign_var.get())  
+        
+        self.src_callsign_var.trace("w", src_callsign_changed_event_handler)
+        #self.src_callsign_var.trace("w", lambda name, index, mode, sv=self.src_callsign_var: src_callsign_changed_event_handler(sv))
+        #self.src_callsign_var.trace_add('write', src_callsign_changed_event_handler) 
+        self.src_callsign_var.set(self.il2p.my_callsign)
 
-        #Address Entry Where the User Enters the Address to which the message will be Sent
+        #Address Entry Where the User Enters his callsign
         src_callsign_entry = Entry(toolFrame, textvariable=self.src_callsign_var, font=('times new roman', 10), width=11)
         src_callsign_entry.grid(row=0, column=1, padx=5, pady=5, sticky='W')
         
@@ -176,6 +219,7 @@ class GUI(tk.Tk):
         #Ack Label & Checkbox
         self.ackChecked = IntVar()
         ackCheckButton = Checkbutton(secondRightSideFrame, text="Ack?", font=('times new roman', 10), variable=self.ackChecked, fg='#000000', padx=10).grid(row=0, column=0, sticky=W)
+        self.ackChecked.set(ackCheckedInitial)
         
         clearOnSend = IntVar()
         clearOnSendButton = Checkbutton(secondRightSideFrame, text="Clear?", font=('times new roman',10), variable=clearOnSend, fg='#000000', padx=10).grid(row=1,column=0,sticky=W)
@@ -197,29 +241,30 @@ class GUI(tk.Tk):
         dst_callsign_entry.grid(row=3,column=1, sticky=W)
         
         #Address Field set to empty String by default
-        self.dst_callsign_var.set('WAYWAX')
+        self.dst_callsign_var.set(dst_callsign_initial)
 
         #Send Button
         def send_button_event_handler(event=None):
             #get the text from the entry's and scrollbar. Massage the input a little bit if needed
-            msg = scrollText.get('1.0',tk.END)
-            src = self.src_callsign_var.get().upper().ljust(6,' ')[0:6]
+            messages = textwrap.wrap(scrollText.get('1.0',tk.END), 1023) #split the message string into multiple strings of maximum length 1023
+            src = self.src_callsign_var.get()
             dst = self.dst_callsign_var.get().upper().ljust(6,' ')[0:6]
             ack = True if self.ackChecked.get() else False
             
-            view.view_controller.sendTextMessage(self.send_queue,msg,src,dst,ack)
+            for msg_str in messages:
+                msg = TextMessageObject(msg_str, src, dst, ack)
+                view.view_controller.sendTextMessage(self.msg_send_queue, msg)
+                self.addMessageToUI(msg)
             
             if (clearOnSend.get()):
                 scrollText.delete('1.0',tk.END) #delete the contents of the scrolled text
-            
+                
             #set the text in the entry fields if the input was massaged
-            self.src_callsign_var.set(src)
             self.dst_callsign_var.set(dst)
             
         sendButton = Button(secondRightSideFrame, text='Send', command=send_button_event_handler, font=('times new roman', 10))
         sendButton.grid(row=4, sticky=W, padx=10, pady=4)
         self.bind("<Control-Return>",send_button_event_handler)
-        
 
         self.update()
         #Parts Inside Middle Frame
@@ -252,7 +297,7 @@ class GUI(tk.Tk):
 
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param text_msg A TextMessageObject containing the received message
-    def addReceivedMessage(self, text_msg):
+    def addMessageToUI(self, text_msg):
         self.middleMainFrame.update() #update the middle frame so that winfo_width() will be correct
         
         #fmt_str = ('From {0:s}: Received at : {1:s}\n{2:s}')
@@ -261,28 +306,44 @@ class GUI(tk.Tk):
         
         callsign_str = ('{0:s}: ').format(text_msg.src_callsign)
         time_str = ('received at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        time_var = StringVar(value=time_str)
         msg_str = text_msg.msg_str.rstrip('\n')
         frame_bg = GUI.default_color
 
-        #if the message was addressed to me
-        if (text_msg.dst_callsign == self.src_callsign_var.get()):
+        if (text_msg.dst_callsign == self.src_callsign_var.get()): #if the message was addressed to me
             frame_bg = GUI.at_color
             msg_str = '@' + self.src_callsign_var.get() + ' ' + msg_str
+            
+        if (text_msg.src_callsign == self.il2p.my_callsign): #if the message was sent by me
+            sent_time_str = ('sent at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+            ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
+            time_var.set(sent_time_str + ack_time_str)
         
         newFrame = Frame(self.scrollableFrame, bd=1, bg=frame_bg, relief='solid', width=width)
         
         callsign_lbl = Label(newFrame, text=callsign_str, justify=LEFT, bg=frame_bg).grid(row=0, column=0, sticky=NW)
-        time_lbl = Label(newFrame, text=time_str, justify=LEFT, bg=frame_bg).grid(row=0,column=1, sticky=NW)
+        time_lbl = Label(newFrame, text=time_var.get(), justify=LEFT, bg=frame_bg).grid(row=0,column=1, sticky=NW)
         msg_lbl = Label(newFrame, text=msg_str, justify=LEFT, wraplength=width-25, bg=frame_bg).grid(row=1,column=0, rowspan=1, columnspan=2, sticky=NW)
         
-        #newFrame.grid(row=len(self.received_messages), column=0, sticky=NSEW)
         newFrame.pack(anchor=W, side=TOP)
         newFrame.grid_columnconfigure(1, weight=1)
         
         if (self.autoScroll.get() == True):
             self.chatCanvas.yview_moveto( 1 ) #scroll to the bottom since a new message has been received
         
-        self.received_messages.append(newFrame)
+        self.messagesLock.acquire()
+        self.messages.append(UI_Message(text_msg, newFrame))
+        self.messagesLock.release()
+    
+    ##@brief look through the current messages displayed on the ui and delete any that have an ack_key matching the ack_key passed in
+    ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to delete
+    def addAckToUI(self, ack_key):
+        self.messagesLock.acquire()
+        for msg in self.messages:
+            if (msg.ack_key == ack_key):
+                ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+                msg.frame.winfo_children()[1].config(text=ack_time_str)
+        self.messagesLock.release()
     
     def updateStatusIndicator(self, status):
         self.statusIndicatorLock.acquire()
@@ -319,8 +380,11 @@ class GUI(tk.Tk):
         self.rx_failure_str.set(str(val))
     
     def clearReceivedMessages(self):
-        for lbl in self.received_messages:
-            lbl.destroy()
+        self.messagesLock.acquire()
+        for i in range(0, len(self.messages)):
+            msg = self.messages.pop()
+            msg.frame.destroy()
+        self.messagesLock.release()
 
     def init_ui(self):
 

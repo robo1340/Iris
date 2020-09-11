@@ -8,7 +8,7 @@ import time
 
 import view.ui
 
-callsigns = ['BAYWAX','WAYWAX','GBQ98V','YUT5E','UV8RWE']
+callsigns = ['BAYWAX','WAYWAX','GBQ98V','YUT5ER','UV8RWE']
 
 samples = [ "hello", 
                 "tere", 
@@ -23,35 +23,27 @@ samples = [ "hello",
                 'AND THEN FART REAL LOUD :3',
                 'Twisted Insurrection is a critically acclaimed, standalone modification based on the Command & Conquer Tiberian Sun engine. It features a complete redesign of the original game, set in an alternate what-if? timeline where the Brotherhood of Nod was victorious during the first Tiberian War. Do you have what it takes to drag the shattered Global Defense Initiative out of ruin? Or will you crush all who oppose the will of Kane and his Inner Circle? The choice is yours commander.',
                 '...im sorry',
-                'lol',
-                'This is me. Literally me. No other character can come close to relating to me like this. There is no way you can convince me this is not me. This character could not possibly be anymore me. It\'s me, and nobody can convince me otherwise. If anyone approached me on the topic of this not possibly being me, then I immediately shut them down with overwhelming evidence that this character is me. This character is me, it is indisputable. Why anyone would try to argue that this character is not me is beyond me. If you held two pictures of me and this character side by side, you\'d see no difference. I can safely look at this character every day and say \"Yup, that\'s me\". I can practically see this character every time I look at myself in the mirror. I go outside and people stop me to comment how similar I look and act to this character. I chuckle softly as I\'m assured everyday this character is me in every way.',
+                'lol'
+                #'This is me. Literally me. No other character can come close to relating to me like this. There is no way you can convince me this is not me. This character could not possibly be anymore me. It\'s me, and nobody can convince me otherwise. If anyone approached me on the topic of this not possibly being me, then I immediately shut them down with overwhelming evidence that this character is me. This character is me, it is indisputable. Why anyone would try to argue that this character is not me is beyond me. If you held two pictures of me and this character side by side, you\'d see no difference. I can safely look at this character every day and say \"Yup, that\'s me\". I can practically see this character every time I look at myself in the mirror. I go outside and people stop me to comment how similar I look and act to this character. I chuckle softly as I\'m assured everyday this character is me in every way.',
     ]
 
 log = logging.getLogger('__name__')
 
 sampleText = ["hello", "tere", "prevyet"]
 
-##@brief take a text message between 0 and 1023 characters long and send it to the transmit queue
-##@param src_callsign the callsign of the sender
-##@param dst_callsign the intended recipient of the message, though anyone can receive it
-##@param requestAck, True if the sender is requesting an acknowledgment from the intended recipient 
-def sendTextMessage(send_queue,msg,src_callsign,dst_callsign,requestAck):
-    
-    seq_num = 0
-    if (requestAck):
-        seq_num = random.randint(0,127)
-    
-    msg = TextMessageObject(msg, src_callsign, dst_callsign, requestAck, seq_num)
-    #msg.print()
-    send_queue.put(msg) #put the message on a queue to be sent to the radio
 
 class TextMessageObject():
-    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=0):
+    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None):
         self.msg_str = msg_str
         self.src_callsign = src_callsign
         self.dst_callsign = dst_callsign
         self.expectAck = expectAck
-        self.seq_num = seq_num
+        if ((self.expectAck == True) and (seq_num==None)): #if an ack is expected for this message and the seq_num passed in is the default
+            self.seq_num = random.randint(0,127) #choose a number from 1 to 127
+        elif ((self.expectAck == False) and (seq_num==None)):
+            self.seq_num = 0
+        else:
+            self.seq_num = seq_num
         
     def getInfoString(self):
         fmt = 'SRC Callsign: [{0:s}], DST Callsign: [{1:s}], Ack?: {3:s}, sequence#: {4:s}, Message: {2:s}'
@@ -59,25 +51,37 @@ class TextMessageObject():
        
     def print(self):
         print(self.getInfoString())
-        
 
-def view_controller_func(ui,send_queue,recv_queue):
+##@brief take a text message between 0 and 1023 characters long and send it to the transmit queue
+##@brief il2p an IL2P_API object
+##@brief msg a TextMessageObject
+def sendTextMessage(send_queue, msg):
+    if (send_queue.full() == True):
+        log.error('ERROR: frame send queue is full')
+    else:
+        send_queue.put(msg) #put the message on a queue to be sent to the radio
+
+def view_controller_func(ui, il2p):
     tx_time = time.time()
-    wait_time = random.randint(10,20)
+    wait_time = random.randint(20,30)
 
     while (threading.currentThread().stopped() == False):
-        if (recv_queue.empty() == False): #there is a received message to be displayed on the ui
-            new_msg = recv_queue.get()            
-            ui.addReceivedMessage(new_msg)    
+        if (il2p.msg_output_queue.empty() == False): #there is a received message to be displayed on the ui
+            new_msg = il2p.msg_output_queue.get()            
+            ui.addMessageToUI(new_msg)    
+        elif (il2p.ack_output_queue.empty() == False): #there is a received ack to be displayed on the ui
+            ack_key = il2p.ack_output_queue.get()
+            ui.addAckToUI(ack_key)
         time.sleep(0.1)
         
         if ((ui.testTxEvent.isSet()) and ((time.time() - tx_time) > wait_time)):
             tx_time = time.time()
-            wait_time = random.randint(5,10)
+            wait_time = random.randint(20,30)
             msg = random.choice(samples)
             src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             ack = True if ui.ackChecked.get() else False
         
-            view.view_controller.sendTextMessage(send_queue,msg,src,dst,ack)
+            text_msg = TextMessageObject(msg,src,dst,ack)
+            view.view_controller.sendTextMessage(il2p.msg_send_queue, text_msg)
             

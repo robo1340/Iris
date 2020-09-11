@@ -81,12 +81,12 @@ class IL2P_Frame_Engine:
     ##@throws IL2PHeaderDecodeError thrown when the Solomon Reed decoder could not correct all errors in the frame header
     ##@throws valueError, thrown when the arguments passed in are not correct
     ##@return returns an IL2P_Frame_Header object
-    def decode_header(self, raw_header):
+    def decode_header(self, raw_header, verbose=True):
         if (len(raw_header) < 26):
             raise ValueError('raw_header is to short to be an IL2P header')
         if (raw_header[0] != preamble[0]):
             log.warning('WARNING: link layer preamble is incorrect')
-        (decode_success,header_decoded) = self.header_codec.decode(raw_header[1:26])
+        (decode_success,header_decoded) = self.header_codec.decode(raw_header[1:26],verbose)
         
         if (decode_success == False): #if the header could not be decoded
             raise exceptions.IL2PHeaderDecodeError('Error: could not decode the IL2P frame header')

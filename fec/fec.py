@@ -26,7 +26,7 @@ class FrameHeaderCodec:
     ##@brief Perform Reed Solomon decoding to extract a 13 byte IL2P header
     ##@param header A numpy 1d array of bytes holding the 25 byte received header
     ##@return A tuple. The first element is true when decoding was successful. The second element is a numpy 1d array of bytes holding the 13 byte IL2P header
-    def decode(self,header,verbose=False):
+    def decode(self,header,verbose=True):
         assert (header.size == 25)
         #if (header.size != 25):
         #    raise Exception("header message is not the correct length, expected length is 25 bytes")
@@ -37,7 +37,8 @@ class FrameHeaderCodec:
         try:
             decoded, _ , error_ind = self.rsc.decode(header)
             toReturn = np.frombuffer(decoded, dtype=np.uint8)
-            log.info('\thdr, %d err', len(error_ind))
+            if (verbose):
+                log.info('\thdr, %d err', len(error_ind))
         except ReedSolomonError:
             log.warning('\tWarning: Header decoding failed!')
             decodeSuccess = False
@@ -58,6 +59,9 @@ class FramePayloadEncoder:
     ##@param msg A numpy 1-dimensional array of bytes to be encoded
     ##@return A numpy 1-dimensional array of bytes with error correction symbols appended
     def encode(self,msg):
+        if (len(msg) == 0):
+            return np.empty((0,0), dtype=np.uint8).flatten('C')
+        
         block_cnt = ceil(len(msg)/205) #the number of blocks (up to 255 bytes each) to break msg into
         small_block_len = floor(len(msg)/block_cnt) #the length (in bytes) of a small block
         large_block_len = small_block_len + 1 #the length (in bytes) of a large block
@@ -103,9 +107,9 @@ class FramePayloadDecoder:
     ## @return Returns a tuple, the first element is a boolean indicating if decoding was completely successful, the second element contains a numpy 
     ## 1-dimensional array of bytes holding the decoding frame data if errors can be corrected
     ## returns an error if Solomon Reed decoding is not successful
-    def decode(self,msg,len_exp,verbose=False):
+    def decode(self,msg,len_exp,verbose=True):
         if (len_exp == 0):
-            return np.array([],dtype=np.uint8)
+            return (True,np.array([],dtype=np.uint8))
         block_cnt = ceil(len_exp/205) #the number of blocks (up to 255 bytes each) to in msg
         small_block_len = floor(len_exp/block_cnt) #the length (in bytes) of a small block
         large_block_len = small_block_len + 1 #the length (in bytes) of a large block
@@ -154,7 +158,8 @@ class FramePayloadDecoder:
             msg_ind += small_block_len + ecc_sym_cnt
             toReturn_ind += small_block_len
         
-        log.info('\tdecode report: %s',error_logging_tuples)
+        if (verbose):
+            log.info('\tdecode report: %s',error_logging_tuples)
             
         return (decodeSuccess, toReturn)
             

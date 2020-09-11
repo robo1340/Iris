@@ -14,13 +14,13 @@ class Configuration:
     latency = 0.1
 
     # sender config
-    silence_start = 0.25
-    silence_stop = 0.25
+    silence_start = 0.1
+    silence_stop = 0.1
 
     # receiver config
     skip_start = 0.1
-    squelch_timeout = 2.0 #timeout before raising a squelch activated exception
-    timeout = 5.0 #timeout before raising a no carrier detected exception
+    squelch_timeout = 1.0 #timeout before raising a squelch activated exception when a frame is not currently being received
+    timeout = 2.0 #timeout before raising a no carrier detected exception when a frame is not currently being received
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -68,20 +68,8 @@ bitrates = {
     1: Configuration(Fs=8e3, Npoints=2, frequencies=[2e3]),
     2: Configuration(Fs=8e3, Npoints=4, frequencies=[2e3]),
     4: Configuration(Fs=8e3, Npoints=16, frequencies=[2e3]),
-    8: Configuration(Fs=8e3, Npoints=16, frequencies=[1e3, 2e3]),
     12: Configuration(Fs=16e3, Npoints=16, frequencies=[3e3, 5e3]),
-    16: Configuration(Fs=16e3, Npoints=16, frequencies=[2e3, 5e3]),
-    20: Configuration(Fs=16e3, Npoints=16, frequencies=[2e3, 6e3]),
-    24: Configuration(Fs=16e3, Npoints=16, frequencies=[1e3, 6e3]),
-    28: Configuration(Fs=32e3, Npoints=16, frequencies=[3e3, 9e3]),
-    32: Configuration(Fs=32e3, Npoints=16, frequencies=[2e3, 9e3]),
-    36: Configuration(Fs=32e3, Npoints=64, frequencies=[4e3, 9e3]),
     42: Configuration(Fs=32e3, Npoints=64, frequencies=[4e3, 10e3]),
-    48: Configuration(Fs=32e3, Npoints=64, frequencies=[3e3, 10e3]),
-    54: Configuration(Fs=32e3, Npoints=64, frequencies=[2e3, 10e3]),
-    60: Configuration(Fs=32e3, Npoints=64, frequencies=[2e3, 11e3]),
-    64: Configuration(Fs=32e3, Npoints=256, frequencies=[3e3, 10e3]),
-    72: Configuration(Fs=32e3, Npoints=256, frequencies=[2e3, 10e3]),
     80: Configuration(Fs=32e3, Npoints=256, frequencies=[2e3, 11e3]),
 }'''
 

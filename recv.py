@@ -27,7 +27,6 @@ def timeit(method):
         return result
     return timed
 
-
 class Receiver:
 
     def __init__(self, config, pylab=None):
@@ -71,8 +70,6 @@ class Receiver:
                 #if (bit == 0):
                 if ((i - silence_found_ind) >= equalizer.carrier_silence_length):
                     break
-                #else:
-                    #log.warning('WARNING: prefix carrier silence period ended prematurely')
 
             if (i == len(equalizer.carrier_preamble)):
                 log.warning('WARNING: prefix reader timed out')
@@ -169,7 +166,6 @@ class Receiver:
         sampler.freq -= self.freq_err_gain * err
         sampler.offset -= err
 
-    @func_set_timeout(15)
     def run(self, sampler, gain, output):
         symbols = dsp.Demux(sampler, omegas=self.omegas, Nsym=self.Nsym)
         

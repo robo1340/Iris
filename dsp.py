@@ -1,9 +1,11 @@
 """Digital Signal Processing capabilities for amodem."""
+import functools
 
 import numpy as np
 
 import common
 import exceptions
+
 
 class FIR:
     def __init__(self, h):
@@ -38,7 +40,8 @@ class Demux:
 
     __next__ = next
 
-
+#improve the efficiency of this function using caching, note to look up wrapper functions
+@functools.lru_cache(maxsize=8, typed=False)
 def exp_iwt(omega, n):
     return np.exp(1j * omega * np.arange(n))
 
@@ -55,6 +58,7 @@ def coherence(x, omega):
     n = len(x)
     Hc = exp_iwt(-omega, n) / np.sqrt(0.5*n)
     norm_x = norm(x)
+    
     if not norm_x:
         return 0.0
     return np.dot(Hc, x) / norm_x
@@ -112,9 +116,6 @@ class MODEM:
         symbols_vec = self.symbols
         _dec = self.decode_list
         for received in symbols:
-            #if (np.abs(received) < self.squelch): #raise an exception if the signal received is too weak, this is used to indicate the end of a frame
-            #    raise exceptions.SquelchActive
-            
             error = np.abs(symbols_vec - received)
             index = np.argmin(error)
             decoded, bits = _dec[index]

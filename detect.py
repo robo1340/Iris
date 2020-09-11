@@ -51,28 +51,30 @@ class Detector:
                 return offset, bufs
 
         raise exceptions.NoCarrierDetectedError
-
-    ##@brief detects when any signal past the squelch threshhold is being received
-    ##@samples iterator used to sample the audio
-    ##@squelch the squelch threshhold
-    ##@timeout time before raising a SquelchActive exception
-    def detect_signal(self, samples, squelch, timeout):
-        start = time.time()
-        max_buf_len = 500
-        buf = collections.deque([], maxlen=max_buf_len)
+    
+    # ##@brief detects when any signal past the squelch threshhold is being received
+    # ##@samples iterator used to sample the audio
+    # ##@squelch the squelch threshhold
+    # ##@timeout time before raising a SquelchActive exception
+    # def detect_signal(self, samples, squelch, timeout):
+        # start = time.time()
+        # max_buf_len = 500
+        # buf = collections.deque([], maxlen=max_buf_len)
         
-        #while(True):
-        while((time.time() - start) < timeout):
-            val = common.takeOne(samples) #read the next sample
-            if (len(buf) == max_buf_len):
-                buf.popleft() #remove the oldest value
-            buf.append(val)
+        # #while(True):
+        # while((time.time() - start) < timeout):
+            # val = common.takeOne(samples) #read the next sample
+            # if (len(buf) == max_buf_len):
+                # buf.popleft() #remove the oldest value
+            # buf.append(val)
             
-            if (val > squelch):
-                buf = list(buf)
-                return itertools.chain(buf, samples)
+            # if (val > squelch):
+                # #val = common.takeOne(samples)
+                # #val = common.takeOne(samples)
+                # buf = list(buf)
+                # return itertools.chain(buf, samples)
                     
-        raise exceptions.SquelchActive
+        # raise exceptions.SquelchActive
 
     ##@brief detects the carrier sine wave that is sent first
     def run(self, samples):
