@@ -1,8 +1,6 @@
-"""Configuration class."""
-
 import numpy as np
-
-
+    
+##@brief configuration class
 class Configuration:
     Fs = 32000.0  # sampling frequency [Hz]
     Tsym = 0.001  # symbol duration [seconds]
@@ -19,7 +17,6 @@ class Configuration:
 
     # receiver config
     skip_start = 0.1
-    squelch_timeout = 1.0 #timeout before raising a squelch activated exception when a frame is not currently being received
     timeout = 2.0 #timeout before raising a no carrier detected exception when a frame is not currently being received
 
     def __init__(self, **kwargs):
@@ -72,11 +69,3 @@ bitrates = {
     42: Configuration(Fs=32e3, Npoints=64, frequencies=[4e3, 10e3]),
     80: Configuration(Fs=32e3, Npoints=256, frequencies=[2e3, 11e3]),
 }'''
-
-
-def fastest():
-    return bitrates[max(bitrates)]
-
-
-def slowest():
-    return bitrates[min(bitrates)]

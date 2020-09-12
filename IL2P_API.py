@@ -58,8 +58,11 @@ class AckRetryObject():
 class IL2P_API:
 
     ##@param msg_output_queue the queue to send decoded messages to
-    def __init__(self, my_callsign='BAYWAX', verbose=False, msg_output_queue = None, ack_output_queue = None, msg_send_queue = None):
-        self.my_callsign = my_callsign
+    def __init__(self, ini_config, verbose=False, msg_output_queue = None, ack_output_queue = None, msg_send_queue = None):
+        DEFAULT_RETRY_CNT = ini_config['MAIN']['ack_retries']
+        RETRANSMIT_TIME = ini_config['MAIN']['ack_timeout']
+    
+        self.my_callsign = ini_config['MAIN']['my_callsign']
         
         self.engine = IL2P_Frame_Engine()
         

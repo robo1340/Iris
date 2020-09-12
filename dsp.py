@@ -79,7 +79,7 @@ def linear_regression(x, y):
 
 class MODEM:
 
-    def __init__(self, symbols, squelch=0):
+    def __init__(self, symbols):
         self.encode_map = {}
         symbols = np.array(list(symbols))
         bits_per_symbol = np.log2(len(symbols))
@@ -104,14 +104,13 @@ class MODEM:
         self.decode_list = [(s, bits_map[s]) for s in self.symbols]
         #print(self.symbols)
         #print(self.decode_list)
-        self.squelch = squelch
                 
     def encode(self, bits):
         for bits_tuple in common.iterate(bits, self.bits_per_symbol, tuple):
             yield self.encode_map[bits_tuple]
 
     #take a stream of symbols and decode them into bits
-    def decode(self, symbols, error_handler=None, squelch=0):
+    def decode(self, symbols, error_handler=None):
         """ Maximum-likelihood decoding, using naive nearest-neighbour. """
         symbols_vec = self.symbols
         _dec = self.decode_list

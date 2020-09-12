@@ -88,7 +88,7 @@ class GUI(tk.Tk):
     ##@param il2p an IL2P_API object
     ##@param dst_callsign_initial a string holding the initial value of the dst_callsign_entry
     ##@param ackCheckedInitial an integer that should be 1 or 0 indicating the initial state of the ackCheckButton
-    def __init__(self, il2p, dst_callsign_initial, ackCheckedInitial):
+    def __init__(self, il2p, ini_config):
         self.testTxEvent = threading.Event()
         self.statusIndicatorLock = threading.Lock()
         self.messagesLock = threading.Lock()
@@ -200,15 +200,15 @@ class GUI(tk.Tk):
         #Ack Label & Checkbox
         self.ackChecked = IntVar()
         ackCheckButton = Checkbutton(secondRightSideFrame, text="Ack?", font=('times new roman', 10), variable=self.ackChecked, fg='#000000', padx=10).grid(row=0, column=0, sticky=W)
-        self.ackChecked.set(ackCheckedInitial)
+        self.ackChecked.set(ini_config['MAIN']['ack'])
         
         clearOnSend = IntVar()
         clearOnSendButton = Checkbutton(secondRightSideFrame, text="Clear?", font=('times new roman',10), variable=clearOnSend, fg='#000000', padx=10).grid(row=1,column=0,sticky=W)
-        clearOnSend.set(1) #set the button to be checked by default
+        clearOnSend.set(ini_config['MAIN']['clear']) #set the button to be checked by default
 
         self.autoScroll = IntVar()
         autoScrollButton = Checkbutton(secondRightSideFrame, text='Scroll?', font=('times new roman',10), variable=self.autoScroll, fg='#000000', padx=10).grid(row=2,column=0,sticky=W)
-        self.autoScroll.set(1)
+        self.autoScroll.set(ini_config['MAIN']['scroll'])
 
         #Address Label
         addressLabel = Label(secondRightSideFrame, text='Address to: ', font=('times new roman', 10),  fg='#000000', justify=RIGHT)
@@ -222,7 +222,7 @@ class GUI(tk.Tk):
         dst_callsign_entry.grid(row=3,column=1, sticky=W)
         
         #Address Field set to empty String by default
-        self.dst_callsign_var.set(dst_callsign_initial)
+        self.dst_callsign_var.set(ini_config['MAIN']['dst_callsign'])
 
         #Send Button
         def send_button_event_handler(event=None):

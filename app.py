@@ -69,16 +69,27 @@ def parseConfigFile(config_file_path):
     config.read(config_file_path)
     return config
 
+def verify_ini_config(ini_config):
+    toReturn = True #assume the ini file will be ok
+    
+    properties = ['my_callsign', 'dst_callsign', 'ack_retries', 'ack_timeout', 'tx_cooldown', 
+                  'rx_cooldown', 'rx_timeout', 'ack', 'clear', 'scroll', 'master_timeout', 
+                  'Fs', 'Npoints', 'num_f', 'f_low', 'f_high', 'min_wait', 'max_wait']
+    
+    for p in properties:
+        if not (p in ini_config['MAIN']):
+            toReturn = False
+            print ('ERROR: %s property not found in .ini config file!' % (p))
+            
+    return toReturn
+
 if __name__ == "__main__":
 
     args = parseCommandLineArguments()
     ini_config = parseConfigFile(args.config_file)
-    if ('UI' in ini_config):
-        my_callsign  = ini_config['UI']['my_callsign']
-        dst_callsign = ini_config['UI']['dst_callsign']
-        ack_checked_initial = int(ini_config['UI']['ackCheckButton'])
-
-
+    if not verify_ini_config(ini_config):
+        raise Exception('Error: Not all needed values were found in the .ini configuration file')
+        
     interface = audio.Interface(config)
     
     #select an audio library
@@ -98,13 +109,13 @@ if __name__ == "__main__":
     ack_output_queue = queue.Queue(25)
     msg_output_queue = queue.Queue(25)
     
-    il2p = IL2P_API.IL2P_API(my_callsign=my_callsign, verbose=False, msg_output_queue=msg_output_queue, ack_output_queue=ack_output_queue, msg_send_queue=msg_send_queue)
+    il2p = IL2P_API.IL2P_API(ini_config=ini_config, verbose=False, msg_output_queue=msg_output_queue, ack_output_queue=ack_output_queue, msg_send_queue=msg_send_queue)
     
-    ui = view.ui.GUI(il2p, dst_callsign, ack_checked_initial)
+    ui = view.ui.GUI(il2p, ini_config)
     args.ui = ui
     
-    transceiver_thread = common.StoppableThread(target=chat_transceiver_func, args=(args, stats, il2p))
-    ui_thread = common.StoppableThread(target = view_controller_func, args=(ui, il2p))
+    transceiver_thread = common.StoppableThread(target=chat_transceiver_func, args=(args, stats, il2p, ini_config))
+    ui_thread = common.StoppableThread(target = view_controller_func, args=(ui, il2p, ini_config))
     
     transceiver_thread.start()
     ui_thread.start()

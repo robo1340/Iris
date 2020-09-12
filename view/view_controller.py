@@ -44,9 +44,12 @@ def sendTextMessage(send_queue, msg):
     else:
         send_queue.put(msg) #put the message on a queue to be sent to the radio
 
-def view_controller_func(ui, il2p):
+def view_controller_func(ui, il2p, ini_config):
     tx_time = time.time()
-    wait_time = random.randint(20,30)
+    min = int(ini_config['MAIN']['min_wait'])
+    max = int(ini_config['MAIN']['max_wait'])
+    
+    wait_time = random.randint(min,max)
 
     while (threading.currentThread().stopped() == False):
         if (il2p.msg_output_queue.empty() == False): #there is a received message to be displayed on the ui
@@ -59,7 +62,7 @@ def view_controller_func(ui, il2p):
         
         if ((ui.testTxEvent.isSet()) and ((time.time() - tx_time) > wait_time)):
             tx_time = time.time()
-            wait_time = random.randint(20,30)
+            wait_time = random.randint(min,max)
             msg = random.choice(samples)
             src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]

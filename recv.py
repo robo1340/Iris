@@ -32,7 +32,7 @@ class Receiver:
     def __init__(self, config, pylab=None):
         self.stats = {}
         self.plt = pylab
-        self.modem = dsp.MODEM(config.symbols, config.squelch)
+        self.modem = dsp.MODEM(config.symbols)
         self.frequencies = np.array(config.frequencies)
         self.omegas = 2 * np.pi * self.frequencies / config.Fs
         self.Nsym = config.Nsym

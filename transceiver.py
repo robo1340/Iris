@@ -31,7 +31,6 @@ import config
 import IL2P_API
 
 master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
-
 tx_cooldown = 1 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
 rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
@@ -183,7 +182,12 @@ class ReceiverPipe():
         self.header = None
         self.recv_queue.queue.clear()
 
-def chat_transceiver_func(args, stats, il2p):
+def chat_transceiver_func(args, stats, il2p, ini_config):
+    master_timeout = float(ini_config['MAIN']['master_timeout'])
+    tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
+    rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
+    config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
+
     fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')
     description = fmt.format(config.modem_bps / 1e3, len(config.symbols), config.Nfreq, config.Fs / 1e3)
     log.info(description)
@@ -191,7 +195,7 @@ def chat_transceiver_func(args, stats, il2p):
     def interface_factory():
         return args.interface
     
-    config.squelch = 0.1 #hardcode the squelch for now
+    
     
     link_layer_pipe = ReceiverPipe(il2p)
     args.recv_dst = link_layer_pipe
