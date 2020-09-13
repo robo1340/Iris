@@ -67,8 +67,12 @@ class MenuBar(tk.Menu):
 class GUI(tk.Tk):
     default_font = ('times new roman', 10)
 
-    at_color = 'IndianRed1'
-    default_color = 'gainsboro'
+    at_color = 'light goldenrod'
+    default_color = 'snow2'
+    send_color_ack_pending = 'yellow2'
+    send_color_ack_received = 'SpringGreen3'
+    send_color_no_ack_received = 'firebrick1'
+    send_color_no_ack_requested = 'SpringGreen3'
     
     indicator_rx1_color = 'dodger blue'
     indicator_rx2_color = 'blue'
@@ -235,7 +239,7 @@ class GUI(tk.Tk):
             
             for msg_str in messages:
                 msg = TextMessageObject(msg_str, src, dst, ack)
-                view.view_controller.sendTextMessage(self.msg_send_queue, msg)
+                self.msg_send_queue.put(msg)
                 self.addMessageToUI(msg)
             
             if (clearOnSend.get()):
@@ -297,6 +301,10 @@ class GUI(tk.Tk):
             msg_str = '@' + self.src_callsign_var.get() + ' ' + msg_str
             
         if (text_msg.src_callsign == self.il2p.my_callsign): #if the message was sent by me
+            if (text_msg.expectAck == True):
+                frame_bg = GUI.send_color_ack_pending
+            else:
+                frame_bg = GUI.send_color_no_ack_requested
             sent_time_str = ('sent at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
             ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
             time_var.set(sent_time_str + ack_time_str)
@@ -325,6 +333,9 @@ class GUI(tk.Tk):
             if (msg.ack_key == ack_key):
                 ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.frame.winfo_children()[1].config(text=ack_time_str)
+                msg.frame.config(bg=GUI.send_color_ack_received)
+                for child in msg.frame.winfo_children():
+                    child.config(bg=GUI.send_color_ack_received)
         self.messagesLock.release()
     
     def updateStatusIndicator(self, status):

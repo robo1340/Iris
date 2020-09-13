@@ -195,13 +195,12 @@ def chat_transceiver_func(args, stats, il2p, ini_config):
     def interface_factory():
         return args.interface
     
-    
-    
     link_layer_pipe = ReceiverPipe(il2p)
     args.recv_dst = link_layer_pipe
     il2p.reader.setSource(link_layer_pipe)
     
     most_recent_tx = 0 #the time of the most recent frame transmission
+    most_recent_rx = 0 #the time of the most recent frame reception
     has_ellapsed = lambda start, duration : ((time.time() - start) > duration)
     
     with args.interface:
@@ -220,12 +219,13 @@ def chat_transceiver_func(args, stats, il2p, ini_config):
                 if (ret_val == 1):
                     stats.rxs += 1
                     args.ui.update_rx_success_cnt(stats.rxs)
-                    time.sleep(rx_cooldown)
+                    #time.sleep(rx_cooldown)
+                    most_recent_rx = time.time()
                 elif (ret_val == -1):
                     stats.rxf += 1
                     args.ui.update_rx_failure_cnt(stats.rxf)
                 
-                if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown)): #get the next frame from the send queue
+                if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
                     args.ui.updateStatusIndicator(Status.TRANSMITTING)
                     frame_to_send = il2p.getNextFrameToTransmit()
                     if (frame_to_send == None):

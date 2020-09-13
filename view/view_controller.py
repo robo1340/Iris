@@ -38,11 +38,11 @@ sampleText = ["hello", "tere", "prevyet"]
 ##@brief take a text message between 0 and 1023 characters long and send it to the transmit queue
 ##@brief il2p an IL2P_API object
 ##@brief msg a TextMessageObject
-def sendTextMessage(send_queue, msg):
-    if (send_queue.full() == True):
-        log.error('ERROR: frame send queue is full')
-    else:
-        send_queue.put(msg) #put the message on a queue to be sent to the radio
+#def sendTextMessage(send_queue, msg):
+#    if (send_queue.full() == True):
+#        log.error('ERROR: frame send queue is full')
+#    else:
+#        send_queue.put(msg) #put the message on a queue to be sent to the radio
 
 def view_controller_func(ui, il2p, ini_config):
     tx_time = time.time()
@@ -64,10 +64,13 @@ def view_controller_func(ui, il2p, ini_config):
             tx_time = time.time()
             wait_time = random.randint(min,max)
             msg = random.choice(samples)
-            src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
-            dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
+            src = il2p.my_callsign
+            dst = 'WAYWAX'
+            #src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
+            #dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             ack = True if ui.ackChecked.get() else False
         
             text_msg = TextMessageObject(msg,src,dst,ack)
-            view.view_controller.sendTextMessage(il2p.msg_send_queue, text_msg)
+            il2p.msg_send_queue.put(text_msg)
+            ui.addMessageToUI(text_msg)
             
