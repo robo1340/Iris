@@ -68,7 +68,7 @@ def view_controller_func(ui, il2p, ini_config):
             dst = 'WAYWAX'
             #src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             #dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
-            ack = True if ui.ackChecked.get() else False
+            ack = ui.ackChecked
         
             text_msg = TextMessageObject(msg,src,dst,ack)
             il2p.msg_send_queue.put(text_msg)

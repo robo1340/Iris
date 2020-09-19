@@ -97,6 +97,8 @@ if __name__ == "__main__":
         interface.load('dll/libportaudio-2.dll')
     elif ((sys.platform == 'win32') and not (sys.maxsize > 2**32)): #true if this is a windows 32 bit system
         interface.load('dll/portaudio32.dll')
+    #elif (this is linux):
+    #    interface.load('libportaudio.so')
     else:
         print(sys.platform)
         raise Exception('Error: This system is not recognized')
@@ -111,7 +113,8 @@ if __name__ == "__main__":
     
     il2p = IL2P_API.IL2P_API(ini_config=ini_config, verbose=False, msg_output_queue=msg_output_queue, ack_output_queue=ack_output_queue, msg_send_queue=msg_send_queue)
     
-    ui = view.ui.GUI(il2p, ini_config)
+    ui = view.ui.UiApp(il2p, ini_config)
+    #ui = view.ui.GUI(il2p, ini_config)
     args.ui = ui
     
     transceiver_thread = common.StoppableThread(target=chat_transceiver_func, args=(args, stats, il2p, ini_config))
@@ -120,7 +123,8 @@ if __name__ == "__main__":
     transceiver_thread.start()
     ui_thread.start()
     
-    ui.init_ui() #this call is blocking
+    #ui.init_ui() #this call is blocking
+    ui.run()
     
     ##ui has stopped (the user likely clicked exit), stop all the other threads
     ui_thread.stop()
