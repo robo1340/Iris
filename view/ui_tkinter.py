@@ -7,6 +7,7 @@ import ctypes
 import sys
 from datetime import datetime
 import view.view_controller
+from view.ui_interface import UI_Interface
 import threading
 import functools
 import textwrap
@@ -64,7 +65,7 @@ class MenuBar(tk.Menu):
         return
 
 #Creating the Main Class Here
-class GUI(tk.Tk):
+class GUI(tk.Tk, UI_Interface):
     default_font = ('times new roman', 10)
 
     at_color = 'light goldenrod'
@@ -378,8 +379,15 @@ class GUI(tk.Tk):
             msg = self.messages.pop()
             msg.frame.destroy()
         self.messagesLock.release()
+        
+    def isTestTxChecked(self):
+        return self.testTxEvent.isSet()
+    
+    def isAckChecked(self):
+        toReturn = True if (self.ackChecked.get() == 1) else False
+        return toReturn
 
-    def init_ui(self):
+    def run(self):
 
         #Setting the App Screen Resolution    
         #screenResolution = ctypes.windll.user32  

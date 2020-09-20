@@ -92,7 +92,7 @@
         valign : 'center'
         on_text : app.uiSetDstCallsign(value)
 
-<TextMessage@BoxLayout>:
+<TextMessage>: #extends box layout, is instantiated in ui_kivy.py
     size_hint : (1, None)
     height : message_header.height + message_body.height
     id : message_widget

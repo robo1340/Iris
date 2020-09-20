@@ -7,7 +7,7 @@ import random
 import time
 import sys
 
-import view.ui
+#import view.ui
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import TextMessageObject
@@ -60,7 +60,7 @@ def view_controller_func(ui, il2p, ini_config):
             ui.addAckToUI(ack_key)
         time.sleep(0.1)
         
-        if ((ui.testTxEvent.isSet()) and ((time.time() - tx_time) > wait_time)):
+        if ((ui.isTestTxChecked()) and ((time.time() - tx_time) > wait_time)):
             tx_time = time.time()
             wait_time = random.randint(min,max)
             msg = random.choice(samples)
@@ -68,7 +68,7 @@ def view_controller_func(ui, il2p, ini_config):
             dst = 'WAYWAX'
             #src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
             #dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
-            ack = ui.ackChecked
+            ack = ui.isAckChecked()
         
             text_msg = TextMessageObject(msg,src,dst,ack)
             il2p.msg_send_queue.put(text_msg)

@@ -32,6 +32,8 @@ import sys
 #Config.set('graphics', 'width', '1024')
 #Config.set('graphics', 'height', '650')
 
+from view.ui_interface import UI_Interface
+
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import TextMessageObject
 from common import Status
@@ -62,7 +64,7 @@ class TextMessage(BoxLayout):
 ##@param il2p an IL2P_API object
 ##@param dst_callsign_initial a string holding the initial value of the dst_callsign_entry
 ##@param ackCheckedInitial an integer that should be 1 or 0 indicating the initial state of the ackCheckButton
-class UiApp(App):
+class UiApp(App, UI_Interface):
     def __init__(self, il2p, ini_config):
         Window.bind(on_key_down=self._on_keyboard_down)
         Window.bind(on_key_up=self._on_keyboard_up)
@@ -129,7 +131,7 @@ class UiApp(App):
             else:
                 self.testTxEvent.clear()
         
-    ############## input functions used to change the UI #################
+    ############## input functions implementing UI_Interface #################
     
     def updateStatusIndicator(self, status):
         first = self.__get_child(self.root, 'first_row')
@@ -225,6 +227,16 @@ class UiApp(App):
         right_tool_pane = self.__get_child(second_row,'right_tool_pane')
         property        = self.__get_child(right_tool_pane,property_name)
         property.value_text = new_val
+    
+    def clearReceivedMessages(self):
+        return False ###### Note: this isn't really implemented but isn't needed at the moment
+
+    def isTestTxChecked(self):
+        return self.testTxEvent.isSet()
+    
+    def isAckChecked(self):
+        return self.ackChecked
+    
         
     ################### private functions ##############################
     
@@ -233,15 +245,15 @@ class UiApp(App):
         lrtp        = self.__get_child(third_row,'lower_right_tool_pane') #get a reference to the lower right tool pane widget
         
         ack_widget = self.__get_child(lrtp, 'ackChecked')
-        self.ackChecked = True if (ini_config['MAIN']['ack'] == 'True') else False
+        self.ackChecked = True if (ini_config['MAIN']['ack'] == '1') else False
         ack_widget.state = 'down' if self.ackChecked else 'normal'
         
         clear_widget = self.__get_child(lrtp, 'clearOnSend')
-        self.clearOnSend = True if (ini_config['MAIN']['clear'] == 'True') else False
+        self.clearOnSend = True if (ini_config['MAIN']['clear'] == '1') else False
         clear_widget.state = 'down' if self.clearOnSend else 'normal'
                 
         scroll_widget = self.__get_child(lrtp, 'autoScroll')
-        self.autoScroll = True if (ini_config['MAIN']['scroll'] == 'True') else False
+        self.autoScroll = True if (ini_config['MAIN']['scroll'] == '1') else False
         scroll_widget.state = 'down' if self.autoScroll else 'normal'
 
         dst_callsign_widget = self.__get_child(lrtp, 'dst_callsign')
