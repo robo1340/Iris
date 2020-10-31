@@ -1,0 +1,457 @@
+'''
+Application built from a  .kv file
+==================================
+
+This shows how to implicitly use a .kv file for your application. You
+should see a full screen button labelled "Hello from test.kv".
+
+After Kivy instantiates a subclass of App, it implicitly searches for a .kv
+file. The file test.kv is selected because the name of the subclass of App is
+TestApp, which implies that kivy should try to load "test.kv". That file
+contains a root Widget.
+'''
+
+import kivy
+from kivy.config import Config
+from kivy.app import App
+from kivy.graphics import Color
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.stacklayout import StackLayout
+from kivy.core.window import Window
+from kivy.lang import Builder
+from kivy.uix.screenmanager import ScreenManager, Screen
+kivy.require('1.11.1')
+
+Window.softinput_mode = "below_target" #this setting will move the text input field when the keyboard is active on an android device
+
+from datetime import datetime
+import threading
+#import random
+import functools
+import textwrap
+import sys
+import logging
+from collections import deque
+
+#Config.set('graphics', 'resizable', False)
+#Config.set('graphics', 'width', '1024')
+#Config.set('graphics', 'height', '650')
+Config.set('graphics', 'maxfps', '1')
+
+log = logging.getLogger(__name__)
+
+from view.ui_interface import UI_Interface
+
+sys.path.insert(0,'..') #need to insert parent path to import something from messages
+from messages import TextMessageObject
+from common import Status
+from common import updateConfigFile
+
+class MainWindow(Screen):
+    pass
+
+class SettingsWindow(Screen):
+    pass
+
+class StatisticsWindow(Screen):
+    pass
+
+class GPSWindow(Screen):
+    pass
+
+class WindowManager(ScreenManager):
+    pass
+    
+#kv = Builder.load_file('./view/ui_mobile.kv')
+
+def exception_suppressor(func):
+    def meta_function(*args, **kwargs):
+        try:
+            func(*args,**kwargs)
+        except BaseException:
+            pass
+    return meta_function
+        
+class UI_Message():
+    def __init__(self, msg, widget):
+        self.ack_key = (msg.src_callsign,msg.dst_callsign,msg.seq_num) if (msg.expectAck == True) else ('','',0)
+        self.widget = widget
+
+class TextMessage(BoxLayout):
+    pass
+
+
+class ui_mobileApp(App, UI_Interface):
+    #def build(self):
+    #    return kv
+    
+    ##@brief instantiate the UI
+    ##@param ini_config a dictinary object containing the parsed config.ini file
+    def __init__(self, viewController, ini_config):
+        Window.bind(on_key_down=self._on_keyboard_down)
+        Window.bind(on_key_up=self._on_keyboard_up)
+        
+        self.viewController = viewController
+        self.ini_config = ini_config
+
+        self.statusIndicatorLock = threading.Lock()
+        
+        self.my_callsign = ''
+        self.dstCallsign = ''
+        self.ackChecked = False
+        self.clearOnSend = False
+        self.autoScroll = False
+        self.modulation_type = 2
+        self.carrier_frequency = 1000
+        
+        self.gps_beacon_enable = False
+        self.gps_beacon_period = 0
+        
+        self.messagesLock = threading.Lock()
+        self.messages = []
+        
+        #self.main_window = lambda : self.__get_child(self.root, 'main')
+        self.main_window        = lambda : self.root.ids.main_window
+        self.settings_window    = lambda : self.root.ids.settings_window
+        self.statistics_window  = lambda : self.root.ids.statistics_window
+        self.gps_window         = lambda : self.root.ids.gps_window
+        
+        self.gps_msg_widgets = deque()
+        self.max_gps_msg_widgets = 5
+    
+        super().__init__()
+        
+    ############### Callback functions called from ui.kv ###############
+    
+    def goToSettingsScreen(self):
+        print('transitioning to settings screen')
+    
+    def uiSetMyCallsign(self, text_input_widget):
+        self.my_callsign = text_input_widget.text.upper().ljust(6,' ')[0:6] #the callsign after being massaged
+        text_input_widget.text = self.my_callsign
+        self.viewController.send_my_callsign(self.my_callsign)
+        
+        self.ini_config['MAIN']['my_callsign'] = self.my_callsign
+        updateConfigFile(self.ini_config)
+        
+    def uiSetDstCallsign(self, text_input_widget):
+        self.dstCallsign = text_input_widget.text.upper().ljust(6,' ')[0:6] #the callsign after being massaged
+        text_input_widget.text = self.dstCallsign
+        
+        self.ini_config['MAIN']['dst_callsign'] = self.dstCallsign
+        updateConfigFile(self.ini_config)
+
+    def sendMessage(self, text_input_widget): 
+        chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
+ 
+        messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
+        src = self.my_callsign
+        dst = self.dstCallsign
+        ack = self.ackChecked
+        
+        for msg_str in messages:
+            msg = TextMessageObject(msg_str, src, dst, ack)
+            self.viewController.send_txt_message(msg)
+            self.addMessageToUI(msg, my_message=True)
+
+        if (self.clearOnSend == True):
+            text_input_widget.text = ''
+            text_input_widget.cursor = (0,0)
+            
+    def sendGPSBeacon(self):
+        self.viewController.gps_one_shot_command()
+    
+    def selector_pressed(self, selector, pressed_button):
+        if (pressed_button.state == 'normal'):
+            pressed_button.state = 'down'
+            return
+        #else:
+        for child in selector.children:
+            if (child.name != pressed_button.name):
+                child.state = 'normal'
+        
+        if (selector.name == 'modulation_type'):
+            self.ini_config['MAIN']['Npoints'] = pressed_button.name
+            lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'modulation_type_lbl')
+            lbl.text = 'Modulation Scheme (restart required to apply change)'
+        elif (selector.name == 'carrier_frequency'):
+            self.ini_config['MAIN']['carrier_frequency'] = pressed_button.name
+            lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'carrier_frequency_lbl')
+            lbl.text = 'Carrier Frequency (restart required to apply change)'
+        else:
+            return
+            
+        
+        updateConfigFile(self.ini_config)
+    
+    def toggle_pressed(self, toggle_button):
+        #print(toggle_button.name)
+        #print(toggle_button.state)
+        if (toggle_button.name == 'ackChecked'):
+            self.ackChecked = True if (toggle_button.state == 'down') else False
+        elif (toggle_button.name == 'clearOnSend'):
+            self.clearOnSend = True if (toggle_button.state == 'down') else False
+        elif (toggle_button.name == 'autoScroll'):
+            self.autoScroll = True if (toggle_button.state == 'down') else False
+        elif (toggle_button.name == 'enableGPS'):
+            self.gps_beacon_enable = True if (toggle_button.state == 'down') else False
+            self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+
+    def spinner_pressed(self, spinner):
+        if (spinner.name == 'gps_beacon_period'):
+            #update the property containing current beacon period
+            property = self.__get_child_from_base(self.gps_window(), ('root_gps',), 'current_gps_beacon_period')
+            property.value_text = spinner.text
+            self.gps_beacon_period = int(spinner.text)
+            self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+
+    
+    ############## input functions implementing UI_Interface #################
+    
+    def updateStatusIndicator(self, status):
+        status_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'status_indicator')
+        
+        self.statusIndicatorLock.acquire()
+        
+        if (status is Status.SQUELCH_OPEN):
+            self.main_window().indicator_color = self.main_window().indicator_rx_color 
+        elif (status is Status.CARRIER_DETECTED):
+            self.main_window().indicator_color = self.main_window().indicator_rx_color
+        elif (status is Status.SQUELCH_CLOSED):
+            self.main_window().indicator_color = self.main_window().indicator_inactive_color
+        elif (status is Status.MESSAGE_RECEIVED):
+            self.main_window().indicator_color = self.main_window().indicator_success_color
+        elif (status is Status.TRANSMITTING):
+            self.main_window().indicator_color = self.main_window().indicator_tx_color
+        else:
+            self.main_window.indicator_color = self.main_window.indicator_inactive_color
+            
+        self.statusIndicatorLock.release()
+        
+    ##@brief add a new message label to the main scroll panel on the gui
+    ##@param text_msg A TextMessageObject containing the received message
+    ##@param my_message, set to True when this method is being called by this program
+    def addMessageToUI(self, text_msg, my_message=False):
+        main_window = self.main_window()
+        message_container = self.__get_child_from_base(main_window,('root_main','second_row','scroll_bar'), 'message_container')
+        scroll_bar = self.__get_child_from_base(main_window, ('root_main','second_row'), 'scroll_bar')
+        
+        txt_msg_widget = TextMessage() #create the new widget
+        
+        #get the strings the widget will be filled with
+        header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
+        time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        message_text = text_msg.msg_str.rstrip('\n')
+        
+        txt_msg_widget.background_color = main_window.text_msg_color
+
+        if (text_msg.dst_callsign == self.my_callsign): #if the message was addressed to me
+            txt_msg_widget.background_color = main_window.text_msg_at_color
+            message_text = '@' + self.my_callsign + ' ' + message_text
+            
+        if ((my_message == True) and(text_msg.src_callsign == self.my_callsign)): #if the message was sent by me
+            if (text_msg.expectAck == True):
+                txt_msg_widget.background_color = main_window.text_msg_color_ack_pending
+            else:
+                txt_msg_widget.background_color = main_window.text_msg_color_no_ack_expect
+            sent_time_str = ('sent at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+            ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
+            time_text = sent_time_str + ack_time_str
+        
+        txt_msg_widget.header_text = header_text
+        txt_msg_widget.time_text = time_text
+        txt_msg_widget.message_text = message_text
+        message_container.add_widget(txt_msg_widget)
+        
+        self.messagesLock.acquire()
+        self.messages.append(UI_Message(text_msg, txt_msg_widget))
+        self.messagesLock.release()
+        
+        if (self.autoScroll == True):
+            scroll_bar.scroll_to(txt_msg_widget)
+        
+    ##@brief look through the current messages displayed on the ui and delete any that have an ack_key matching the ack_key passed in
+    ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to delete
+    def addAckToUI(self, ack_key):
+        self.messagesLock.acquire()
+        for msg in self.messages:
+            if (msg.ack_key == ack_key):
+                ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+                msg.widget.time_text = ack_time_str
+                msg.widget.background_color = self.root.text_msg_color_ack_received
+        self.messagesLock.release()
+        
+    @exception_suppressor
+    def update_tx_success_cnt(self,val):
+        self.__update_property('tx_success_cnt',str(val))
+        
+    @exception_suppressor
+    def update_tx_failure_cnt(self,val):
+        self.__update_property('tx_failure_cnt',str(val))
+        
+    @exception_suppressor
+    def update_rx_success_cnt(self,val):
+        self.__update_property('rx_success_cnt',str(val))
+        
+    @exception_suppressor
+    def update_rx_failure_cnt(self,val):
+        self.__update_property('rx_failure_cnt',str(val))
+        
+    def __update_property(self,property_name,new_val):
+        property = self.__get_child_from_base(self.statistics_window(), ('root_stats',), property_name)
+        property.value_text = new_val
+    
+    def clearReceivedMessages(self):
+        return False ###### Note: this isn't really implemented but isn't needed at the moment
+    
+    def isAckChecked(self):
+        return self.ackChecked
+        
+    def isGPSTxOneShotChecked(self):
+        return False
+        
+    def isGPSTxChecked(self):
+        return self.gps_beacon_enable
+    
+    def getGPSBeaconPeriod(self):
+        return self.gps_beacon_period
+    
+    #@exception_suppressor
+    def update_my_displayed_location(self, gps_dict):
+        self.__update_gps_property('latitude' ,str(gps_dict['lat']))
+        self.__update_gps_property('longitude',str(gps_dict['lon']))
+        self.__update_gps_property('speed'    ,str(round(gps_dict['speed'],2)))
+        self.__update_gps_property('bearing'  ,str(round(gps_dict['bearing'],2)))
+        self.__update_gps_property('altitude' ,str(round(gps_dict['altitude'],2)))
+        self.__update_gps_property('accuracy' ,str(round(gps_dict['accuracy'],2)))
+            
+    def __update_gps_property(self,property_name,new_val):
+        property = self.__get_child_from_base(self.gps_window(), ('root_gps',), property_name)
+        property.value_text = new_val
+        
+    def addGPSMessageToUI(self, gps_msg):
+        gps_window = self.gps_window()
+        message_container = self.__get_child_from_base(gps_window,('root_gps','scroll_bar'), 'message_container')
+        scroll_bar = self.__get_child_from_base(gps_window, ('root_gps',), 'scroll_bar')
+        
+        gps_msg_widget = TextMessage() #create the new widget
+        
+        #get the strings the widget will be filled with
+        header_text = ('{0:s}').format(gps_msg.src_callsign)
+        time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        message_text = gps_msg.getInfoString()
+        
+        gps_msg_widget.background_color = self.main_window().text_msg_color
+        
+        gps_msg_widget.header_text = header_text
+        gps_msg_widget.time_text = time_text
+        gps_msg_widget.message_text = message_text
+        message_container.add_widget(gps_msg_widget)
+        self.gps_msg_widgets.append(gps_msg_widget)
+        
+        if (len(self.gps_msg_widgets) >= self.max_gps_msg_widgets):
+            to_delete = self.gps_msg_widgets.popleft()
+            message_container.remove_widget(to_delete)
+        
+        if (self.autoScroll == True):
+            scroll_bar.scroll_to(gps_msg_widget)
+     
+    ################### private functions ##############################
+    
+    def __apply_ini_config(self, ini_config):
+        settings = self.__get_child(self.settings_window(), 'settings_root')
+
+        ack_widget = self.__get_child(settings, 'ackChecked')
+        self.ackChecked = True if (ini_config['MAIN']['ack'] == '1') else False
+        ack_widget.state = 'down' if self.ackChecked else 'normal'
+        
+        clear_widget = self.__get_child(settings, 'clearOnSend')
+        self.clearOnSend = True if (ini_config['MAIN']['clear'] == '1') else False
+        clear_widget.state = 'down' if self.clearOnSend else 'normal'
+                
+        scroll_widget = self.__get_child(settings, 'autoScroll')
+        self.autoScroll = True if (ini_config['MAIN']['scroll'] == '1') else False
+        scroll_widget.state = 'down' if self.autoScroll else 'normal'
+
+        dst_callsign_widget = self.__get_child(settings, 'dst_callsign')
+        dst_callsign_widget.text = ini_config['MAIN']['dst_callsign']
+        self.dstCallsign = ini_config['MAIN']['dst_callsign']
+        
+        my_callsign_widget = self.__get_child(settings,'my_callsign')
+        my_callsign_widget.text = ini_config['MAIN']['my_callsign']
+        self.my_callsign = ini_config['MAIN']['my_callsign']  
+        
+        modulation_selector = self.__get_child(settings, 'modulation_type')
+        self.modulation_type = int(ini_config['MAIN']['npoints'])
+        self.__get_child(modulation_selector, ini_config['MAIN']['npoints']).state = 'down'
+        
+        carrier_selector = self.__get_child(settings, 'carrier_frequency')
+        self.carrier_frequency = int(ini_config['MAIN']['carrier_frequency'])
+        self.__get_child(carrier_selector, ini_config['MAIN']['carrier_frequency']).state = 'down'
+        
+        gps = self.__get_child(self.gps_window(), 'root_gps')
+        
+        gps_enable = self.__get_child(gps, 'enableGPS')
+        self.gps_beacon_enable = True if (ini_config['MAIN']['gps_beacon_enable'] == '1') else False
+        gps_enable.state = 'down' if self.gps_beacon_enable else 'normal'
+        
+        gps_period = self.__get_child(gps,'gps_beacon_period')
+        period_str = ini_config['MAIN']['gps_beacon_period']
+        self.gps_beacon_period = int(period_str) if period_str.isdigit() else 30
+        gps_period.text = str(self.gps_beacon_period)
+
+    def __get_child(self, widget, name):
+        for child in widget.children:
+            if (child.name == name):
+                return child
+        
+    ##@brief starting from the root widget, retrieve a widget using the names of all of its parent widgets
+    ##@brief base reference to the base widget that contains the desired widget
+    ##@param names a tuple of strings naming the children of the base widget to get to the desired widget
+    ##@param desired_name string, the name of the widget to be returned
+    ##@return returns the desired widget if it is found, returns None otherwise
+    def __get_child_from_base(self, base, names, desired_name):
+        first_iter = True
+        widget = None
+        try:
+            for name in names:
+                if (first_iter == True):
+                    widget = self.__get_child(base,name)
+                    if (widget is None):
+                        print('NONE')
+                    first_iter = False
+                else:
+                    widget = self.__get_child(widget,name)
+            widget = self.__get_child(widget,desired_name)
+        except BaseException:
+            log.error('ERROR!: a widget could not be found')
+            return None
+        return widget
+    
+    def _on_keyboard_down(self, instance, keyboard, keycode, text, modifiers):
+        if len(modifiers) > 0 and modifiers[0] == 'ctrl' and keycode==40:  # Ctrl+enter
+            #print("\nThe key", keycode, "have been pressed")
+            #print(" - text is %r" % text)
+            #print(" - modifiers are %r" % modifiers)
+            
+            text_input = self.__get_child_from_base(self.main_window(), ('root_main','third_row'), 'text_input')
+            self.sendMessage(text_input)
+            
+    def _on_keyboard_up(self, instance, keyboard, keycode, text=None, modifiers=None):
+        #print(keycode)
+        if (keycode == 224): #right control key
+            text_input = self.__get_child_from_base(self.main_window(), ('root_main','third_row'), 'text_input')
+            text_input.cursor = (0,0)
+            
+        #if len(modifiers) > 0 and modifiers[0] == 'ctrl' and text=='a':  # Ctrl+a
+        #    #self.updateStatusIndicator(5)
+        #    text_msg = TextMessageObject(msg_str='message1', src_callsign='BAYWAX', dst_callsign='AAYWAX', expectAck=True, seq_num=None)
+        #    self.addMessageToUI(text_msg)
+        #    #self.menu.add_menu()          
+
+    ################# override functions #########################
+    
+    #callback is called when application is started
+    def on_start(self, **kwargs):
+        self.__apply_ini_config(self.ini_config)
