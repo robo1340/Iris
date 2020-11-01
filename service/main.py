@@ -35,7 +35,7 @@ import ctypes
 import config
 
 import IL2P_API
-from transceiver import chat_transceiver_func
+from transceiver import transceiver_func
 from service_controller import ServiceController
 
 master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
@@ -47,17 +47,6 @@ _stdin = getattr(sys.stdin, 'buffer', sys.stdin)
 _stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
 log = logging.getLogger('__name__')
-
-def _config_log(verbose,quiet):
-    if verbose == 0:
-        level, fmt = 'INFO', '%(message)s'
-    elif verbose == 1:
-        level, fmt = 'DEBUG', '%(message)s'
-    elif verbose >= 2:
-        level, fmt = ('DEBUG', '%(asctime)s %(levelname)-10s %(message)-100s %(filename)s:%(lineno)d')
-    if quiet:
-        level, fmt = 'WARNING', '%(message)s'
-    logging.basicConfig(level=level, format=fmt)
 
 ## @brief simple contain to put arguments used throughout the program in 
 class Args():
@@ -77,7 +66,6 @@ class Args():
 #################### Android Device Service########################
 ################################################################### 
 if __name__ == "__main__":
-    #_config_log(1,False) #configure the logs
     
     time.sleep(1) #put a slight delay in when the service starts, so that the UI will be started before the service
     
@@ -117,11 +105,11 @@ if __name__ == "__main__":
 
     service_controller = ServiceController(il2p, ini_config, GPS(), OsmAndInterface())
     il2p.service_controller = service_controller
-    transceiver_thread = common.StoppableThread(target=chat_transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
+    transceiver_thread = common.StoppableThread(target=transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
     
     transceiver_thread.start()
 
     while(True):
-        time.sleep(1)
+        time.sleep(10)
 
     

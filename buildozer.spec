@@ -4,7 +4,7 @@
 title = NoBoB
 
 # (str) Package name
-package.name = main
+package.name = NoBoB
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = com.projectx

@@ -53,11 +53,13 @@ class Receiver:
         silence_found_ind = 0
         silence_found = False
         ind = 0
+        #print(len(equalizer.carrier_preamble)+1)
         for i in range(0, len(equalizer.carrier_preamble)+1):
             S = common.take(symbols, 1)
             S = S[:, self.carrier_index] * gain
             sliced = np.round(np.abs(S))
             bit = np.array(sliced[0], dtype=int)
+            #print(str(i) + ' ' + str(bit))
             
             if (silence_found == False):
                 if (bit == 0):

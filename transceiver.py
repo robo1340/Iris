@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # PYTHON_ARGCOMPLETE_OK
-#import argparse
+
 import itertools
 import logging
 import functools
@@ -41,6 +41,20 @@ _stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
 log = logging.getLogger('__name__')
 
+##@brief a class to cache the most recent status update so that the service does
+## not needlessly transmit the same status update to the main application over
+## and over again
+class StatusUpdater():
+    def __init__(self, service_controller):
+        self.current_status = None
+        self.service_controller = service_controller
+        
+    def update_status(self, new_status):
+        if (new_status != self.current_status):
+                self.service_controller.send_status(new_status)
+                self.current_status = new_status
+                
+
 ##@brief main program function to send frames
 ##@config Configuration object
 ##@src a stream of bytes to be sent
@@ -76,10 +90,10 @@ def send(config, src, dst):
 ##@config Configuration object
 ##@src input stream containing raw audio data
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
-##@service_controller a pointer to the ServiceController object
+##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
 @func_set_timeout(master_timeout)
-def recv(config, src, dst, service_controller, pylab=None):
+def recv(config, src, dst, stat_update, pylab=None):
     reader = stream.Reader(src, data_type=common.loads)
     signal = itertools.chain.from_iterable(reader)
 
@@ -95,7 +109,7 @@ def recv(config, src, dst, service_controller, pylab=None):
         
         #now look for the carrier
         signal, amplitude, freq_error = detector.run(signal)
-        service_controller.send_status(Status.SQUELCH_OPEN)
+        stat_update.update_status(Status.SQUELCH_OPEN)
 
         freq = 1 / (1.0 + freq_error)  # receiver's compensated frequency
         gain = 1.0 / amplitude
@@ -106,24 +120,24 @@ def recv(config, src, dst, service_controller, pylab=None):
 
     except exceptions.EndOfFrameDetected: #the full frame was received
         if (dst.il2p.readFrame()):
-            service_controller.send_status(Status.MESSAGE_RECEIVED)
+            stat_update.update_status(Status.MESSAGE_RECEIVED)
             return 1
         else:
-            service_controller.send_status(Status.SQUELCH_CLOSED)
+            stat_update.update_status(Status.SQUELCH_CLOSED)
             return -1
     except exceptions.IL2PHeaderDecodeError:
         log.warning('WARNING: failed when pre-emptively decoding frame header')
-        service_controller.send_status(Status.SQUELCH_CLOSED)
+        stat_update.update_status(Status.SQUELCH_CLOSED)
         return -1
     except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
-        service_controller.send_status(Status.SQUELCH_CLOSED)
+        stat_update.update_status(Status.SQUELCH_CLOSED)
         return 0
     except FunctionTimedOut:
-        service_controller.send_status(Status.SQUELCH_CLOSED)
+        stat_update.update_status(Status.SQUELCH_CLOSED)
         print('\nERROR!:  receiver.run timed out\n')
         return -1
     except BaseException: 
-        service_controller.send_status(Status.SQUELCH_CLOSED)
+        stat_update.update_status(Status.SQUELCH_CLOSED)
         log.exception('Decoding failed')
         return -1
     return 0
@@ -181,7 +195,7 @@ class ReceiverPipe():
         self.header = None
         self.recv_queue.queue.clear()
 
-def chat_transceiver_func(args, service_controller, stats, il2p, ini_config, config):
+def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     master_timeout = float(ini_config['MAIN']['master_timeout'])
     tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
     rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
@@ -208,6 +222,8 @@ def chat_transceiver_func(args, service_controller, stats, il2p, ini_config, con
     most_recent_rx = 0 #the time of the most recent frame reception
     has_ellapsed = lambda start, duration : ((time.time() - start) > duration)
     
+    stat_update = StatusUpdater(service_controller)
+    
     with args.interface:
     #    args.interface.print_input_devices()
     #    print('==========================')
@@ -224,7 +240,7 @@ def chat_transceiver_func(args, service_controller, stats, il2p, ini_config, con
                 input_opener = common.FileType('rb', interface_factory)
                 args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
 
-                ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, service_controller=service_controller, pylab=None)
+                ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, pylab=None)
                 if (ret_val == 1):
                     stats.rxs += 1
                     service_controller.send_statistic('rx_success',stats.rxs)
@@ -235,7 +251,7 @@ def chat_transceiver_func(args, service_controller, stats, il2p, ini_config, con
                     service_controller.send_statistic('rx_failure',stats.rxf)
                 
                 if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
-                    service_controller.send_status(Status.TRANSMITTING)
+                    stat_update.update_status(Status.TRANSMITTING)
                     frame_to_send = il2p.getNextFrameToTransmit()
                     if (frame_to_send == None):
                         continue
@@ -294,7 +310,7 @@ def chat_transceiver_func(args, service_controller, stats, il2p, ini_config, con
                     #'''
                     
                     most_recent_tx = time.time()
-                    service_controller.send_status(Status.SQUELCH_OPEN)
+                    stat_update.update_status(Status.SQUELCH_CLOSED)
                 else:
                     time.sleep(0)
             except FunctionTimedOut:

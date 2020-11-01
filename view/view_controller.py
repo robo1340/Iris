@@ -5,102 +5,129 @@ import logging
 import queue
 import random
 import time
+import sched
 import sys
 from datetime import datetime
 
-#import view.ui
+from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import BlockingOSCUDPServer
+from pythonosc.udp_client import SimpleUDPClient
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import TextMessageObject, GPSMessageObject
-
-callsigns = ['BAYWAX','WAYWAX','GBQ98V','YUT5ER','UV8RWE']
-
-samples = [ "hello", 
-                "tere", 
-                "terevist",
-                'yabba',
-                'dabba',
-                'ding',
-                'dong',
-                'yippa',
-                'And he cried in a loud voice \'Lazarus, come forth\'! And Lazarus did arise from the grave. I have always believed that faith was measured in deeds, not words. And while many of my children worshipped my name, their deeds betrayed them. In my absence they strayed from the path but you, you my son your faith never waned. Not in Honduras or Jericho, not in the Great Rio Insurrection. You risked your life countless times to topple GDI, to perpetuate our cause, to honor my name.',
-                'But now I call upon you again to bring glory to the Brotherhood. I have seen that GDI is vulnerable, bloated by arrogance and complacency. Now is the time to strike, while they congratulate themselves on Tiberium advancements Nod made decades ago, we will expose their weaknesses for all the world to see.',
-                'AND THEN FART REAL LOUD :3',
-                'Twisted Insurrection is a critically acclaimed, standalone modification based on the Command & Conquer Tiberian Sun engine. It features a complete redesign of the original game, set in an alternate what-if? timeline where the Brotherhood of Nod was victorious during the first Tiberian War. Do you have what it takes to drag the shattered Global Defense Initiative out of ruin? Or will you crush all who oppose the will of Kane and his Inner Circle? The choice is yours commander.',
-                '...im sorry',
-                'lol'
-                #'This is me. Literally me. No other character can come close to relating to me like this. There is no way you can convince me this is not me. This character could not possibly be anymore me. It\'s me, and nobody can convince me otherwise. If anyone approached me on the topic of this not possibly being me, then I immediately shut them down with overwhelming evidence that this character is me. This character is me, it is indisputable. Why anyone would try to argue that this character is not me is beyond me. If you held two pictures of me and this character side by side, you\'d see no difference. I can safely look at this character every day and say \"Yup, that\'s me\". I can practically see this character every time I look at myself in the mirror. I go outside and people stop me to comment how similar I look and act to this character. I chuckle softly as I\'m assured everyday this character is me in every way.',
-    ]
+import common
 
 log = logging.getLogger('__name__')
 
-sampleText = ["hello", "tere", "prevyet"]
+class ViewController():
 
-##@brief take a text message between 0 and 1023 characters long and send it to the transmit queue
-##@brief il2p an IL2P_API object
-##@brief msg a TextMessageObject
-#def sendTextMessage(send_queue, msg):
-#    if (send_queue.full() == True):
-#        log.error('ERROR: frame send queue is full')
-#    else:
-#        send_queue.put(msg) #put the message on a queue to be sent to the radio
-
-def view_controller_func(ui, il2p, ini_config, gps=None, osmand=None):
-    tx_time = time.time()
-    gps_tx_time = time.time()
-    min = int(ini_config['MAIN']['min_wait'])
-    max = int(ini_config['MAIN']['max_wait'])
+    def __init__(self):#, ui):
+        self.tx_time = time.time()
+        self.gps_tx_time = time.time()
     
-    wait_time = random.randint(min,max)
+        #self.ui = ui
+        self.ui = None
+        
+        self.client = SimpleUDPClient('127.0.0.2',8000) #create the UDP client
+    
+        #create the UDP server and map callbacks to it
+        dispatcher = Dispatcher()
+        dispatcher.map('/test',self.test_handler)
+        dispatcher.map("/txt_msg_rx", self.txt_msg_handler)
+        dispatcher.map("/gps_msg", self.gps_msg_handler)
+        dispatcher.map('/my_gps_msg', self.my_gps_msg_handler)
+        dispatcher.map('/ack_msg', self.ack_msg_handler)
+        dispatcher.map('/status_indicator', self.transceiver_status_handler)
+        dispatcher.map('/tx_success', self.tx_success_handler)
+        dispatcher.map('/tx_failure', self.tx_failure_handler)
+        dispatcher.map('/rx_success', self.rx_success_handler)
+        dispatcher.map('/rx_failure', self.rx_failure_handler)
+        self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+    
+        self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
+        self.thread.start()
+        
+        #setup some lambda functions
+        self.stop = lambda : self.thread.stop()
+    
+    ###############################################################################
+    ############### Methods for sending messages to the Service ###################
+    ###############################################################################
+    
+    #send a text message to the service to be transmitted
+    def send_txt_message(self, txt_msg):
+        print('sending a text message to the service')
+        self.client.send_message('/txt_msg_tx', txt_msg.marshal())
+    
+    #send a new callsign entered by the user to the service
+    def send_my_callsign(self, my_callsign):
+        self.client.send_message('/my_callsign',my_callsign)
+    
+    ##@brief send the service a new gps beacon state and gps beacon period
+    ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
+    ##@param gps_beacon_period, the period of the gps beacon (in seconds)
+    def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
+        print('sending a gps beacon command to the Service')
+        self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
+        
+    ##@param send the service a command to transmit one gps beacon immeadiatly
+    def gps_one_shot_command(self):
+        print('sending a gps one shot command to the service')
+        self.client.send_message('/gps_one_shot',(True,))
+    
+    ###############################################################################
+    ## Handlers for when the View Controller receives a message from the Service ##
+    ###############################################################################
+    
+    ##@brief handler for when a TextMessage object is received from the service
+    ##@param args, a list of values holding the TextMessage's contents
+    def txt_msg_handler(self, address, *args):
+        print('received text message from the service')
+        txt_msg = TextMessageObject.unmarshal(args)
+        self.ui.addMessageToUI(txt_msg)
+    
+    ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
+    ##@param args, a list of values holding the GPSMessage's contents
+    def gps_msg_handler(self, address, *args):
+        gps_msg = GPSMessageObject.unmarshal(args)
+        if (gps_msg is not None):
+            print('received gps message from the service: ' + gps_msg.src_callsign)
+            self.ui.addGPSMessageToUI(gps_msg)
+    
+    ##@brief handler for when a GPSMessage object is received from the service this is my current location
+    ##@param args, a list of values holding the GPSMessage's contents
+    def my_gps_msg_handler(self, address, *args):
+        gps_msg = GPSMessageObject.unmarshal(args)
+        if (gps_msg is not None):
+            self.ui.update_my_displayed_location(gps_msg.location)
 
-    while (threading.currentThread().stopped() == False):
-        if (il2p.msg_output_queue.empty() == False): #there is a received message to be displayed on the ui
-            new_msg = il2p.msg_output_queue.get()
-            if (isinstance(new_msg, TextMessageObject)):
-                ui.addMessageToUI(new_msg)
-            elif (isinstance(new_msg, GPSMessageObject)):
-                ui.addGPSMessageToUI(new_msg)
-                if (osmand is not None):
-                    osmand.placeContact(new_msg.lat(), new_msg.lon(), new_msg.src_callsign, datetime.now().strftime("%H:%M:%S")+'\n'+new_msg.getInfoString())
-                
-        elif (il2p.ack_output_queue.empty() == False): #there is a received ack to be displayed on the ui
-            ack_key = il2p.ack_output_queue.get()
-            ui.addAckToUI(ack_key)
+    def ack_msg_handler(self, address, *args):
+        print('received an acknoweledgement message from the service: '+ str(args))
+        self.ui.addAckToUI((args[0],args[1],int(args[2])))       
+    
+    def transceiver_status_handler(self, address, *args):
+        #print('received a status update from the service')
+        self.ui.updateStatusIndicator(args[0])
         
-        # if ((ui.isTestTxChecked()) and ((time.time() - tx_time) > wait_time)):
-            # tx_time = time.time()
-            # wait_time = random.randint(min,max)
-            # msg = random.choice(samples)
-            # src = il2p.my_callsign
-            # dst = 'WAYWAX'
-            # #src = random.choice(callsigns).upper().ljust(6,' ')[0:6]
-            # #dst = random.choice(callsigns).upper().ljust(6,' ')[0:6]
-            # ack = ui.isAckChecked()
+    def tx_success_handler(self, address, *args):
+        self.ui.update_tx_success_cnt(args[0])
         
-            # text_msg = TextMessageObject(msg,src,dst,ack)
-            # il2p.msg_send_queue.put(text_msg)
-            # ui.addMessageToUI(text_msg, my_message=True)
+    def tx_failure_handler(self, address, *args):
+        self.ui.update_tx_failure_cnt(args[0])
+    
+    def rx_success_handler(self, address, *args):
+        self.ui.update_rx_success_cnt(args[0])
+    
+    def rx_failure_handler(self, address, *args):
+        self.ui.update_rx_failure_cnt(args[0])
         
-        gps_period = ui.getGPSBeaconPeriod()
-        
-        if (gps is not None):
-            if (ui.isGPSTxOneShotChecked()):
-                loc = gps.getLocation()
-                if (loc is None):
-                    continue
-                ui.update_my_displayed_location(loc)
-                gps_msg = GPSMessageObject(loc, il2p.my_callsign)
-                il2p.msg_send_queue.put(gps_msg)
-                #ui.addGPSMessageToUI(gps_msg)
-                    
-            elif ((ui.isGPSTxChecked()) and (time.time() - gps_tx_time) > gps_period ):
-                loc = gps.getLocation()
-                if (loc is None):
-                    continue
-                gps_tx_time = time.time() + 0.25*random.uniform(-gps_period, gps_period)
-                ui.update_my_displayed_location(loc)
+    def test_handler(self, address, *args):
+        print(args)
 
-                gps_msg = GPSMessageObject(loc, il2p.my_callsign)
-                il2p.msg_send_queue.put(gps_msg)
-        
-        time.sleep(0.1)  
+    ###############################################################################
+    ############################ Thread Routines ##################################
+    ###############################################################################
+    
+    def view_controller_func(self, server):
+        #while (threading.currentThread().stopped() == False):
+        server.serve_forever()  # Blocks forever

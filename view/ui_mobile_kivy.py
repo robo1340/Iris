@@ -149,7 +149,7 @@ class ui_mobileApp(App, UI_Interface):
         src = self.my_callsign
         dst = self.dstCallsign
         ack = self.ackChecked
-        
+        #print('ackChecked ' + str(ack))
         for msg_str in messages:
             msg = TextMessageObject(msg_str, src, dst, ack)
             self.viewController.send_txt_message(msg)
@@ -279,7 +279,7 @@ class ui_mobileApp(App, UI_Interface):
             if (msg.ack_key == ack_key):
                 ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.widget.time_text = ack_time_str
-                msg.widget.background_color = self.root.text_msg_color_ack_received
+                msg.widget.background_color = self.main_window().text_msg_color_ack_received
         self.messagesLock.release()
         
     @exception_suppressor

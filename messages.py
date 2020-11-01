@@ -9,7 +9,8 @@ class TextMessageObject():
 
     @staticmethod
     def unmarshal(tuple):
-        return TextMessageObject(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4])
+        ack = True if (tuple[3] == 'True') else False
+        return TextMessageObject(tuple[0], tuple[1], tuple[2], ack, int(tuple[4]))
 
     def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None):
         self.msg_str = msg_str
@@ -31,7 +32,7 @@ class TextMessageObject():
         print(self.getInfoString())
         
     def marshal(self):
-        return (self.msg_str, self.src_callsign, self.dst_callsign, self.expectAck, self.seq_num)
+        return [self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num)]
         
         
 class GPSMessageObject():
@@ -49,8 +50,7 @@ class GPSMessageObject():
             return GPSMessageObject(gps_dict, tuple[1])  
         except BaseException:
             log.warning('WARNING: failed to unmarshal a gps message')
-            return None
-        
+            return None   
 
     ##@brief constructor for a GPSMessageObject
     ##@param location a dictionary object containing the current location, speed, bearing etc.

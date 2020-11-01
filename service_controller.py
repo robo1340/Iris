@@ -56,7 +56,6 @@ class ServiceController():
         self.server = BlockingOSCUDPServer(("127.0.0.2", 8000), dispatcher)
     
         self.thread = common.StoppableThread(target = self.service_controller_func, args=(self.server,))
-        print('starting thread')
         self.thread.start()
 
         #setup some lambda functions
@@ -106,6 +105,8 @@ class ServiceController():
     
     def send_txt_message(self, txt_msg):
         print('sending text message to the View Controller')
+        #print(txt_msg.getInfoString())
+        #print(txt_msg.marshal())
         self.client.send_message('/txt_msg_rx', txt_msg.marshal())
         
     def send_gps_message(self, gps_msg):
@@ -115,9 +116,15 @@ class ServiceController():
         if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
             self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, datetime.now().strftime("%H:%M:%S")+'\n'+gps_msg.getInfoString())
     
+    ##@brief send the View Controller my current gps location contained in a GPSMessage object
+    ##@param gps_msg a GPSMessage object
+    def send_my_gps_message(self, gps_msg):
+        print('sending my gps message to View Controller')
+        self.client.send_message('/my_gps_msg', gps_msg.marshal())
+    
     def send_ack_message(self, ack_key):
         print('sending message acknowledgment to View Controller')
-        self.client.send_message('/ack_msg', ack_key)
+        self.client.send_message('/ack_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]) ) )
     
     def send_status(self, status):
         #print('service sending status to View Controller')
@@ -127,7 +134,7 @@ class ServiceController():
         self.client.send_message('/' + type, value)
         
     def send_test(self):
-        self.client.send_message('/test', ('hello',2,3))
+        self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
     
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################
@@ -153,7 +160,7 @@ class ServiceController():
                 log.warning('WARNING: No GPS location provided')
                 return
             gps_msg = GPSMessageObject(loc, self.il2p.my_callsign)
-            self.send_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
+            self.send_my_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
             
             self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted
 
@@ -162,7 +169,7 @@ class ServiceController():
     ###############################################################################
 
     def service_controller_func(self, server):
-        print('service server started')
+        log.info('service server started')
         self.send_test()
         #while (threading.currentThread().stopped() == False):
         server.serve_forever()  # Blocks forever
