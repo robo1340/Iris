@@ -7,6 +7,7 @@ import random
 import time
 import sched
 import sys
+import functools
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
@@ -18,6 +19,14 @@ from messages import TextMessageObject, GPSMessageObject
 import common
 
 log = logging.getLogger('__name__')
+
+def exception_suppressor(func):
+    def meta_function(*args, **kwargs):
+        try:
+            func(*args,**kwargs)
+        except BaseException:
+            pass
+    return meta_function
 
 class ViewController():
 
@@ -54,23 +63,27 @@ class ViewController():
     ############### Methods for sending messages to the Service ###################
     ###############################################################################
     
-    #send a text message to the service to be transmitted
+    ## @brief send a text message to the service to be transmitted
+    @exception_suppressor
     def send_txt_message(self, txt_msg):
         print('sending a text message to the service')
         self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
-    #send a new callsign entered by the user to the service
+    ## @brief send a new callsign entered by the user to the service
+    @exception_suppressor
     def send_my_callsign(self, my_callsign):
         self.client.send_message('/my_callsign',my_callsign)
     
     ##@brief send the service a new gps beacon state and gps beacon period
     ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
+    @exception_suppressor
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
         print('sending a gps beacon command to the Service')
         self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
         
-    ##@param send the service a command to transmit one gps beacon immeadiatly
+    ##@brief send the service a command to transmit one gps beacon immeadiatly
+    @exception_suppressor
     def gps_one_shot_command(self):
         print('sending a gps one shot command to the service')
         self.client.send_message('/gps_one_shot',(True,))
@@ -81,6 +94,7 @@ class ViewController():
     
     ##@brief handler for when a TextMessage object is received from the service
     ##@param args, a list of values holding the TextMessage's contents
+    @exception_suppressor
     def txt_msg_handler(self, address, *args):
         print('received text message from the service')
         txt_msg = TextMessageObject.unmarshal(args)
@@ -88,6 +102,7 @@ class ViewController():
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     ##@param args, a list of values holding the GPSMessage's contents
+    @exception_suppressor
     def gps_msg_handler(self, address, *args):
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
@@ -96,28 +111,35 @@ class ViewController():
     
     ##@brief handler for when a GPSMessage object is received from the service this is my current location
     ##@param args, a list of values holding the GPSMessage's contents
+    @exception_suppressor
     def my_gps_msg_handler(self, address, *args):
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
             self.ui.update_my_displayed_location(gps_msg.location)
 
+    @exception_suppressor
     def ack_msg_handler(self, address, *args):
         print('received an acknoweledgement message from the service: '+ str(args))
         self.ui.addAckToUI((args[0],args[1],int(args[2])))       
     
+    @exception_suppressor
     def transceiver_status_handler(self, address, *args):
         #print('received a status update from the service')
         self.ui.updateStatusIndicator(args[0])
         
+    @exception_suppressor
     def tx_success_handler(self, address, *args):
         self.ui.update_tx_success_cnt(args[0])
         
+    @exception_suppressor
     def tx_failure_handler(self, address, *args):
         self.ui.update_tx_failure_cnt(args[0])
     
+    @exception_suppressor
     def rx_success_handler(self, address, *args):
         self.ui.update_rx_success_cnt(args[0])
     
+    @exception_suppressor
     def rx_failure_handler(self, address, *args):
         self.ui.update_rx_failure_cnt(args[0])
         

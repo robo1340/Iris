@@ -7,6 +7,7 @@ import random
 import time
 import sched
 import sys
+import functools
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
@@ -19,16 +20,13 @@ import common
 
 log = logging.getLogger('__name__')
 
-'''
-/txt_msg
-/gps_msg
-/status_indicator
-/tx_success
-/tx_failure
-/rx_success
-/rx_failure
-/my_callsign
-'''
+def exception_suppressor(func):
+    def meta_function(*args, **kwargs):
+        try:
+            func(*args,**kwargs)
+        except BaseException:
+            pass
+    return meta_function
 
 class ServiceController():
 
@@ -65,17 +63,20 @@ class ServiceController():
     ## Handlers for when the service receives a message from the View Controller ##
     ###############################################################################
     
-    #callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
+    ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
+    @exception_suppressor
     def txt_msg_handler(self, address, *args):
         print('text message received from the View Controller')
         txt_msg = TextMessageObject.unmarshal(args)
         self.il2p.msg_send_queue.put(txt_msg)
     
-    #callback for when the View Controller sends a new callsign
+    ## @brief callback for when the View Controller sends a new callsign
+    @exception_suppressor
     def my_callsign_handler(self, address, *args):
         print('my callsign received from View Controller')
         self.il2p.setMyCallsign(args[0])
     
+    @exception_suppressor
     def gps_beacon_handler(self, address, *args):
         print('gps beacon settings received from View Controller')
         self.gps_beacon_enable = args[0]
@@ -86,6 +87,7 @@ class ServiceController():
             for event in self.gps_beacon_sched.queue:
                 self.gps_beacon_sched.cancel(event)
     
+    @exception_suppressor
     def gps_one_shot_handler(self,address, *args):
         print('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
@@ -103,12 +105,14 @@ class ServiceController():
     ########## Methods for sending messages to the View Controller ################
     ###############################################################################
     
+    @exception_suppressor
     def send_txt_message(self, txt_msg):
         print('sending text message to the View Controller')
         #print(txt_msg.getInfoString())
         #print(txt_msg.marshal())
         self.client.send_message('/txt_msg_rx', txt_msg.marshal())
-        
+    
+    @exception_suppressor
     def send_gps_message(self, gps_msg):
         print('sending gps message to View Controller')
         self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
@@ -122,17 +126,21 @@ class ServiceController():
         print('sending my gps message to View Controller')
         self.client.send_message('/my_gps_msg', gps_msg.marshal())
     
+    @exception_suppressor
     def send_ack_message(self, ack_key):
         print('sending message acknowledgment to View Controller')
         self.client.send_message('/ack_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]) ) )
     
+    @exception_suppressor
     def send_status(self, status):
         #print('service sending status to View Controller')
         self.client.send_message('/status_indicator', status)
-        
+    
+    @exception_suppressor
     def send_statistic(self, type, value):
         self.client.send_message('/' + type, value)
-        
+    
+    @exception_suppressor
     def send_test(self):
         self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
     
@@ -170,7 +178,7 @@ class ServiceController():
 
     def service_controller_func(self, server):
         log.info('service server started')
-        self.send_test()
-        #while (threading.currentThread().stopped() == False):
+        #self.send_test()
+
         server.serve_forever()  # Blocks forever
 
