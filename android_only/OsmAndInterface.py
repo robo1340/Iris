@@ -5,6 +5,7 @@ from jnius import autoclass
 #from jnius import PythonJavaClass, java_method
 
 import time
+from datetime import datetime
 
 log = logging.getLogger('__name__')
 
@@ -13,11 +14,21 @@ CONTACT_CATEGORY = 'NoBoB Contacts'
 COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
 
 class ContactPoint():
-    def __init__(self,lat,lon,time,index):
+    def __init__(self,callsign,lat,lon,time,index):
+        self.callsign = callsign
         self.lat = lat
         self.lon = lon
         self.time = time
-        self.index = index
+        self.index = index ##the index determining which color the ContactPoint will be in OsmAnd
+        self.__name = self.callsign + ' | ' + datetime.now().strftime("%H:%M:%S")
+        
+    def getCurrentName(self):
+        return self.__name
+    
+    def getNewName(self):
+        self.__name = self.callsign + ' | ' + datetime.now().strftime("%H:%M:%S")
+        self.time = time.time()
+        return self.__name
 
 class OsmAndInterface():
 
@@ -27,20 +38,20 @@ class OsmAndInterface():
 
         try:
             OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
-            
+
             '''
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
             #currentActivity = PythonActivity.mActivity
             currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
             #application = currentActivity.getApplication()
             '''
-            
+
             PythonService = autoclass("org.kivy.android.PythonService")
             activity = cast("android.app.Service", PythonService.mService)
             application = activity.getApplication()
 
             self.api = OsmAPI(application) #,None)
-            
+
             time.sleep(1)
             self.clearContacts() 
 
@@ -61,19 +72,19 @@ class OsmAndInterface():
         try:
             if callsign in self.contact_points_dict:
                 pt = self.contact_points_dict[callsign]
-                self.api.updateFavorite( pt.lat, pt.lon, callsign, CONTACT_CATEGORY,
-                                         lat, lon, callsign, description, CONTACT_CATEGORY,
+                print(pt.getCurrentName())
+                self.api.updateFavorite( pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY,
+                                         lat, lon, pt.getNewName(), description, CONTACT_CATEGORY,
                                          COLORS[ (pt.index % len(COLORS)) ], True
                                         )
+
                 pt.lat = lat
                 pt.lon = lon
-                pt.time = time.time()
-            
             else:
-                pt = ContactPoint(lat, lon, time.time(), (len(self.contact_points_dict) % len(COLORS)) )
+                pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(COLORS)) )
                 self.contact_points_dict[callsign] = pt
-                
-                self.api.addFavorite(lat, lon, callsign, description, '', CONTACT_CATEGORY, COLORS[pt.index], True)     
+
+                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, COLORS[pt.index], True)     
         except BaseException:
             log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
 

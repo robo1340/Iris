@@ -112,7 +112,7 @@ class ServiceController():
         #print(txt_msg.marshal())
         self.client.send_message('/txt_msg_rx', txt_msg.marshal())
     
-    @exception_suppressor
+    #@exception_suppressor
     def send_gps_message(self, gps_msg):
         print('sending gps message to View Controller')
         self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
