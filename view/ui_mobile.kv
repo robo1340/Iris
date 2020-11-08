@@ -245,6 +245,47 @@
         padding_y : 3
         text : message_widget.message_text
 
+<ContactLabel>: #extends box layout, is instantiated in ui_kivy.py
+    size_hint : (1, None)
+    height : message_header.height
+    id : contact_widget
+    orientation: 'vertical'
+    callsign_text : ''
+    time_text     : ''
+    background_color : [1,1,1,1]
+    canvas:
+        Color:
+            rgba: [0, 0, 0, 1]
+        Line:
+            width: 1
+            rectangle: self.x, self.y, self.width, self.height
+    canvas.before:
+        Color:
+            rgba: contact_widget.background_color
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    
+    BoxLayout:
+        id : message_header
+        orientation : 'horizontal'
+        size_hint : (1,None)
+        height : lbl.height
+        MediumLabel:
+            id : lbl
+            text : contact_widget.callsign_text
+        MediumLabel:
+            text : contact_widget.time_text
+        
+    #Label:
+    #    id : spacer
+        
+    #Button:
+    #    id : chat_button
+        #on_release:
+        #    app.root.current = "main"
+        #    root.manager.transition.direction = "left" 
+
 ###################################################################        
 ####################### Window Manager ############################
 ###################################################################
@@ -257,9 +298,9 @@ WindowManager:
     StatisticsWindow:
         id : statistics_window
     GPSWindow:
-        id : gps_window
-    
-    
+        id : gps_window  
+    ChatWindow :
+        id : chat_window
 
 ###################################################################        
 ########################## Main Window ############################
@@ -281,15 +322,8 @@ WindowManager:
     
     toggle_button_color         : [0,1,0,1]
     
-    text_msg_color      : [0.9, 0.9, 0.9, 1]
-    text_msg_at_color   : [1, 0.25, 0.25, 1]
-    text_msg_color_ack_pending : [1,0.5,0.5,1]
-    text_msg_color_ack_received: [0,1,0,1]
-    text_msg_color_no_ack_expect:[0.9,1,0.8,1]
-    
     top_rowh : 0.1
     center_rowh : 0.6
-    bottom_rowh : 0.3
     
     BoxLayout:
         orientation: 'vertical'
@@ -326,6 +360,14 @@ WindowManager:
                     app.root.current = "settings"
                     root.manager.transition.direction = "right"
                     
+            MenuButton: 
+                background_color : root.background_color
+                background_normal: './resources/icons/chat.png'
+                background_down: './resources/icons/chat_pressed.png'
+                on_release: 
+                    app.root.current = "chat"
+                    root.manager.transition.direction = "right"
+            
             MenuButton: 
                 background_color : root.background_color
                 background_normal: './resources/icons/stats.png'
@@ -365,6 +407,108 @@ WindowManager:
                     Rectangle: 
                         pos: self.pos 
                         size: self.size 
+                
+    ########################### Second Row ####################################            
+        BoxLayout: #next row
+            name : 'second_row'
+            orientation: 'vertical'    
+            canvas.before:
+                Color:
+                    rgba: [0.5, 0.5, 0.5, 1]
+                Line:
+                    width: 1
+                    rectangle: self.x, self.y, self.width, self.height
+            
+            MediumLabel:
+                name : ''
+                text : 'GPS Contacts'   
+    
+            Spacer:
+    
+            ScrollView: 
+                name : 'scroll_bar'
+                do_scroll_x: False
+                do_scroll_y: True
+                bar_width : 10
+                bar_inactive_color : self.bar_color
+                canvas.before:
+                    Color:
+                        rgba: root.gray
+                    Line:
+                        width: 1
+                        rectangle: self.x, self.y, self.width, self.height 
+                GridLayout:
+                    name : 'message_container'
+                    id : message_container
+                    cols: 1
+                    size_hint_y: None
+                    height: self.minimum_height
+
+
+###################################################################        
+########################## Chat Window ############################
+###################################################################
+
+<ChatWindow>:
+    name : 'chat'
+    
+    ### Define colors ###
+    background_color    : [1,1,1,1]
+    black               : [0,0,0,1]
+    gray                : [0.5, 0.5, 0.5, 1]
+    
+    text_msg_color      : [0.9, 0.9, 0.9, 1]
+    text_msg_at_color   : [1, 0.25, 0.25, 1]
+    text_msg_color_ack_pending   : [1,0.5,0.5,1]
+    text_msg_color_ack_received  : [0,1,0,1]
+    text_msg_color_no_ack_expect : [0.9,1,0.8,1]
+    
+    top_rowh : 0.1
+    center_rowh : 0.6
+    bottom_rowh : 0.3
+    
+    BoxLayout:
+        orientation: 'vertical'
+        name : 'root_chat'
+        
+        canvas.before:
+            Color:
+                rgba: root.background_color
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+    ########################### First Row ####################################    
+        BoxLayout: #first row
+            canvas.before:
+                Color:
+                    rgba: [0.5, 0.5, 0.5, 1]
+                Line:
+                    width: 1
+                    rectangle: self.x, self.y, self.width, self.height
+            id : first_row
+            name : 'first_row'
+            size_hint : (1, root.top_rowh)
+            size_hint_max_y : 200
+            orientation: 'horizontal'
+            
+            ReturnButton:
+                size_hint_y : 1.0
+                on_release:
+                    app.root.current = "main"
+                    root.manager.transition.direction = "left" 
+
+            Label:
+                #text : 'placeholder'
+                name : ''
+                color : root.black
+                canvas.before:
+                    Color:
+                        rgba: root.gray
+                    Line:
+                        width: 1
+                        rectangle: self.x, self.y, self.width, self.height
+                
                 
     ########################### Second Row ####################################            
         BoxLayout: #next row
@@ -414,6 +558,7 @@ WindowManager:
                 id : text_input
                 size_hint: (1, 1)
                 #focus : True
+
 
 ###################################################################        
 ######################## Settings Window ##########################

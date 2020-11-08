@@ -11,7 +11,7 @@ log = logging.getLogger('__name__')
 
 CONTACT_CATEGORY = 'NoBoB Contacts'
 
-COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
+OSM_COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
 
 class ContactPoint():
     def __init__(self,callsign,lat,lon,time,index):
@@ -33,7 +33,7 @@ class ContactPoint():
 class OsmAndInterface():
 
     def __init__(self):
-        self.contact_points_dict = {} #an array describing the current contact points that have been placed
+        self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
         #keys are the callsign string, values are a tuple are objects of type ContactPoint
 
         try:
@@ -75,16 +75,16 @@ class OsmAndInterface():
                 print(pt.getCurrentName())
                 self.api.updateFavorite( pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY,
                                          lat, lon, pt.getNewName(), description, CONTACT_CATEGORY,
-                                         COLORS[ (pt.index % len(COLORS)) ], True
+                                         OSM_COLORS[ (pt.index % len(OSM_COLORS)) ], True
                                         )
 
                 pt.lat = lat
                 pt.lon = lon
             else:
-                pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(COLORS)) )
+                pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(OSM_COLORS)) )
                 self.contact_points_dict[callsign] = pt
 
-                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, COLORS[pt.index], True)     
+                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True)     
         except BaseException:
             log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
 

@@ -76,7 +76,18 @@ class UI_Interface(metaclass=abc.ABCMeta):
     def addGPSMessageToUI(self, gps_msg):
         raise NotImplementedError
     
-
+    ##@brief add a new GPS contact widget to kivy that contains information in gps_msg
+    ##@param gps_msg A GPSMessageObject
+    def addNewGPSContactToUI(self, gps_msg):
+        raise NotImplementedError
+    
+    ##@brief modify an existing GPS contact widget with new information contained in gps_msg
+    ##@param gps_msg A GPSMessageObject
+    ##@throws throws a InputError when gps_msg does not match an existing GPS contact widget
+    def updateGPSContact(self, gps_msg):
+        raise NotImplementedError
+    
+    
     ##@brief start the UI
     @abc.abstractmethod
     def run(self):

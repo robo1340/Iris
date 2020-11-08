@@ -12,6 +12,7 @@ contains a root Widget.
 '''
 
 import kivy
+import plyer
 from kivy.config import Config
 from kivy.app import App
 from kivy.graphics import Color
@@ -60,6 +61,9 @@ class StatisticsWindow(Screen):
 class GPSWindow(Screen):
     pass
 
+class ChatWindow(Screen):
+    pass
+
 class WindowManager(ScreenManager):
     pass
     
@@ -80,6 +84,22 @@ class UI_Message():
 
 class TextMessage(BoxLayout):
     pass
+
+class ContactLabel(BoxLayout):
+    pass
+
+BLUE      = [0, 0, 1, 0.5]
+RED       = [1, 0, 0, 0.5]
+GREEN     = [0, 1, 0, 0.5]
+BROWN     = [0.8, 0.7, 0.5, 0.5]
+ORANGE    = [1,     0.6, 0, 0.5]
+YELLOW    = [1, 1, 0, 0.5]
+LIGHTBLUE = [0.4, 0.9, 1, 0.5]
+LIGHTGREEN= [0.8, 1, 0.4, 0.5]
+PURPLE    = [0.5, 0.5, 1, 0.5]
+PINK      = [1, 0.5, 1, 0.5]
+
+OSM_COLORS = [BLUE, RED, GREEN, BROWN, ORANGE, YELLOW, LIGHTBLUE, LIGHTGREEN, PURPLE, PINK]
 
 
 class ui_mobileApp(App, UI_Interface):
@@ -111,8 +131,11 @@ class ui_mobileApp(App, UI_Interface):
         self.messagesLock = threading.Lock()
         self.messages = []
         
+        self.contact_widgets = {}
+        
         #self.main_window = lambda : self.__get_child(self.root, 'main')
         self.main_window        = lambda : self.root.ids.main_window
+        self.chat_window        = lambda : self.root.ids.chat_window
         self.settings_window    = lambda : self.root.ids.settings_window
         self.statistics_window  = lambda : self.root.ids.statistics_window
         self.gps_window         = lambda : self.root.ids.gps_window
@@ -181,8 +204,7 @@ class ui_mobileApp(App, UI_Interface):
             lbl.text = 'Carrier Frequency (restart required to apply change)'
         else:
             return
-            
-        
+
         updateConfigFile(self.ini_config)
     
     def toggle_pressed(self, toggle_button):
@@ -233,9 +255,9 @@ class ui_mobileApp(App, UI_Interface):
     ##@param text_msg A TextMessageObject containing the received message
     ##@param my_message, set to True when this method is being called by this program
     def addMessageToUI(self, text_msg, my_message=False):
-        main_window = self.main_window()
-        message_container = self.__get_child_from_base(main_window,('root_main','second_row','scroll_bar'), 'message_container')
-        scroll_bar = self.__get_child_from_base(main_window, ('root_main','second_row'), 'scroll_bar')
+        chat_window = self.chat_window()
+        message_container = self.__get_child_from_base(chat_window,('root_chat','second_row','scroll_bar'), 'message_container')
+        scroll_bar = self.__get_child_from_base(chat_window, ('root_chat','second_row'), 'scroll_bar')
         
         txt_msg_widget = TextMessage() #create the new widget
         
@@ -244,17 +266,17 @@ class ui_mobileApp(App, UI_Interface):
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = text_msg.msg_str.rstrip('\n')
         
-        txt_msg_widget.background_color = main_window.text_msg_color
+        txt_msg_widget.background_color = chat_window.text_msg_color
 
         if (text_msg.dst_callsign == self.my_callsign): #if the message was addressed to me
-            txt_msg_widget.background_color = main_window.text_msg_at_color
+            txt_msg_widget.background_color = chat_window.text_msg_at_color
             message_text = '@' + self.my_callsign + ' ' + message_text
             
         if ((my_message == True) and(text_msg.src_callsign == self.my_callsign)): #if the message was sent by me
             if (text_msg.expectAck == True):
-                txt_msg_widget.background_color = main_window.text_msg_color_ack_pending
+                txt_msg_widget.background_color = chat_window.text_msg_color_ack_pending
             else:
-                txt_msg_widget.background_color = main_window.text_msg_color_no_ack_expect
+                txt_msg_widget.background_color = chat_window.text_msg_color_no_ack_expect
             sent_time_str = ('sent at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
             ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
             time_text = sent_time_str + ack_time_str
@@ -268,6 +290,8 @@ class ui_mobileApp(App, UI_Interface):
         self.messages.append(UI_Message(text_msg, txt_msg_widget))
         self.messagesLock.release()
         
+        #plyer.notification.notify(title="NoBoB Message Received", message=text_msg.src_callsign, app_name="NoBoB",timeout=10) #send a notification to Android OS
+        
         if (self.autoScroll == True):
             scroll_bar.scroll_to(txt_msg_widget)
         
@@ -279,7 +303,7 @@ class ui_mobileApp(App, UI_Interface):
             if (msg.ack_key == ack_key):
                 ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.widget.time_text = ack_time_str
-                msg.widget.background_color = self.main_window().text_msg_color_ack_received
+                msg.widget.background_color = self.chat_window().text_msg_color_ack_received
         self.messagesLock.release()
         
     @exception_suppressor
@@ -342,7 +366,7 @@ class ui_mobileApp(App, UI_Interface):
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = gps_msg.getInfoString()
         
-        gps_msg_widget.background_color = self.main_window().text_msg_color
+        gps_msg_widget.background_color = self.chat_window().text_msg_color
         
         gps_msg_widget.header_text = header_text
         gps_msg_widget.time_text = time_text
@@ -356,7 +380,28 @@ class ui_mobileApp(App, UI_Interface):
         
         if (self.autoScroll == True):
             scroll_bar.scroll_to(gps_msg_widget)
-     
+    
+    def addNewGPSContactToUI(self, gps_msg):
+        main_window = self.main_window()
+        
+        message_container = self.__get_child_from_base(main_window,('root_main','second_row','scroll_bar'), 'message_container')
+        scroll_bar = self.__get_child_from_base(main_window, ('root_main','second_row'), 'scroll_bar')
+        
+        contact_widget = ContactLabel() #create the new widget
+        
+        contact_widget.callsign_text = gps_msg.src_callsign
+        contact_widget.time_text     = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        
+        contact_widget.background_color = OSM_COLORS[ (len(self.contact_widgets) % len(OSM_COLORS)) ]
+        
+        message_container.add_widget(contact_widget) #add the widget to the UI
+        self.contact_widgets[gps_msg.src_callsign] = contact_widget #add the widget to a dictionary, where the key is the callsign of the gps message
+    
+    def updateGPSContact(self, gps_msg):
+        if gps_msg.src_callsign in self.contact_widgets:
+            widget = self.contact_widgets[gps_msg.src_callsign]
+            widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+    
     ################### private functions ##############################
     
     def __apply_ini_config(self, ini_config):

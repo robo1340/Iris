@@ -39,6 +39,9 @@ class ViewController():
         
         self.client = SimpleUDPClient('127.0.0.2',8000) #create the UDP client
     
+        self.gps_contacts_dict = {} #a dictionary describing the current gps contacts that have been placed
+            #keys are the callsign string, values are a GPSMessaageObject
+    
         #create the UDP server and map callbacks to it
         dispatcher = Dispatcher()
         dispatcher.map('/test',self.test_handler)
@@ -102,10 +105,17 @@ class ViewController():
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     ##@param args, a list of values holding the GPSMessage's contents
-    @exception_suppressor
+    #@exception_suppressor
     def gps_msg_handler(self, address, *args):
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
+            if not gps_msg.src_callsign in self.gps_contacts_dict:
+                self.ui.addNewGPSContactToUI(gps_msg)
+            else:
+                self.ui.updateGPSContact(gps_msg)
+            self.gps_contacts_dict[gps_msg.src_callsign] = gps_msg
+            
+            
             print('received gps message from the service: ' + gps_msg.src_callsign)
             self.ui.addGPSMessageToUI(gps_msg)
     
