@@ -11,7 +11,7 @@ import functools
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import BlockingOSCUDPServer
+from pythonosc.osc_server import ThreadingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
@@ -54,7 +54,7 @@ class ViewController():
         dispatcher.map('/tx_failure', self.tx_failure_handler)
         dispatcher.map('/rx_success', self.rx_success_handler)
         dispatcher.map('/rx_failure', self.rx_failure_handler)
-        self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
         self.thread.start()
