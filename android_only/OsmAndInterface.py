@@ -36,29 +36,29 @@ class OsmAndInterface():
         self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
         #keys are the callsign string, values are a tuple are objects of type ContactPoint
 
-        try:
-            OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
+        #try:
+        OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
 
-            '''
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            #currentActivity = PythonActivity.mActivity
-            currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
-            #application = currentActivity.getApplication()
-            '''
+        '''
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        #currentActivity = PythonActivity.mActivity
+        currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+        #application = currentActivity.getApplication()
+        '''
 
-            PythonService = autoclass("org.kivy.android.PythonService")
-            activity = cast("android.app.Service", PythonService.mService)
-            application = activity.getApplication()
+        PythonService = autoclass("org.kivy.android.PythonService")
+        activity = cast("android.app.Service", PythonService.mService)
+        application = activity.getApplication()
 
-            self.api = OsmAPI(application) #,None)
+        self.api = OsmAPI(application) #,None)
 
-            time.sleep(1)
-            self.clearContacts() 
+        time.sleep(1)
+        self.clearContacts() 
 
-            log.info('OsmAnd API Init Success')
-        except BaseException:
-            log.error('OsmAnd was not detected on this device')
-            return None
+        log.info('OsmAnd API Init Success')
+        #except BaseException:
+        #    log.error('OsmAnd was not detected on this device')
+        #    return None
     
     ##@brief place a favorite marker in osmand representing the location of a radio contact
     ## that sent GPS coordinates. If the contact has been made previously, update the location of the

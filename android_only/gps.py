@@ -16,6 +16,7 @@ class GPS():
         
     def __on_location_update(self, **kwargs):
         self.current_location = kwargs
+        print('location updated')
         
         ## Decodificas the json
         #s = str(self.current_location)

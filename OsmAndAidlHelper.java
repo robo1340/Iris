@@ -814,7 +814,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 		if (mIOsmAndAidlInterface != null) {
 			try {
 				app.grantUriPermission(OSMAND_PACKAGE_NAME, gpxUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(gpxUri, force));
+				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(gpxUri, force, false));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -852,7 +852,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	public boolean navigateGpxFromData(String data, boolean force) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
-				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(data, force));
+				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(data, force, false));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -1059,7 +1059,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	public boolean navigate(String startName, double startLat, double startLon, String destName, double destLat, double destLon, String profile, boolean force) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
-				return mIOsmAndAidlInterface.navigate(new NavigateParams(startName, startLat, startLon, destName, destLat, destLon, profile, force));
+				return mIOsmAndAidlInterface.navigate(new NavigateParams(startName, startLat, startLon, destName, destLat, destLon, profile, force, false));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -1085,7 +1085,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 		if (mIOsmAndAidlInterface != null) {
 			try {
 				return mIOsmAndAidlInterface.navigateSearch(new NavigateSearchParams(
-						startName, startLat, startLon, searchQuery, searchLat, searchLon, profile, force));
+						startName, startLat, startLon, searchQuery, searchLat, searchLon, profile, force, false));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}

@@ -2,7 +2,6 @@
 # PYTHON_ARGCOMPLETE_OK
 #import argparse
 
-
 import sys
 import itertools
 import logging
@@ -70,6 +69,10 @@ if __name__ == "__main__":
     time.sleep(1) #put a slight delay in when the service starts, so that the UI will be started before the service
     
     print('start of service')
+    
+    #from jnius import autoclass
+    #PythonService = autoclass('org.kivy.android.PythonService')
+    #PythonService.mService.setAutoRestartService(True)
     
     #from android.permissions import request_permissions, Permission
     #from kivy.utils import platform
