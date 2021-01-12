@@ -163,6 +163,8 @@ android.add_src = OsmAndHelper.java, OsmAndAidlHelper.java
 #android.gradle_dependencies = androidx.annotation:annotation:1.1.0, com.github.osmandapp:Osmand:master-SNAPSHOT
 android.gradle_dependencies = com.github.osmandapp:Osmand:master-SNAPSHOT
 
+#android.gradle_dependencies = com.android.tools.build:gradle:4.1.1, org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version
+
 #, com.android.tools.build:gradle:3.4.2
 #, com.github.osmandapp:Osmand:master-SNAPSHOT
 #,org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version

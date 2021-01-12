@@ -35,6 +35,8 @@ class ServiceController():
         self.il2p = il2p
         self.gps = gps
         self.osm = osm
+        if (self.gps != None):
+            self.gps.start(self)
         
         self.gps_beacon_enable = True if (ini_config['MAIN']['gps_beacon_enable'] == '1') else False
         period_str = ini_config['MAIN']['gps_beacon_period']
@@ -112,7 +114,7 @@ class ServiceController():
         #print(txt_msg.marshal())
         self.client.send_message('/txt_msg_rx', txt_msg.marshal())
     
-    #@exception_suppressor
+    @exception_suppressor
     def send_gps_message(self, gps_msg):
         print('sending gps message to View Controller')
         
@@ -144,6 +146,10 @@ class ServiceController():
     @exception_suppressor
     def send_test(self):
         self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
+        
+    #@exception_suppressor
+    def send_gps_lock_achieved(self, isLockAchieved):
+        self.client.send_message('/gps_lock_achieved', isLockAchieved)
     
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################

@@ -54,6 +54,7 @@ class ViewController():
         dispatcher.map('/tx_failure', self.tx_failure_handler)
         dispatcher.map('/rx_success', self.rx_success_handler)
         dispatcher.map('/rx_failure', self.rx_failure_handler)
+        dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
         self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
@@ -152,6 +153,11 @@ class ViewController():
     @exception_suppressor
     def rx_failure_handler(self, address, *args):
         self.ui.update_rx_failure_cnt(args[0])
+        
+    #@exception_suppressor
+    def gps_lock_achieved_hander(self, address, *args):
+        print('gps lock achieved set to: ' + str(args[0]))
+        #update the ui elements to show gps lock achieved
         
     def test_handler(self, address, *args):
         print(args)
