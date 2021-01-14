@@ -86,6 +86,10 @@ class UI_Interface(metaclass=abc.ABCMeta):
     ##@throws throws a InputError when gps_msg does not match an existing GPS contact widget
     def updateGPSContact(self, gps_msg):
         raise NotImplementedError
+        
+    ##@brief update the UI to show that a GPS signal lock has been achieved
+    def notifyGPSLockAchieved(self):
+        raise NotImplementedError
     
     
     ##@brief start the UI

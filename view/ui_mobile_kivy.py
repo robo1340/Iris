@@ -401,6 +401,11 @@ class ui_mobileApp(App, UI_Interface):
         if gps_msg.src_callsign in self.contact_widgets:
             widget = self.contact_widgets[gps_msg.src_callsign]
             widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+            
+    def notifyGPSLockAchieved(self):
+        gps_window = self.gps_window()
+        gps_lock_label = self.__get_child_from_base(gps_window,('root_gps',), 'gps_lock_label')
+        gps_lock_label.text = "GPS Lock Achieved"
     
     ################### private functions ##############################
     

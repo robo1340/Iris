@@ -14,6 +14,7 @@ Samsung Galaxy S10
 
 Radios Tested On:
 Baofeng UV-82hp
+Kenwood TH-K20A
 
 Cables Tested:
 Baofeng APRS-K2 Cable

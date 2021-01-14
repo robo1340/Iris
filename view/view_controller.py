@@ -157,7 +157,7 @@ class ViewController():
     #@exception_suppressor
     def gps_lock_achieved_hander(self, address, *args):
         print('gps lock achieved set to: ' + str(args[0]))
-        #update the ui elements to show gps lock achieved
+        self.ui.notifyGPSLockAchieved() #update the ui elements to show gps lock achieved
         
     def test_handler(self, address, *args):
         print(args)

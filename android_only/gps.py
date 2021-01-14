@@ -15,7 +15,7 @@ class GPS():
             self.service_controller.send_gps_lock_achieved(True) #tell the UI that a gps lock has been achieved
         
         self.current_location = kwargs
-        print('location updated')
+        #print('location updated')
         
         ## Decodificas the json
         #s = str(self.current_location)
