@@ -106,7 +106,7 @@ class ViewController():
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     ##@param args, a list of values holding the GPSMessage's contents
-    #@exception_suppressor
+    @exception_suppressor
     def gps_msg_handler(self, address, *args):
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
@@ -154,7 +154,7 @@ class ViewController():
     def rx_failure_handler(self, address, *args):
         self.ui.update_rx_failure_cnt(args[0])
         
-    #@exception_suppressor
+    @exception_suppressor
     def gps_lock_achieved_hander(self, address, *args):
         print('gps lock achieved set to: ' + str(args[0]))
         self.ui.notifyGPSLockAchieved() #update the ui elements to show gps lock achieved

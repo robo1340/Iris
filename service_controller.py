@@ -147,7 +147,7 @@ class ServiceController():
     def send_test(self):
         self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
         
-    #@exception_suppressor
+    @exception_suppressor
     def send_gps_lock_achieved(self, isLockAchieved):
         self.client.send_message('/gps_lock_achieved', isLockAchieved)
     

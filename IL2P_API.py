@@ -110,7 +110,6 @@ class IL2P_API:
             ack = True if (header.ui == 1) else False
             seq = header.control
             msg = payload.tobytes().decode('ascii','ignore') #convert payload bytes to a string while ignoring all non-ascii characters
-            
             #now need to add handling of acks here
             if (self.isAck(header,payload) == True): #the message received is an acknowledgment
                 if (dst == self.my_callsign): #this is an acknowledgment for me

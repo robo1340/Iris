@@ -104,9 +104,6 @@ def recv(config, src, dst, stat_update, pylab=None):
     try:
         log.debug('Waiting for carrier tone: %.1f kHz', config.Fc / 1e3)
         
-        #this function will only return once a signal above the squelch threshhold has been detected
-        #signal = detector.detect_signal(signal, config.squelch, config.squelch_timeout) 
-        
         #now look for the carrier
         signal, amplitude, freq_error = detector.run(signal)
         stat_update.update_status(Status.SQUELCH_OPEN)
@@ -257,28 +254,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         continue
                     args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
                     
-                    '''
-                    #save to an intermediate file if this is android
-                    args.sender_dst = open('temp.pcm','wb')
-                    
-                    #push the data to args.sender_dst
-                    if (send(config, src=args.sender_src, dst=args.sender_dst)):
-                        stats.txs += 1
-                        args.ui.update_tx_success_cnt(stats.txs)
-                    else:
-                        stats.txf += 1
-                        args.ui.update_tx_failure_cnt(stats.txf)   
-
-                    #convert the intermediate pcm file to a wav file and play it with a java class
-                    args.sender_dst.close()   
-                    with open('temp.pcm', 'rb') as pcmfile:
-                        pcmdata = pcmfile.read()
-                    with wave.open('temp.wav', 'wb') as wavfile:
-                        wavfile.setparams((1, 2, config.Fs, 0, 'NONE', 'NONE'))
-                        wavfile.writeframes(pcmdata)
-                    
-                    '''
-                    
                     #save to an intermediate file if this is android
                     if (AndroidMediaPlayer is not None):
                         args.sender_dst = open('temp.pcm','wb')
@@ -307,7 +282,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         mPlayer.start()
                         time.sleep(mPlayer.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
                         mPlayer.release()
-                    #'''
                     
                     most_recent_tx = time.time()
                     stat_update.update_status(Status.SQUELCH_CLOSED)
