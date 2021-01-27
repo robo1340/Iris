@@ -69,15 +69,18 @@ import net.osmand.aidlapi.navdrawer.NavDrawerFooterParams;
 import net.osmand.aidlapi.navdrawer.NavDrawerHeaderParams;
 import net.osmand.aidlapi.navdrawer.NavDrawerItem;
 import net.osmand.aidlapi.navdrawer.SetNavDrawerItemsParams;
+import net.osmand.aidlapi.navigation.ABlockedRoad;
 import net.osmand.aidlapi.navigation.ADirectionInfo;
 import net.osmand.aidlapi.navigation.ANavigationUpdateParams;
 import net.osmand.aidlapi.navigation.ANavigationVoiceRouterMessageParams;
+import net.osmand.aidlapi.navigation.AddBlockedRoadParams;
 import net.osmand.aidlapi.navigation.MuteNavigationParams;
 import net.osmand.aidlapi.navigation.NavigateGpxParams;
 import net.osmand.aidlapi.navigation.NavigateParams;
 import net.osmand.aidlapi.navigation.NavigateSearchParams;
 import net.osmand.aidlapi.navigation.OnVoiceNavigationParams;
 import net.osmand.aidlapi.navigation.PauseNavigationParams;
+import net.osmand.aidlapi.navigation.RemoveBlockedRoadParams;
 import net.osmand.aidlapi.navigation.ResumeNavigationParams;
 import net.osmand.aidlapi.navigation.StopNavigationParams;
 import net.osmand.aidlapi.navigation.UnmuteNavigationParams;
@@ -116,8 +119,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 
 	private static final String OSMAND_FREE_PACKAGE_NAME = "net.osmand";
 	private static final String OSMAND_PLUS_PACKAGE_NAME = "net.osmand.plus";
-	//private static final String OSMAND_PACKAGE_NAME = OSMAND_PLUS_PACKAGE_NAME;
-    private static final String OSMAND_PACKAGE_NAME = OSMAND_FREE_PACKAGE_NAME;
+	private static final String OSMAND_PACKAGE_NAME = OSMAND_PLUS_PACKAGE_NAME;
 
 	private static final int MAX_RETRY_COUNT = 10;
 	private static final long BUFFER_SIZE = COPY_FILE_PART_SIZE_LIMIT;
@@ -137,7 +139,6 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
     public void osmandMissing() {
         Log.w("python","OsmAnd was not found!");
     }
-
 
 	interface SearchCompleteListener {
 		void onSearchComplete(List<SearchResult> resultSet);
@@ -263,27 +264,21 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 			// service through an IDL interface, so get a client-side
 			// representation of that from the raw service object.
 			mIOsmAndAidlInterface = IOsmAndAidlInterface.Stub.asInterface(service);
-            Log.i("python","OsmAnd Service Connected");
+             Log.i("python","OsmAnd Service Connected");
 			//Toast.makeText(app, "OsmAnd service connected", Toast.LENGTH_SHORT).show();
 		}
 		public void onServiceDisconnected(ComponentName className) {
 			// This is called when the connection with the service has been
 			// unexpectedly disconnected -- that is, its process crashed.
 			mIOsmAndAidlInterface = null;
-            Log.w("python","OsmAnd Service NOT Connected");
+             Log.w("python","OsmAnd service disconnected");
 			//Toast.makeText(app, "OsmAnd service disconnected", Toast.LENGTH_SHORT).show();
 		}
 	};
 
-    public OsmAndAidlHelper(Application application) {
+	public OsmAndAidlHelper(Application application) {
 		this.app = application;
 		this.mOsmandMissingListener = this;
-		bindService();
-	}
-
-	public OsmAndAidlHelper(Application application, OnOsmandMissingListener listener) {
-		this.app = application;
-		this.mOsmandMissingListener = listener;
 		bindService();
 	}
 
@@ -293,11 +288,11 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 			intent.setPackage(OSMAND_PACKAGE_NAME);
 			boolean res = app.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 			if (res) {
-                Log.i("python","OsmAnd Service bind");
+                Log.i("python","OsmAnd Service bound");
 				//Toast.makeText(app, "OsmAnd service bind", Toast.LENGTH_SHORT).show();
 				return true;
 			} else {
-                Log.w("python","OsmAnd Service NOT bound");
+                Log.w("python","OsmAnd service NOT bound");
 				//Toast.makeText(app, "OsmAnd service NOT bind", Toast.LENGTH_SHORT).show();
 				mOsmandMissingListener.osmandMissing();
 				return false;
@@ -810,11 +805,11 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	 * @param gpxUri - URI created by FileProvider.
 	 * @param force - ask to stop current navigation if any. False - ask. True - don't ask.
 	 */
-	public boolean navigateGpxFromUri(Uri gpxUri, boolean force) {
+	public boolean navigateGpxFromUri(Uri gpxUri, boolean force, boolean needLocationPermission) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
 				app.grantUriPermission(OSMAND_PACKAGE_NAME, gpxUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(gpxUri, force, false));
+				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(gpxUri, force, needLocationPermission));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -849,10 +844,10 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	 * @param data - gpx file content.
 	 * @param force - ask to stop current navigation if any. False - ask. True - don't ask.
 	 */
-	public boolean navigateGpxFromData(String data, boolean force) {
+	public boolean navigateGpxFromData(String data, boolean force, boolean needLocationPermission) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
-				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(data, force, false));
+				return mIOsmAndAidlInterface.navigateGpx(new NavigateGpxParams(data, force, needLocationPermission));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -1015,7 +1010,6 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	 * @param lat - latutude of audio note point.
 	 * @param lon - longitude of audio note point.
 	 */
-    /* Gonna disable this one XD
 	public boolean startAudioRecording(double lat, double lon) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
@@ -1026,12 +1020,10 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 		}
 		return false;
 	}
-    */
 
 	/**
 	 * Stop Audio/Video recording.
 	 */
-     /* Gonna disable this one XD
 	public boolean stopRecording() {
 		if (mIOsmAndAidlInterface != null) {
 			try {
@@ -1042,7 +1034,6 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 		}
 		return false;
 	}
-    */
 
 	/**
 	 * Start navigation.
@@ -1056,10 +1047,11 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	 * @param profile - One of: "default", "car", "bicycle", "pedestrian", "aircraft", "boat", "hiking", "motorcycle", "truck". Nullable (default).
 	 * @param force - ask to stop current navigation if any. False - ask. True - don't ask.
 	 */
-	public boolean navigate(String startName, double startLat, double startLon, String destName, double destLat, double destLon, String profile, boolean force) {
+	public boolean navigate(String startName, double startLat, double startLon, String destName, double destLat,
+							double destLon, String profile, boolean force, boolean needLocationPermission) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
-				return mIOsmAndAidlInterface.navigate(new NavigateParams(startName, startLat, startLon, destName, destLat, destLon, profile, force, false));
+				return mIOsmAndAidlInterface.navigate(new NavigateParams(startName, startLat, startLon, destName, destLat, destLon, profile, force, needLocationPermission));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -1081,11 +1073,11 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 	 */
 	public boolean navigateSearch(String startName, double startLat, double startLon,
 								  String searchQuery, double searchLat, double searchLon,
-								  String profile, boolean force) {
+								  String profile, boolean force, boolean needLocationPermission) {
 		if (mIOsmAndAidlInterface != null) {
 			try {
 				return mIOsmAndAidlInterface.navigateSearch(new NavigateSearchParams(
-						startName, startLat, startLon, searchQuery, searchLat, searchLon, profile, force, false));
+						startName, startLat, startLon, searchQuery, searchLat, searchLon, profile, force, needLocationPermission));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
@@ -1695,6 +1687,39 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 			}
 		}
 		return -1L;
+	}
+
+	public boolean getBlockedRoads(List<ABlockedRoad> blockedRoads) {
+		if (mIOsmAndAidlInterface != null) {
+			try {
+				return mIOsmAndAidlInterface.getBlockedRoads(blockedRoads);
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+
+	public boolean addRoadBlock(ABlockedRoad blockedRoad) {
+		if (mIOsmAndAidlInterface != null) {
+			try {
+				return mIOsmAndAidlInterface.addRoadBlock(new AddBlockedRoadParams(blockedRoad));
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+
+	public boolean removeRoadBlock(ABlockedRoad blockedRoad) {
+		if (mIOsmAndAidlInterface != null) {
+			try {
+				return mIOsmAndAidlInterface.removeRoadBlock(new RemoveBlockedRoadParams(blockedRoad));
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		return false;
 	}
 
 	/**

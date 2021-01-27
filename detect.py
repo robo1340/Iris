@@ -49,59 +49,9 @@ class Detector:
                     raise exceptions.NoCarrierDetectedError
 
             if counter == self.CARRIER_THRESHOLD:
-                print(counter)
                 return offset, bufs
 
         raise exceptions.NoCarrierDetectedError
-    
-    '''
-        def _wait(self, samples):
-        counter = 0
-        bufs = collections.deque([], maxlen=self.maxlen)
-        for offset, buf in common.iterate(samples, self.Nsym, index=True):
-            bufs.append(buf)
-
-            coeff = dsp.coherence(buf, self.omega)
-            if abs(coeff) > self.COHERENCE_THRESHOLD:
-                counter += 1
-            else:
-                counter = 0
-                if offset > self.max_offset:
-                    raise exceptions.NoCarrierDetectedError
-
-            if counter == self.CARRIER_THRESHOLD:
-                return offset, bufs
-
-        raise exceptions.NoCarrierDetectedError'''
-        
-    '''  
-    ##@brief detects the carrier sine wave that is sent first
-    def run(self, samples):
-        offset, bufs = self.-(samples)
-
-        length = (self.CARRIER_THRESHOLD - 1) * self.Nsym
-        begin = offset - length
-
-        start_time = begin * self.Tsym / self.Nsym
-        log.debug('Carrier detected at ~%.1f ms @ %.1f kHz', start_time * 1e3, self.freq / 1e3)
-
-        log.debug('Buffered %d ms of audio', len(bufs))
-
-        bufs = list(bufs)[-self.CARRIER_THRESHOLD-self.SEARCH_WINDOW:]
-        n = self.SEARCH_WINDOW + self.CARRIER_DURATION - self.CARRIER_THRESHOLD
-        trailing = list(itertools.islice(samples, n * self.Nsym))
-        bufs.append(np.array(trailing))
-
-        buf = np.concatenate(bufs)
-        offset = self.find_start(buf)
-        start_time += (offset / self.Nsym - self.SEARCH_WINDOW) * self.Tsym
-        log.debug('Carrier starts at %.3f ms', start_time * 1e3)
-
-        buf = buf[offset:]
-
-        prefix_length = self.CARRIER_DURATION * self.Nsym
-        amplitude, freq_err = self.estimate(buf[:prefix_length])
-        return itertools.chain(buf, samples), amplitude, freq_err'''
 
     ##@brief detects the carrier sine wave that is sent first
     def run(self, samples):
@@ -114,15 +64,11 @@ class Detector:
         #print('Carrier detected at ~%.1f ms @ %.1f kHz' % (start_time * 1e3, self.freq / 1e3))
         #print('Buffered %d ms of audio'%(len(bufs)))
 
-        bufs = list(bufs)[-self.CARRIER_THRESHOLD-self.SEARCH_WINDOW:]
-        n = self.SEARCH_WINDOW + self.CARRIER_DURATION - self.CARRIER_THRESHOLD
-        trailing = list(itertools.islice(samples, n * self.Nsym))
-        bufs.append(np.array(trailing))
-
         buf = np.concatenate(bufs)
 
         prefix_length = self.CARRIER_DURATION * self.Nsym
-        amplitude, freq_err = self.estimate(buf[:prefix_length])
+        amplitude, freq_err = self.estimate(buf)
+        print('Amplitude: %f | Frequency Error: %f' % (amplitude, freq_err))
         return itertools.chain(buf, samples), amplitude, freq_err
 
     def estimate(self, buf, skip=5):

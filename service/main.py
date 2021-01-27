@@ -37,7 +37,8 @@ import IL2P_API
 from transceiver import transceiver_func
 from service_controller import ServiceController
 
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
+#log = logging.getLogger('__name__')
 
 master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
 tx_cooldown = 1 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
@@ -46,17 +47,6 @@ rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may n
 # Python 3 has `buffer` attribute for byte-based I/O
 _stdin = getattr(sys.stdin, 'buffer', sys.stdin)
 _stdout = getattr(sys.stdout, 'buffer', sys.stdout)
-
-def _config_log(verbose,quiet):
-    if verbose == 0:
-        level, fmt = 'INFO', '%(message)s'
-    elif verbose == 1:
-        level, fmt = 'DEBUG', '%(message)s'
-    elif verbose >= 2:
-        level, fmt = ('DEBUG', '%(asctime)s %(levelname)-10s %(message)-100s %(filename)s:%(lineno)d')
-    if quiet:
-        level, fmt = 'WARNING', '%(message)s'
-    logging.basicConfig(level=level, format=fmt)
 
 ## @brief simple contain to put arguments used throughout the program in 
 class Args():
@@ -80,7 +70,6 @@ if __name__ == "__main__":
     time.sleep(1) #put a slight delay in when the service starts, so that the UI will be started before the service
     
     print('start of service')
-    _config_log(1,False)
     
     #from jnius import autoclass
     #PythonService = autoclass('org.kivy.android.PythonService')

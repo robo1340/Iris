@@ -13,25 +13,13 @@ import config
 import audio
 import ctypes
 from kivy.logger import Logger
+log = logging.getLogger('__name__')
 
 import IL2P_API
-
-log = logging.getLogger('__name__')
 
 my_callsign = ''
 dst_callsign = ''
 ack_checked_initial = 0
-
-def _config_log(verbose,quiet):
-    if verbose == 0:
-        level, fmt = 'INFO', '%(message)s'
-    elif verbose == 1:
-        level, fmt = 'DEBUG', '%(message)s'
-    elif verbose >= 2:
-        level, fmt = ('DEBUG', '%(asctime)s %(levelname)-10s %(message)-100s %(filename)s:%(lineno)d')
-    if quiet:
-        level, fmt = 'WARNING', '%(message)s'
-    logging.basicConfig(level=level, format=fmt)
 
 def parseCommandLineArguments():
     parser = argparse.ArgumentParser()
@@ -45,7 +33,6 @@ if __name__ == "__main__":
 
     device_type = common.getPlatform() #determine what platform this is
     
-    _config_log(1,False) #configure the logs
     Logger.info('Start of Main Application')
     print('main')
 

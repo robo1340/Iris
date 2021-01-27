@@ -7,7 +7,8 @@ from jnius import autoclass
 import time
 from datetime import datetime
 
-log = logging.getLogger('__name__')
+#log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
 CONTACT_CATEGORY = 'NoBoB Contacts'
 
@@ -36,29 +37,30 @@ class OsmAndInterface():
         self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
         #keys are the callsign string, values are a tuple are objects of type ContactPoint
 
-        #try:
-        OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
+        try:
+            OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
 
-        '''
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        #currentActivity = PythonActivity.mActivity
-        currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
-        #application = currentActivity.getApplication()
-        '''
+            '''
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            #currentActivity = PythonActivity.mActivity
+            currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+            #application = currentActivity.getApplication()
+            '''
 
-        PythonService = autoclass("org.kivy.android.PythonService")
-        activity = cast("android.app.Service", PythonService.mService)
-        application = activity.getApplication()
+            PythonService = autoclass("org.kivy.android.PythonService")
+            activity = cast("android.app.Service", PythonService.mService)
+            application = activity.getApplication()
 
-        self.api = OsmAPI(application) #,None)
+            self.api = OsmAPI(application) #,None)
 
-        time.sleep(1)
-        self.clearContacts() 
+            time.sleep(1)
+            self.clearContacts() 
 
-        log.info('OsmAnd API Init Success')
-        #except BaseException:
-        #    log.error('OsmAnd was not detected on this device')
-        #    return None
+            log.info('OsmAnd API Init Success')
+            #self.placeContact(35.0078, -97.0929, '000001', str(time.time()))
+        except BaseException:
+            log.error('OsmAnd was not detected on this device')
+            return None
     
     ##@brief place a favorite marker in osmand representing the location of a radio contact
     ## that sent GPS coordinates. If the contact has been made previously, update the location of the
@@ -69,6 +71,7 @@ class OsmAndInterface():
     ##@param description the description to be added to the favorites marker, this should be a
     ##  formatted string containing things like the time the contact was made
     def placeContact(self, lat, lon, callsign='', description=''):
+        log.info('Placing contact')
         try:
             if callsign in self.contact_points_dict:
                 pt = self.contact_points_dict[callsign]
