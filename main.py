@@ -12,8 +12,8 @@ from view.view_controller import ViewController
 import config
 import audio
 import ctypes
-from kivy.logger import Logger
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
+#log = logging.getLogger('__name__')
 
 import IL2P_API
 
@@ -33,8 +33,7 @@ if __name__ == "__main__":
 
     device_type = common.getPlatform() #determine what platform this is
     
-    Logger.info('Start of Main Application')
-    print('main')
+    log.info('Start of Main Application')
 
 ###################################################################        
 ####################### Android Device ############################
@@ -56,10 +55,13 @@ if __name__ == "__main__":
         
         ##start the service now
         import android
-        android.start_service(title='NoBoB Service', description='NoBoB Transceiver Running', arg='')
+        service = android.start_service(title='NoBoB Service', description='NoBoB Transceiver Running', arg='')
 
         ui.run() #blocking call
-        #Main program running now
+        
+        print('yo')
+        viewController.service_stop_command() #stop the service threads
+        
         
         viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller   
     

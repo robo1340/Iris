@@ -12,8 +12,7 @@ import equalizer
 import common
 import exceptions
 
-log = logging.getLogger(__name__)
-
+from kivy.logger import Logger as log
 
 class Detector:
 
@@ -31,7 +30,6 @@ class Detector:
         self.Tsym = config.Tsym
         self.maxlen = config.baud  # 1 second of symbols
         self.max_offset = config.timeout * config.Fs
-        self.plt = pylab
 
     def _wait(self, samples):
         counter = 0
@@ -68,7 +66,7 @@ class Detector:
 
         prefix_length = self.CARRIER_DURATION * self.Nsym
         amplitude, freq_err = self.estimate(buf)
-        print('Amplitude: %f | Frequency Error: %f' % (amplitude, freq_err))
+        log.info('Amplitude: %f | Frequency Error: %f' % (amplitude, freq_err))
         return itertools.chain(buf, samples), amplitude, freq_err
 
     def estimate(self, buf, skip=5):
@@ -83,11 +81,8 @@ class Detector:
         phase = np.unwrap(np.angle(symbols)) / (2 * np.pi)
         indices = np.arange(len(phase))
         a, b = dsp.linear_regression(indices, phase)
-        self.plt.figure()
-        self.plt.plot(indices, phase, ':')
-        self.plt.plot(indices, a * indices + b)
 
         freq_err = a / (self.Tsym * self.freq)
         log.debug('Frequency error: %.3f ppm', freq_err * 1e6)
-        self.plt.title('Frequency drift: {0:.3f} ppm'.format(freq_err * 1e6))
+
         return amplitude, freq_err

@@ -18,7 +18,7 @@ sys.path.insert(0,'..') #need to insert parent path to import something from mes
 from messages import TextMessageObject, GPSMessageObject
 import common
 
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
@@ -70,7 +70,7 @@ class ViewController():
     ## @brief send a text message to the service to be transmitted
     @exception_suppressor
     def send_txt_message(self, txt_msg):
-        print('sending a text message to the service')
+        log.info('sending a text message to the service')
         self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
     ## @brief send a new callsign entered by the user to the service
@@ -83,14 +83,19 @@ class ViewController():
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
     @exception_suppressor
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
-        print('sending a gps beacon command to the Service')
+        log.info('sending a gps beacon command to the Service')
         self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     @exception_suppressor
     def gps_one_shot_command(self):
-        print('sending a gps one shot command to the service')
+        log.info('sending a gps one shot command to the service')
         self.client.send_message('/gps_one_shot',(True,))
+        
+    ##@brief send the service a command to shutdown
+    def service_stop_command(self):
+        log.info('view controller shutting down the service')
+        self.client.send_message('/stop',(True,))
     
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
@@ -100,7 +105,7 @@ class ViewController():
     ##@param args, a list of values holding the TextMessage's contents
     @exception_suppressor
     def txt_msg_handler(self, address, *args):
-        print('received text message from the service')
+        log.info('received text message from the service')
         txt_msg = TextMessageObject.unmarshal(args)
         self.ui.addMessageToUI(txt_msg)
     
@@ -117,7 +122,7 @@ class ViewController():
             self.gps_contacts_dict[gps_msg.src_callsign] = gps_msg
             
             
-            print('received gps message from the service: ' + gps_msg.src_callsign)
+            log.info('received gps message from the service: ' + gps_msg.src_callsign)
             self.ui.addGPSMessageToUI(gps_msg)
     
     ##@brief handler for when a GPSMessage object is received from the service this is my current location
@@ -130,12 +135,12 @@ class ViewController():
 
     @exception_suppressor
     def ack_msg_handler(self, address, *args):
-        print('received an acknoweledgement message from the service: '+ str(args))
+        log.info('received an acknoweledgement message from the service: '+ str(args))
         self.ui.addAckToUI((args[0],args[1],int(args[2])))       
     
     @exception_suppressor
     def transceiver_status_handler(self, address, *args):
-        #print('received a status update from the service')
+        #log.info('received a status update from the service')
         self.ui.updateStatusIndicator(args[0])
         
     @exception_suppressor
@@ -156,11 +161,11 @@ class ViewController():
         
     @exception_suppressor
     def gps_lock_achieved_hander(self, address, *args):
-        print('gps lock achieved set to: ' + str(args[0]))
+        log.info('gps lock achieved set to: ' + str(args[0]))
         self.ui.notifyGPSLockAchieved() #update the ui elements to show gps lock achieved
         
     def test_handler(self, address, *args):
-        print(args)
+        log.info(args)
 
     ###############################################################################
     ############################ Thread Routines ##################################

@@ -69,7 +69,7 @@ if __name__ == "__main__":
     
     time.sleep(1) #put a slight delay in when the service starts, so that the UI will be started before the service
     
-    print('start of service')
+    log.info('start of service')
     
     #from jnius import autoclass
     #PythonService = autoclass('org.kivy.android.PythonService')
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     ctypes.CDLL(os.path.join(cwd, 'libgnustl_shared.so'))
     ctypes.CDLL(os.path.join(cwd, 'libportaudio.so'))
-    print('libportaudio loaded')
+    log.debug('libportaudio loaded')
 
     #args = parseCommandLineArguments()
     ini_config = common.parseConfigFile(common.CONFIG_FILE_NAME)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     
     transceiver_thread.start()
 
-    while(True):
-        time.sleep(10)
+    #while(True):
+    #    time.sleep(10)
 
     

@@ -225,7 +225,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     #    args.interface.print_input_devices()
     #    print('==========================')
     
-        while (threading.currentThread().stopped() == False): #main program loop for the receiver
+        while (threading.currentThread().stopped() == False) and (service_controller.stopped() == False): #main program loop for the receiver
     #while (threading.currentThread().stopped() == False): #main program loop for the receiver
     #    with args.interface:
             try:
