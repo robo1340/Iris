@@ -39,7 +39,7 @@ rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may n
 _stdin = getattr(sys.stdin, 'buffer', sys.stdin)
 _stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
 ##@brief a class to cache the most recent status update so that the service does
 ## not needlessly transmit the same status update to the main application over
@@ -54,7 +54,6 @@ class StatusUpdater():
                 self.service_controller.send_status(new_status)
                 self.current_status = new_status
                 
-
 ##@brief main program function to send frames
 ##@config Configuration object
 ##@src a stream of bytes to be sent
@@ -223,11 +222,9 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     
     with args.interface:
     #    args.interface.print_input_devices()
-    #    print('==========================')
     
-        while (threading.currentThread().stopped() == False) and (service_controller.stopped() == False): #main program loop for the receiver
-    #while (threading.currentThread().stopped() == False): #main program loop for the receiver
-    #    with args.interface:
+        while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
+        #while (threading.currentThread().stopped() == False) and (service_controller.stopped() == False): #main program loop for the receiver
             try:
                 #sender args
                 if (AndroidMediaPlayer is None):

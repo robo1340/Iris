@@ -10,7 +10,7 @@ from fec.fec import *
 from interleaving.Interleaver import *
 import exceptions        
 
-log = logging.getLogger(__name__)
+from kivy.logger import Logger as log
 
 preamble = np.array([0x55],dtype=np.uint8)
 

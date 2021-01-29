@@ -30,11 +30,10 @@ def exception_suppressor(func):
 
 class ViewController():
 
-    def __init__(self):#, ui):
+    def __init__(self):
         self.tx_time = time.time()
         self.gps_tx_time = time.time()
     
-        #self.ui = ui
         self.ui = None
         
         self.client = SimpleUDPClient('127.0.0.2',8000) #create the UDP client
@@ -57,11 +56,11 @@ class ViewController():
         dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
         self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
+        self.view_controller_func = lambda server : server.serve_forever() #the thread function
+    
         self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
         self.thread.start()
         
-        #setup some lambda functions
-        #self.stop = lambda : self.thread.stop()
         self.stop = lambda : self.server.shutdown()
     
     ###############################################################################
@@ -162,16 +161,8 @@ class ViewController():
         
     @exception_suppressor
     def gps_lock_achieved_hander(self, address, *args):
-        log.info('gps lock achieved set to: ' + str(args[0]))
+        log.info('gps lock achieved set to- ' + str(args[0]))
         self.ui.notifyGPSLockAchieved() #update the ui elements to show gps lock achieved
         
     def test_handler(self, address, *args):
         log.info(args)
-
-    ###############################################################################
-    ############################ Thread Routines ##################################
-    ###############################################################################
-    
-    def view_controller_func(self, server):
-        #while (threading.currentThread().stopped() == False):
-        server.serve_forever()  # Blocks forever

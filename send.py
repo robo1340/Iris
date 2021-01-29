@@ -7,7 +7,7 @@ import common
 import equalizer
 import dsp
 
-log = logging.getLogger(__name__)
+from kivy.logger import Logger as log
 
 class Sender:
     def __init__(self, fd, config, gain=1.0):

@@ -13,7 +13,6 @@ import config
 import audio
 import ctypes
 from kivy.logger import Logger as log
-#log = logging.getLogger('__name__')
 
 import IL2P_API
 
@@ -31,13 +30,10 @@ def parseCommandLineArguments():
 
 if __name__ == "__main__":
 
+    log.info('Start of Main Application')
+  
     device_type = common.getPlatform() #determine what platform this is
     
-    log.info('Start of Main Application')
-
-###################################################################        
-####################### Android Device ############################
-###################################################################    
     if (device_type == common.Platform.ANDROID):
         from android.permissions import request_permissions, Permission
         from kivy.utils import platform

@@ -15,7 +15,7 @@ from IL2P import *
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import TextMessageObject, GPSMessageObject
 
-log = logging.getLogger(__name__)
+from kivy.logger import Logger as log
 
 #IL2P constants
 

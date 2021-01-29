@@ -59,14 +59,12 @@ class Detector:
         begin = offset - length
 
         start_time = begin * self.Tsym / self.Nsym
-        #print('Carrier detected at ~%.1f ms @ %.1f kHz' % (start_time * 1e3, self.freq / 1e3))
-        #print('Buffered %d ms of audio'%(len(bufs)))
 
         buf = np.concatenate(bufs)
 
         prefix_length = self.CARRIER_DURATION * self.Nsym
         amplitude, freq_err = self.estimate(buf)
-        log.info('Amplitude: %f | Frequency Error: %f' % (amplitude, freq_err))
+        log.debug('Carrier symbols amplitude- %0.3f | Frequency Error- %0.3f ppm' % (amplitude, freq_err*1e6))
         return itertools.chain(buf, samples), amplitude, freq_err
 
     def estimate(self, buf, skip=5):
@@ -76,13 +74,11 @@ class Detector:
         symbols = np.array(symbols[skip:-skip])
 
         amplitude = np.mean(np.abs(symbols))
-        log.debug('Carrier symbols amplitude : %.3f', amplitude)
 
         phase = np.unwrap(np.angle(symbols)) / (2 * np.pi)
         indices = np.arange(len(phase))
         a, b = dsp.linear_regression(indices, phase)
 
         freq_err = a / (self.Tsym * self.freq)
-        log.debug('Frequency error: %.3f ppm', freq_err * 1e6)
 
         return amplitude, freq_err

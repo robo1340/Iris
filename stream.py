@@ -1,6 +1,5 @@
 import time
 
-
 class Reader:
 
     wait = 0.2

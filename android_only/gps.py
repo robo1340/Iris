@@ -15,7 +15,6 @@ class GPS():
             self.service_controller.send_gps_lock_achieved(True) #tell the UI that a gps lock has been achieved
         
         self.current_location = kwargs
-        #print('location updated')
         
         ## Decodificas the json
         #s = str(self.current_location)
@@ -36,7 +35,7 @@ class GPS():
             gps.start(minTime=5000, minDistance=0)
         except BaseException:
             log.error('No GPS detected on this device')
-            #return None
+
 '''
       
 # import needed modules

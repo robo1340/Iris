@@ -75,10 +75,6 @@ if __name__ == "__main__":
     #PythonService = autoclass('org.kivy.android.PythonService')
     #PythonService.mService.setAutoRestartService(True)
     
-    #from android.permissions import request_permissions, Permission
-    #from kivy.utils import platform
-    #request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET])
-
     cwd = os.path.dirname(os.path.abspath(__file__)) #get the current working directory
 
     ctypes.CDLL(os.path.join(cwd, 'libgnustl_shared.so'))
@@ -109,11 +105,10 @@ if __name__ == "__main__":
 
     service_controller = ServiceController(il2p, ini_config, GPS(), OsmAndInterface())
     il2p.service_controller = service_controller
-    transceiver_thread = common.StoppableThread(target=transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
     
-    transceiver_thread.start()
-
-    #while(True):
-    #    time.sleep(10)
-
+    #transceiver_thread = common.StoppableThread(target=transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
+    #transceiver_thread.start()
+    
+    #call the main transceiver loop
+    transceiver_func(args, service_controller, stats, il2p, ini_config, config)
     

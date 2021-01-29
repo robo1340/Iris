@@ -35,7 +35,7 @@ def verify_ini_config(ini_config):
     for p in properties:
         if not (p in ini_config['MAIN']):
             toReturn = False
-            print ('ERROR: %s property not found in .ini config file!' % (p))
+            log.error('ERROR- %s property not found in .ini config file!' % (p))
             
     return toReturn
 
@@ -57,7 +57,7 @@ def getPlatform():
     elif (sys.platform == 'linux'):
         return Platform.LINUX
     else:
-        print(sys.platform)
+        log.info(sys.platform)
         raise Exception('ERROR: This system is not recognized')
 
 ## @brief simple container to put relevant statics and log items as the program runs

@@ -40,7 +40,7 @@ from collections import deque
 #Config.set('graphics', 'height', '650')
 Config.set('graphics', 'maxfps', '1')
 
-log = logging.getLogger(__name__)
+from kivy.logger import Logger as log
 
 from view.ui_interface import UI_Interface
 
@@ -148,7 +148,7 @@ class ui_mobileApp(App, UI_Interface):
     ############### Callback functions called from ui.kv ###############
     
     def goToSettingsScreen(self):
-        print('transitioning to settings screen')
+        log.debug('transitioning to settings screen')
     
     def uiSetMyCallsign(self, text_input_widget):
         self.my_callsign = text_input_widget.text.upper().ljust(6,' ')[0:6] #the callsign after being massaged
@@ -469,7 +469,7 @@ class ui_mobileApp(App, UI_Interface):
                 if (first_iter == True):
                     widget = self.__get_child(base,name)
                     if (widget is None):
-                        print('NONE')
+                        log.debug('NONE')
                     first_iter = False
                 else:
                     widget = self.__get_child(widget,name)

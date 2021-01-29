@@ -7,7 +7,6 @@ from jnius import autoclass
 import time
 from datetime import datetime
 
-#log = logging.getLogger('__name__')
 from kivy.logger import Logger as log
 
 CONTACT_CATEGORY = 'NoBoB Contacts'
@@ -57,7 +56,6 @@ class OsmAndInterface():
             self.clearContacts() 
 
             log.info('OsmAnd API Init Success')
-            #self.placeContact(35.0078, -97.0929, '000001', str(time.time()))
         except BaseException:
             log.error('OsmAnd was not detected on this device')
             return None

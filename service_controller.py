@@ -56,12 +56,11 @@ class ServiceController():
         dispatcher.map('/stop',self.stop_handler)
         #dispatcher.set_default_handler(default_handler)
         self.server = ThreadingOSCUDPServer(("127.0.0.2", 8000), dispatcher)
+
+        self.service_controller_func = lambda server : server.serve_forever() #the thread function
     
         self.thread = common.StoppableThread(target = self.service_controller_func, args=(self.server,))
         self.thread.start()
-
-        #setup some lambda functions
-        #self.stop = lambda : self.thread.stop()
         
     ###############################################################################
     ## Handlers for when the service receives a message from the View Controller ##
@@ -189,16 +188,4 @@ class ServiceController():
             self.send_my_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
             
             self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted
-
-    ###############################################################################
-    ############################ Thread Routines ##################################
-    ###############################################################################
-
-    def service_controller_func(self, server):
-        log.info('service server started')
-        #self.send_test()
-
-        server.serve_forever()  # Blocks forever
-        
-        log.info('Service Controller shutting down')
 
