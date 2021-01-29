@@ -288,7 +288,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                 else:
                     time.sleep(0)
             except FunctionTimedOut:
-                print('\nERROR!:  recv or send timed out\n')
+                log.error('\nERROR!:  recv or send timed out\n')
             #except:
             #    print('uncaught exception or keyboard interrupt')
             finally:

@@ -100,7 +100,7 @@ class ServiceController():
     def stop_handler(self, address, *args):
         log.info('stopping the service threads')
         self.isStopped = True
-        self.thread.stop()
+        self.server.shutdown()
     
     ###############################################################################
     ## Handlers for when the service receives a GPS Message from the Transceiver ##
@@ -200,5 +200,5 @@ class ServiceController():
 
         server.serve_forever()  # Blocks forever
         
-        log.error('ERROR: service controller thread died')
+        log.info('Service Controller shutting down')
 

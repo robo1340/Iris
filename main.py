@@ -57,11 +57,8 @@ if __name__ == "__main__":
         import android
         service = android.start_service(title='NoBoB Service', description='NoBoB Transceiver Running', arg='')
 
-        ui.run() #blocking call
+        ui.run() #blocking call until user exits the app
         
-        print('yo')
-        viewController.service_stop_command() #stop the service threads
-        
-        
+        viewController.service_stop_command() # send a message to stop the service threads
         viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller   
     

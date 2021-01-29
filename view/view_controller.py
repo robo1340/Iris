@@ -61,7 +61,8 @@ class ViewController():
         self.thread.start()
         
         #setup some lambda functions
-        self.stop = lambda : self.thread.stop()
+        #self.stop = lambda : self.thread.stop()
+        self.stop = lambda : self.server.shutdown()
     
     ###############################################################################
     ############### Methods for sending messages to the Service ###################
