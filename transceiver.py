@@ -92,13 +92,13 @@ def send(config, src, dst):
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
 @func_set_timeout(master_timeout)
-def recv(config, src, dst, stat_update, pylab=None):
+def recv(config, src, dst, stat_update, service_controller):
     reader = stream.Reader(src, data_type=common.loads)
     signal = itertools.chain.from_iterable(reader)
 
-    pylab = pylab or common.Dummy()
-    detector = detect.Detector(config=config, pylab=pylab)
-    receiver = _recv.Receiver(config=config, pylab=pylab)
+    #pylab = pylab or common.Dummy()
+    detector = detect.Detector(config=config, pylab=None)
+    receiver = _recv.Receiver(config=config, pylab=None)
      
     try:
         log.debug('Waiting for carrier tone: %.1f kHz', config.Fc / 1e3)
@@ -107,6 +107,8 @@ def recv(config, src, dst, stat_update, pylab=None):
         signal, amplitude, freq_error = detector.run(signal)
         stat_update.update_status(Status.SQUELCH_OPEN)
 
+        service_controller.send_signal_strength(amplitude)
+        
         freq = 1 / (1.0 + freq_error)  # receiver's compensated frequency
         gain = 1.0 / amplitude
         log.info('Gain correction: %.3f Frequency correction: %.3f ppm', gain, (freq - 1) * 1e6)
@@ -234,7 +236,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                 input_opener = common.FileType('rb', interface_factory)
                 args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
 
-                ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, pylab=None)
+                ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
                 if (ret_val == 1):
                     stats.rxs += 1
                     service_controller.send_statistic('rx_success',stats.rxs)
@@ -295,4 +297,12 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     args.sender_src.close()
                 if args.sender_dst is not None:
                     args.sender_dst.close()
-                log.debug('Finished I/O')  
+
+        #end of main while loop
+        if args.recv_src is not None:
+            args.recv_src.close()
+        if args.sender_src is not None:
+            args.sender_src.close()
+        if args.sender_dst is not None:
+            args.sender_dst.close()
+        log.info('Transceiver Thread shutting down')  

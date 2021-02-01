@@ -13,6 +13,13 @@ class GPS():
     def __on_location_update(self, **kwargs):
         if (self.current_location == None):
             self.service_controller.send_gps_lock_achieved(True) #tell the UI that a gps lock has been achieved
+        #what kwargs looks like
+        #{'lat': 37.57422971, 'lon': -97.24803824, 'speed': 0.0, 'bearing': 0.0, 'altitude': 379.0, 'accuracy': 19.296001434326172}
+        #remove entries we aren't interested in
+        kwargs.pop('speed')
+        kwargs.pop('bearing')
+        kwargs.pop('accuracy')
+        #print(kwargs)
         
         self.current_location = kwargs
         

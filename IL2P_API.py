@@ -139,12 +139,9 @@ class IL2P_API:
         elif (header.pid == GPS_PID):
             try:
                 gps_dict = json.loads( payload.tobytes().decode('ascii','ignore') ) #convert payload bytes to a dictionary while ignoring all non-ascii characters
-                log.info(gps_dict['lat'])
-                log.info(gps_dict['lon'])
-                log.info(gps_dict['speed'])
-                log.info(gps_dict['bearing'])
-                log.info(gps_dict['altitude'])
-                log.info(gps_dict['accuracy'])
+                log.debug(gps_dict['lat'])
+                log.debug(gps_dict['lon'])
+                log.debug(gps_dict['altitude'])
                 received_gps_msg = GPSMessageObject(gps_dict, header.src_callsign)
                 self.service_controller.send_gps_message(received_gps_msg) #send the message to the UI
                 #self.msg_output_queue.put(received_gps_msg) #place the received gps message into the receive queue

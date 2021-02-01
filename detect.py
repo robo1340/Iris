@@ -16,12 +16,8 @@ from kivy.logger import Logger as log
 
 class Detector:
 
-    COHERENCE_THRESHOLD = 0.9
-
-    CARRIER_DURATION = equalizer.equalizer_length
-    CARRIER_THRESHOLD = int(0.1 * CARRIER_DURATION)
-    SEARCH_WINDOW = int(0.1 * CARRIER_DURATION)
-    START_PATTERN_LENGTH = SEARCH_WINDOW // 4
+    COHERENCE_THRESHOLD = 0.75
+    CARRIER_THRESHOLD = int(0.03 * equalizer.carrier_length)
 
     def __init__(self, config, pylab):
         self.freq = config.Fc
@@ -40,6 +36,11 @@ class Detector:
             if abs(coeff) > self.COHERENCE_THRESHOLD:
                 counter += 1
                 bufs.append(buf)
+                #if (abs(coeff) > 0.5):
+                #    print(abs(coeff))
+                #if (counter > 1):
+                #    print(counter)
+                
             else:
                 bufs.clear()
                 counter = 0
@@ -62,9 +63,9 @@ class Detector:
 
         buf = np.concatenate(bufs)
 
-        prefix_length = self.CARRIER_DURATION * self.Nsym
         amplitude, freq_err = self.estimate(buf)
-        log.debug('Carrier symbols amplitude- %0.3f | Frequency Error- %0.3f ppm' % (amplitude, freq_err*1e6))
+        #log.debug('Carrier symbols amplitude- %0.3f | Frequency Error- %0.3f ppm' % (amplitude, freq_err*1e6))
+        
         return itertools.chain(buf, samples), amplitude, freq_err
 
     def estimate(self, buf, skip=5):

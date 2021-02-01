@@ -3,10 +3,8 @@
 import logging
 import threading
 import queue
-#import six  # since `Queue` module was renamed to `queue` (in Python 3)
 
-log = logging.getLogger()
-
+from kivy.logger import Logger as log
 
 class AsyncReader:
     def __init__(self, stream, bufsize):

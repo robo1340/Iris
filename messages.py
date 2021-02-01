@@ -43,10 +43,7 @@ class GPSMessageObject():
             gps_dict = json.loads( tuple[0] )
             log.debug(gps_dict['lat'])
             log.debug(gps_dict['lon'])
-            log.debug(gps_dict['speed'])
-            log.debug(gps_dict['bearing'])
             log.debug(gps_dict['altitude'])
-            log.debug(gps_dict['accuracy'])
             return GPSMessageObject(gps_dict, tuple[1])  
         except BaseException:
             log.warning('WARNING: failed to unmarshal a gps message')
@@ -60,7 +57,7 @@ class GPSMessageObject():
         self.src_callsign = src_callsign
        
     def getInfoString(self):
-        fmt = 'lat: %8.4f deg, lon: %8.4f deg\nspd: %6.2f km/h\nbearing: %6.2f deg\nalt: %4.0f m\naccuracy: %5.2f' % (self.lat(),self.lon(),self.speed(),self.bearing(),self.altitude(),self.accuracy())
+        fmt = 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
         return fmt
         
     def lat(self):
@@ -74,28 +71,10 @@ class GPSMessageObject():
             return float(self.location['lon'])
         except BaseException:
             return 0.0
-    
-    def speed(self):
-        try:
-            return float(self.location['speed'])
-        except BaseException:
-            return 0.0   
-
-    def bearing(self):
-        try:
-            return float(self.location['bearing'])
-        except BaseException:
-            return 0.0
 
     def altitude(self):
         try:
             return float(self.location['altitude'])
-        except BaseException:
-            return 0.0
-
-    def accuracy(self):
-        try:
-            return float(self.location['accuracy'])
         except BaseException:
             return 0.0
         

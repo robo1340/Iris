@@ -30,7 +30,6 @@ class Receiver:
 
     def __init__(self, config, pylab=None):
         self.stats = {}
-        self.plt = pylab
         self.modem = dsp.MODEM(config.symbols)
         self.frequencies = np.array(config.frequencies)
         self.omegas = 2 * np.pi * self.frequencies / config.Fs
@@ -64,7 +63,6 @@ class Receiver:
                 if (bit == 0):
                     silence_found = True
                     silence_found_ind = i
-                    #log.info(i)
                 elif(bit != 1):
                     log.warning('WARNING: prefix symbol that is not 0 or 1 found')                   
             elif (silence_found == True):

@@ -403,10 +403,24 @@ class ui_mobileApp(App, UI_Interface):
             widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
             
     def notifyGPSLockAchieved(self):
-        gps_window = self.gps_window()
-        gps_lock_label = self.__get_child_from_base(gps_window,('root_gps',), 'gps_lock_label')
+        gps_lock_label = self.__get_child_from_base(self.gps_window(),('root_gps',), 'gps_lock_label')
         gps_lock_label.text = "GPS Lock Achieved"
-    
+        
+    ##@brief update the audio signal strength indicator on the main page of the app
+    ##@param signal_strength, floating point value indicating the signal strength, should be between 0.05 and 0.6
+    def update_signal_strength(self,signal_strength):
+        if (signal_strength < 0.1):
+            self.main_window().signal_strength_color = self.main_window().signal_low_color
+        elif (signal_strength > 0.5):
+            self.main_window().signal_strength_color = self.main_window().signal_high_color
+        else:
+            self.main_window().signal_strength_color = self.main_window().signal_correct_color
+        
+        #status_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
+        #status_indicator.text = 
+        s = "%2.2f" % (signal_strength)
+        self.main_window().signal_strength = s
+        
     ################### private functions ##############################
     
     def __apply_ini_config(self, ini_config):

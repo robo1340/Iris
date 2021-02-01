@@ -80,7 +80,7 @@ class Sampler:
             # apply interpolation filter
             frame[frame_index] = np.dot(coeffs, self.buff)
             count = frame_index + 1
-
+            
         return self.equalizer(frame[:count])
 
 

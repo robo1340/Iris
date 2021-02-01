@@ -157,6 +157,10 @@ class ServiceController():
     @exception_suppressor
     def send_gps_lock_achieved(self, isLockAchieved):
         self.client.send_message('/gps_lock_achieved', isLockAchieved)
+        
+    @exception_suppressor
+    def send_signal_strength(self, signal_strength):
+        self.client.send_message('/signal_strength',signal_strength)
     
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################

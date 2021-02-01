@@ -2009,7 +2009,7 @@ public class OsmAndAidlHelper implements OnOsmandMissingListener {
 			try {
 				app.grantUriPermission(OSMAND_PACKAGE_NAME, profileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 				return mIOsmAndAidlInterface.importProfile(new ProfileSettingsParams(profileUri, settingsTypeList,
-						replace, null, -1));
+						replace, false, null, -1));
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}

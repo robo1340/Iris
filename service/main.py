@@ -66,15 +66,15 @@ class Args():
 #################### Android Device Service########################
 ################################################################### 
 if __name__ == "__main__":
-    
-    time.sleep(1) #put a slight delay in when the service starts, so that the UI will be started before the service
-    
+    #while True:
+    time.sleep(0.25) #put a slight delay in when the service starts, so that the UI will be started before the service
+
     log.info('start of service')
-    
-    #from jnius import autoclass
-    #PythonService = autoclass('org.kivy.android.PythonService')
-    #PythonService.mService.setAutoRestartService(True)
-    
+
+    from jnius import autoclass
+    PythonService = autoclass('org.kivy.android.PythonService')
+    PythonService.mService.setAutoRestartService(True)
+
     cwd = os.path.dirname(os.path.abspath(__file__)) #get the current working directory
 
     ctypes.CDLL(os.path.join(cwd, 'libgnustl_shared.so'))
@@ -105,10 +105,9 @@ if __name__ == "__main__":
 
     service_controller = ServiceController(il2p, ini_config, GPS(), OsmAndInterface())
     il2p.service_controller = service_controller
-    
+
     #transceiver_thread = common.StoppableThread(target=transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
     #transceiver_thread.start()
-    
+
     #call the main transceiver loop
     transceiver_func(args, service_controller, stats, il2p, ini_config, config)
-    

@@ -54,6 +54,7 @@ class ViewController():
         dispatcher.map('/rx_success', self.rx_success_handler)
         dispatcher.map('/rx_failure', self.rx_failure_handler)
         dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
+        dispatcher.map('/signal_strength',self.signal_strength_handler)
         self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.view_controller_func = lambda server : server.serve_forever() #the thread function
@@ -163,6 +164,12 @@ class ViewController():
     def gps_lock_achieved_hander(self, address, *args):
         log.info('gps lock achieved set to- ' + str(args[0]))
         self.ui.notifyGPSLockAchieved() #update the ui elements to show gps lock achieved
+        
+    @exception_suppressor
+    def signal_strength_handler(self, address, *args):
+        log.info('view controller received signal strength- ' + str(args[0]))
+        self.ui.update_signal_strength(args[0])
+        
         
     def test_handler(self, address, *args):
         log.info(args)
