@@ -2,6 +2,7 @@ import functools
 import itertools
 import logging
 import time
+from detect import Detector
 
 import numpy as np
 from func_timeout import func_set_timeout
@@ -29,6 +30,7 @@ def timeit(method):
 class Receiver:
 
     def __init__(self, config, pylab=None):
+        self.omega = 2 * np.pi * config.Fc / config.Fs
         self.stats = {}
         self.modem = dsp.MODEM(config.symbols)
         self.frequencies = np.array(config.frequencies)
@@ -47,7 +49,7 @@ class Receiver:
     ## this method will read in the carrier wave (represented by a value of 1), then will read in the silent period to ensure the reciever is synchronized to the frame
     ##@param symbols the symbol iterator
     ##@param gain the gain to be applied to each symbol, defaults to 1.0
-    def _prefix(self, symbols, gain=1.0):
+    '''def _prefix(self, symbols, gain=1.0):
         silence_found_ind = 0
         silence_found = False
         ind = 0
@@ -73,6 +75,35 @@ class Receiver:
             if (i == len(equalizer.carrier_preamble)):
                 log.warning('WARNING: prefix reader timed out')
                 break
+    '''
+                
+    def _prefix(self, signal, gain=1.0):
+        silence_found_ind = 0
+        silence_found = False
+        ind = 0
+        i=0
+        #for i in range(0, len(equalizer.carrier_preamble)+1):
+        for buf in common.iterate(signal, self.Nsym):
+            
+            coeff = dsp.coherence(buf, self.omega)
+            bit = 1 if (abs(coeff) > Detector.COHERENCE_THRESHOLD) else 0
+            if (silence_found == False):
+                if (bit == 0):
+                    silence_found = True
+                    silence_found_ind = i
+                elif(bit != 1):
+                    log.warning('WARNING: prefix symbol that is not 0 or 1 found')                   
+            elif (silence_found == True):
+                #if (bit == 0):
+                if ((i - silence_found_ind) >= equalizer.carrier_silence_length):
+                    break
+
+            if (i == len(equalizer.carrier_preamble)):
+                log.warning('WARNING: prefix reader timed out')
+                break
+            else:
+                i += 1
+    
     #@timeit
     def _train(self, sampler, order, lookahead):
         equalizer_length = equalizer.equalizer_length
@@ -165,11 +196,11 @@ class Receiver:
         sampler.freq -= self.freq_err_gain * err
         sampler.offset -= err
 
-    def run(self, sampler, gain, output):
-        symbols = dsp.Demux(sampler, omegas=self.omegas, Nsym=self.Nsym)
+    def run(self, sampler, signal,  gain, output):
         
         log.debug('Carrier Detected: Receiving')
-        self._prefix(symbols, gain=gain)
+        self._prefix(signal, gain=gain)
+        symbols = dsp.Demux(sampler, omegas=self.omegas, Nsym=self.Nsym)
 
         filt = self._train(sampler, order=10, lookahead=10) #train the equalizer filter
         sampler.equalizer = lambda x: list(filt(x))

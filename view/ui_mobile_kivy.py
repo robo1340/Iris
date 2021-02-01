@@ -232,22 +232,25 @@ class ui_mobileApp(App, UI_Interface):
     ############## input functions implementing UI_Interface #################
     
     def updateStatusIndicator(self, status):
-        status_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'status_indicator')
+        root = self.main_window()
+        status_indicator = self.__get_child_from_base(root, ('root_main', 'first_row'), 'status_indicator')
         
         self.statusIndicatorLock.acquire()
         
+        if (status is Status.SQUELCH_CONTESTED):
+            root.indicator_color = root.indicator_pre_rx_color
         if (status is Status.SQUELCH_OPEN):
-            self.main_window().indicator_color = self.main_window().indicator_rx_color 
+            root.indicator_color = root.indicator_rx_color 
         elif (status is Status.CARRIER_DETECTED):
-            self.main_window().indicator_color = self.main_window().indicator_rx_color
+            root.indicator_color = root.indicator_rx_color
         elif (status is Status.SQUELCH_CLOSED):
-            self.main_window().indicator_color = self.main_window().indicator_inactive_color
+            root.indicator_color = root.indicator_inactive_color
         elif (status is Status.MESSAGE_RECEIVED):
-            self.main_window().indicator_color = self.main_window().indicator_success_color
+            root.indicator_color = root.indicator_success_color
         elif (status is Status.TRANSMITTING):
-            self.main_window().indicator_color = self.main_window().indicator_tx_color
+            root.indicator_color = root.indicator_tx_color
         else:
-            self.main_window.indicator_color = self.main_window.indicator_inactive_color
+            root.indicator_color = root.indicator_inactive_color
             
         self.statusIndicatorLock.release()
         

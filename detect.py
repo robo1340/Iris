@@ -10,6 +10,7 @@ import numpy as np
 import dsp
 import equalizer
 import common
+from common import Status
 import exceptions
 
 from kivy.logger import Logger as log
@@ -27,7 +28,7 @@ class Detector:
         self.maxlen = config.baud  # 1 second of symbols
         self.max_offset = config.timeout * config.Fs
 
-    def _wait(self, samples):
+    def _wait(self, samples, stat_update):
         counter = 0
         bufs = collections.deque([], maxlen=self.maxlen)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
@@ -40,6 +41,8 @@ class Detector:
                 #    print(abs(coeff))
                 #if (counter > 1):
                 #    print(counter)
+                #if (counter > 3):
+                #    stat_update.update_status(Status.SQUELCH_CONTESTED)
                 
             else:
                 bufs.clear()
@@ -53,8 +56,8 @@ class Detector:
         raise exceptions.NoCarrierDetectedError
 
     ##@brief detects the carrier sine wave that is sent first
-    def run(self, samples):
-        offset, bufs = self._wait(samples)
+    def run(self, samples, stat_update):
+        offset, bufs = self._wait(samples, stat_update)
 
         length = (self.CARRIER_THRESHOLD - 1) * self.Nsym
         begin = offset - length
@@ -63,12 +66,12 @@ class Detector:
 
         buf = np.concatenate(bufs)
 
-        amplitude, freq_err = self.estimate(buf)
+        amplitude = self.estimate(buf)
         #log.debug('Carrier symbols amplitude- %0.3f | Frequency Error- %0.3f ppm' % (amplitude, freq_err*1e6))
         
-        return itertools.chain(buf, samples), amplitude, freq_err
+        return itertools.chain(buf, samples), amplitude#, freq_err
 
-    def estimate(self, buf, skip=5):
+    def estimate(self, buf, skip=3):
         filt = dsp.exp_iwt(-self.omega, self.Nsym) / (0.5 * self.Nsym)
         frames = common.iterate(buf, self.Nsym)
         symbols = [np.dot(filt, frame) for frame in frames]
@@ -80,6 +83,6 @@ class Detector:
         indices = np.arange(len(phase))
         a, b = dsp.linear_regression(indices, phase)
 
-        freq_err = a / (self.Tsym * self.freq)
+        #freq_err = a / (self.Tsym * self.freq)
 
-        return amplitude, freq_err
+        return amplitude#, freq_err

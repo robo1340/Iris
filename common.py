@@ -71,6 +71,7 @@ class Stats():
 ##@brief status constants
 class Status():
     #event message values
+    SQUELCH_CONTESTED = 6
     SQUELCH_OPEN = 1
     CARRIER_DETECTED = 2
     SQUELCH_CLOSED = 3

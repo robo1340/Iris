@@ -104,17 +104,16 @@ def recv(config, src, dst, stat_update, service_controller):
         log.debug('Waiting for carrier tone: %.1f kHz', config.Fc / 1e3)
         
         #now look for the carrier
-        signal, amplitude, freq_error = detector.run(signal)
+        signal, amplitude = detector.run(signal,stat_update)
         stat_update.update_status(Status.SQUELCH_OPEN)
 
         service_controller.send_signal_strength(amplitude)
         
-        freq = 1 / (1.0 + freq_error)  # receiver's compensated frequency
         gain = 1.0 / amplitude
-        log.info('Gain correction: %.3f Frequency correction: %.3f ppm', gain, (freq - 1) * 1e6)
+        log.info('Gain correction: %.3f', gain)
 
-        sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=freq)
-        receiver.run(sampler, gain=1.0/amplitude, output=dst) #this method will keep running until an exception occurs
+        sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=1)
+        receiver.run(sampler, signal, gain=1.0/amplitude, output=dst) #this method will keep running until an exception occurs
 
     except exceptions.EndOfFrameDetected: #the full frame was received
         if (dst.il2p.readFrame()):
