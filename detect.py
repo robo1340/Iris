@@ -32,7 +32,7 @@ class Detector:
         counter = 0
         bufs = collections.deque([], maxlen=self.maxlen)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
-
+            #buf = buf*6
             coeff = dsp.coherence(buf, self.omega)
             if abs(coeff) > self.COHERENCE_THRESHOLD:
                 counter += 1
@@ -51,25 +51,48 @@ class Detector:
                     raise exceptions.NoCarrierDetectedError
 
             if counter == self.CARRIER_THRESHOLD:
-                return offset, bufs
+                return np.concatenate(bufs)
 
         raise exceptions.NoCarrierDetectedError
 
+    def _prefix(self, signal, gain=1.0):
+        silence_found_ind = 0
+        silence_found = False
+        ind = 0
+        i=0
+        #for i in range(0, len(equalizer.carrier_preamble)+1):
+        for buf in common.iterate(signal, self.Nsym):
+            
+            coeff = dsp.coherence(buf, self.omega)
+            bit = 1 if (abs(coeff) > Detector.COHERENCE_THRESHOLD) else 0
+            if (silence_found == False):
+                if (bit == 0):
+                    silence_found = True
+                    silence_found_ind = i
+                elif(bit != 1):
+                    log.warning('WARNING: prefix symbol that is not 0 or 1 found')                   
+            elif (silence_found == True):
+                #if (bit == 0):
+                if ((i - silence_found_ind) >= equalizer.carrier_silence_length):
+                    break
+
+            if (i == len(equalizer.carrier_preamble)):
+                log.warning('WARNING: prefix reader timed out')
+                break
+            else:
+                i += 1
+    
     ##@brief detects the carrier sine wave that is sent first
     def run(self, samples, stat_update):
-        offset, bufs = self._wait(samples, stat_update)
-
-        length = (self.CARRIER_THRESHOLD - 1) * self.Nsym
-        begin = offset - length
-
-        start_time = begin * self.Tsym / self.Nsym
-
-        buf = np.concatenate(bufs)
+        buf = self._wait(samples, stat_update)
 
         amplitude = self.estimate(buf)
+        gain = 1.0 / amplitude
+        
+        self._prefix(samples,gain)
         #log.debug('Carrier symbols amplitude- %0.3f | Frequency Error- %0.3f ppm' % (amplitude, freq_err*1e6))
         
-        return itertools.chain(buf, samples), amplitude#, freq_err
+        return gain#, freq_err
 
     def estimate(self, buf, skip=3):
         filt = dsp.exp_iwt(-self.omega, self.Nsym) / (0.5 * self.Nsym)
