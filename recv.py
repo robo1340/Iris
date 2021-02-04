@@ -41,7 +41,7 @@ class Receiver:
         self.modem_bitrate = config.modem_bps
         self.equalizer = equalizer.Equalizer(config)
         self.carrier_index = config.carrier_index
-        self.output_size = 0  # number of bytes written to output stream
+        #self.output_size = 0  # number of bytes written to output stream
         self.freq_err_gain = 0.01 * self.Tsym  # integration feedback gain
     
     #@timeit
@@ -152,19 +152,19 @@ class Receiver:
         converter = common.BitPacker()
         for byte in itertools.chain.from_iterable(self.__to_bytes(bitstream, converter)):	
             (received, remaining) = output.addByte(byte)
-            self.output_size += 1   
+            #self.output_size += 1   
             
             if ((received == -1) and (remaining == -1)): #an error occurred while decoding the frame
                 raise exceptions.IL2PHeaderDecodeError
             elif (remaining == 0):
                 raise exceptions.EndOfFrameDetected
 
-    def report(self):
-        if self.stats:
-            duration = time.time() - self.stats['rx_start']
-            audio_time = self.stats['rx_bits'] / float(self.modem_bitrate)
-            log.debug('Demodulated %.3f kB @ %.3f seconds (%.1f%% realtime)', self.stats['rx_bits'] / 8e3, duration, 100 * duration / audio_time if audio_time else 0)
-            #log.info('Received %.3f kB @ %.3f seconds = %.3f kB/s', self.output_size * 1e-3, duration, self.output_size * 1e-3 / duration)
+    #def report(self):
+    #    if self.stats:
+    #        duration = time.time() - self.stats['rx_start']
+    #        audio_time = self.stats['rx_bits'] / float(self.modem_bitrate)
+    #        log.debug('Demodulated %.3f kB @ %.3f seconds (%.1f%% realtime)', self.stats['rx_bits'] / 8e3, duration, 100 * duration / audio_time if audio_time else 0)
+    #        #log.info('Received %.3f kB @ %.3f seconds = %.3f kB/s', self.output_size * 1e-3, duration, self.output_size * 1e-3 / duration)
 
     #@timeit
     def __to_bytes(self, bits, converter):

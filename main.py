@@ -29,7 +29,6 @@ def parseCommandLineArguments():
     return commandline_args
 
 if __name__ == "__main__":
-    #while True:
     log.info('Start of Main Application')
 
     device_type = common.getPlatform() #determine what platform this is
@@ -49,17 +48,14 @@ if __name__ == "__main__":
         ui = view.ui_mobile_kivy.ui_mobileApp(viewController, ini_config)
         viewController.ui = ui
 
-        ##start the service now
-        #import android
-        from android import AndroidService
-        #service = android.start_service(title='NoBoB Service', description='NoBoB Transceiver Running', arg='')
-
-        service = AndroidService('NoBoB Service', 'NoBoB Transceiver Running')
-        service.start('')
+        from jnius import autoclass
+        service = autoclass('com.projectx.nobob.ServiceService')
+        mActivity = autoclass('org.kivy.android.PythonActivity').mActivity
+        service.start(mActivity, 'arg')
 
         ui.run() #blocking call until user exits the app
 
-        service.stop()
+        service.stop(mActivity)
         viewController.service_stop_command() # send a message to stop the service threads
         viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller   
 

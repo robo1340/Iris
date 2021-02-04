@@ -4,7 +4,7 @@
 title = NoBoB
 
 # (str) Package name
-package.name = NoBoB
+package.name = nobob
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = com.projectx
@@ -50,13 +50,13 @@ requirements = python3,kivy,numpy,func_timeout,jnius,plyer,python-osc
 #presplash.filename = %(source.dir)s/data/presplash.png
 
 # (str) Icon of the application
-#icon.filename = %(source.dir)s/data/icon.png
+icon.filename = ./resources/ham.jpg
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
 
 # (list) List of service to declare
-services = main_service:./service/main.py
+services = service:./service/main.py
 
 #
 # OSX Specific
@@ -83,7 +83,7 @@ fullscreen = 0
 # red, blue, green, black, white, gray, cyan, magenta, yellow, lightgray,
 # darkgray, grey, lightgrey, darkgrey, aqua, fuchsia, lime, maroon, navy,
 # olive, purple, silver, teal.
-#android.presplash_color = #FFFFFF
+android.presplash_color = darkgrey
 
 # (list) Permissions
 android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET

@@ -64,7 +64,7 @@ class Detector:
         for buf in common.iterate(signal, self.Nsym):
             
             coeff = dsp.coherence(buf, self.omega)
-            bit = 1 if (abs(coeff) > Detector.COHERENCE_THRESHOLD) else 0
+            bit = 1 if (abs(coeff) > self.COHERENCE_THRESHOLD) else 0
             if (silence_found == False):
                 if (bit == 0):
                     silence_found = True
