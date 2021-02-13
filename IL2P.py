@@ -3,7 +3,6 @@ import io
 import time
 import threading
 import queue
-import logging
 
 import interleaving
 from fec.fec import *
@@ -12,7 +11,27 @@ import exceptions
 
 from kivy.logger import Logger as log
 
-preamble = np.array([0x55],dtype=np.uint8)
+#preamble = np.array([0x55],dtype=np.uint8)
+
+
+PRIMES = [2,      3,      5,      7,     11,     13,     17,     19,    23,     29, 
+     31,     37,     41,     43,     47,     53,     59,     61,     67,     71, 
+     73,     79,     83,     89,     97,    101,    103,    107,    109,    113, 
+    127,    131,    137,    139,    149,    151,    157,    163,    167,    173, 
+    179,    181,    191,    193,    197,    199,    211,    223,    227,    229, 
+    233,    239,    241,    251,    257,    263,    269,    271,    277,    281, 
+    283,    293,    307,    311,    313,    317,    331,    337,    347,    349, 
+    353,    359,    367,    373,    379,    383,    389,    397,    401,    409, 
+    419,    421,    431,    433,    439,    443,    449,    457,    461,    463, 
+    467,    479,    487,    491,    499,    503,    509,    521,    523,    541, 
+    547,    557,    563,    569,    571,    577,    587,    593,    599,    601, 
+    607,    613,    617,    619,    631,    641,    643,    647,    653,    659, 
+    661,    673,    677,    683,    691,    701,    709,    719,    727,    733, 
+    739,    743,    751,    757,    761,    769,    773,    787,    797,    809, 
+    811,    821,    823,    827,    829,    839,    853,    857,    859,    863, 
+    877,    881,    883,    887,    907,    911,    919,    929,    937,    941, 
+    947,    953,    967,    971,    977,    983,    991,    997]
+
 
 ##A class used to prepare IL2P data for transmission and decode received IL2P frames
 class IL2P_Frame_Engine:
@@ -25,6 +44,55 @@ class IL2P_Frame_Engine:
         self.payload_decoder = FramePayloadDecoder()
         self.interleaver = Interleaver()
         self.deinterleaver = Deinterleaver()
+        self.f = lambda i, n, k : (i*k)%n #byte scrambling function
+    
+    #find the scrambling multiplier, which is the smallest prime number greater than 2 which does not evenly divide n
+    def _find_scrambling_multiplier(self,n):
+        for p in PRIMES:
+            if ((n%p) != 0):
+                return p
+        return -1
+
+    
+    
+    def _descramble_bytes(self,bytes_to_descramble):
+        return bytes_to_descramble
+        '''
+        n = bytes_to_descramble.size
+        if (n < 3): #do not scramble the bytes
+            return bytes_to_descramble
+        
+        k = self._find_scrambling_multiplier(n)
+        if (k == -1):
+            log.error('ERROR: could not find a suitable k value')
+            return bytes_to_descramble
+
+        toReturn = np.zeros_like(bytes_to_descramble)
+        for i in range(0,n):
+            toReturn[self.f(i,n,k)] = bytes_to_descramble[i]
+        return toReturn
+        '''
+        
+    
+    def _scramble_bytes(self,bytes_to_scramble):
+        return bytes_to_scramble 
+        '''
+        n = bytes_to_scramble.size
+        print(n)
+        if (n < 3): #do not scramble the bytes
+            return bytes_to_descramble
+        
+        k = self._find_scrambling_multiplier(n)
+        if (k == -1):
+            log.error('ERROR: could not find a suitable k value')
+            return bytes_to_descramble
+        
+        toReturn = np.zeros_like(bytes_to_scramble)
+        for i in range(0,n):
+            toReturn[i] = bytes_to_scramble[self.f(i,n,k)]
+        return toReturn
+        '''
+        
     
     ##@brief prepares frame for modulation by packing header information into 13 bytes and interleaving the bits
     ##@param header_bytes 1d numpy array of length 13 holding the IL2P header information
@@ -49,18 +117,19 @@ class IL2P_Frame_Engine:
         fec_encoded_header = self.header_codec.encode(interleaved_header)
         fec_encoded_payload = self.payload_encoder.encode(interleaved_payload)
         
-        return np.concatenate( (preamble,fec_encoded_header,fec_encoded_payload) )
+        #return np.concatenate( (preamble,fec_encoded_header,fec_encoded_payload) )
+        return np.concatenate( (self._scramble_bytes(fec_encoded_header),self._scramble_bytes(fec_encoded_payload)) )
     
     ##@brief extract the header and payload information from a newly received frame
     ##@param raw_frame the raw frame bytes that were received
     ##@throws IL2PHeaderDecodeError thrown when the Solomon Reed decoder could not correct all the errors in the frame header
     ##@return returns a tuple. The first element is an IL2P_Frame_Header object, the second is a boolean that is true if the full payload could be corrected, the third is the frame payload information as a numpy 1d array of bytes
     def decode_frame(self, raw_frame):
-        if (len(raw_frame) < 26):
+        if (len(raw_frame) < 25):#26):
             raise ValueError('raw_frame is to short to be an IL2P frame')
-        if (raw_frame[0] != preamble[0]):
-            log.warning('WARNING: link layer preamble is incorrect')
-        (decode_success,header_decoded) = self.header_codec.decode(raw_frame[1:26])
+        #if (raw_frame[0] != preamble[0]):
+        #    log.warning('WARNING: link layer preamble is incorrect')
+        (decode_success,header_decoded) = self.header_codec.decode(self._descramble_bytes(raw_frame[0:25]))
         
         if (decode_success == False): #if the header could not be decoded
             raise exceptions.IL2PHeaderDecodeError('Error: could not decode the IL2P frame header')
@@ -70,7 +139,7 @@ class IL2P_Frame_Engine:
         header_bytes = self.deinterleaver.descramble_bits(header_decoded)
         header = IL2P_Frame_Header.unpack_header(header_bytes)
 
-        (payload_decode_success, payload_decoded) = self.payload_decoder.decode(raw_frame[26:,], header.getPayloadSize())
+        (payload_decode_success, payload_decoded) = self.payload_decoder.decode(self._descramble_bytes(raw_frame[25:,]), header.getPayloadSize())
 
         payload_bytes = self.deinterleaver.descramble_bits(payload_decoded)
 
@@ -82,12 +151,12 @@ class IL2P_Frame_Engine:
     ##@throws valueError, thrown when the arguments passed in are not correct
     ##@return returns an IL2P_Frame_Header object
     def decode_header(self, raw_header, verbose=True):
-        if (len(raw_header) < 26):
+        if (len(raw_header) < 25):#26):
             raise ValueError('raw_header is to short to be an IL2P header')
-        if (raw_header[0] != preamble[0]):
-            log.warning('WARNING: link layer preamble is incorrect')
-        (decode_success,header_decoded) = self.header_codec.decode(raw_header[1:26],verbose)
-        
+        #if (raw_header[0] != preamble[0]):
+        #    log.warning('WARNING: link layer preamble is incorrect')
+        (decode_success,header_decoded) = self.header_codec.decode(self._descramble_bytes(raw_header[0:25]),verbose)
+         
         if (decode_success == False): #if the header could not be decoded
             raise exceptions.IL2PHeaderDecodeError('Error: could not decode the IL2P frame header')
             return

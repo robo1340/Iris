@@ -1,10 +1,9 @@
 import numpy as np
-import logging
 from math import floor,ceil
 
 from fec.reedsolo import *
 
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
 ##class used to handle Reed Solomon encoding/decoding of IL2P frame headers
 class FrameHeaderCodec:
@@ -103,7 +102,7 @@ class FramePayloadDecoder:
     
     ## @brief perform Solomon Reed decoding on an IL2P frame payload
     ## @param msg A numpy 1-dimensional array of bytes holding the frame to be decoded
-    ## @param len The length (in bytes) that the frame is expected to have after it has been decoded. This information is included in the IL2P header
+    ## @param len_exp The length (in bytes) that the frame is expected to have after it has been decoded. This information is included in the IL2P header
     ## @return Returns a tuple, the first element is a boolean indicating if decoding was completely successful, the second element contains a numpy 
     ## 1-dimensional array of bytes holding the decoding frame data if errors can be corrected
     ## returns an error if Solomon Reed decoding is not successful
@@ -151,15 +150,15 @@ class FramePayloadDecoder:
                 toReturn[toReturn_ind:toReturn_ind+small_block_len] = temp
                 error_logging_tuples.append(('S'+str(i), len(error_ind)))
             except ReedSolomonError:
-                error_logging_tuples.append('S'+str(i), -1)
+                error_logging_tuples.append(('S'+str(i), -1))
                 
                 decodeSuccess = False
 
             msg_ind += small_block_len + ecc_sym_cnt
             toReturn_ind += small_block_len
         
-        if (verbose):
-            log.info('\tdecode report: %s',error_logging_tuples)
+        #if (verbose):
+        log.info('\tdecode report: %s',error_logging_tuples)
             
         return (decodeSuccess, toReturn)
             

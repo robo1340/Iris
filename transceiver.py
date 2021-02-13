@@ -106,6 +106,9 @@ def recv(config, src, dst, stat_update, service_controller):
         #now look for the carrier
         gain = detector.run(signal,stat_update)
         stat_update.update_status(Status.SQUELCH_OPEN)
+        
+        if (gain < 0): #if the program gets here, a carrier was detected but no barker code was found thereafter
+            raise exceptions.NoBarkerCodeDetectedError
 
         service_controller.send_signal_strength(1.0/gain)
         
@@ -126,6 +129,9 @@ def recv(config, src, dst, stat_update, service_controller):
         stat_update.update_status(Status.SQUELCH_CLOSED)
         return -1
     except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
+        stat_update.update_status(Status.SQUELCH_CLOSED)
+        return 0
+    except (exceptions.NoBarkerCodeDetectedError): #exception is raised when carrier is detected but no susequent barker code is
         stat_update.update_status(Status.SQUELCH_CLOSED)
         return 0
     except FunctionTimedOut:

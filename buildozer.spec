@@ -83,7 +83,7 @@ fullscreen = 0
 # red, blue, green, black, white, gray, cyan, magenta, yellow, lightgray,
 # darkgray, grey, lightgrey, darkgrey, aqua, fuchsia, lime, maroon, navy,
 # olive, purple, silver, teal.
-android.presplash_color = darkgrey
+android.presplash_color = lightgrey
 
 # (list) Permissions
 android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET
@@ -231,7 +231,7 @@ android.add_gradle_repositories = "mavenCentral()" ,  "maven {url 'https://jitpa
 #android.uses_library =
 
 # (str) Android logcat filters to use
-android.logcat_filters = *:S python:D
+android.logcat_filters = *:S python:D service:D
 
 # (bool) Copy library instead of making a libpymodules.so
 #android.copy_libs = 1

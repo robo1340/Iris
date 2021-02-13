@@ -58,7 +58,8 @@ class Receiver:
         #print(signal)
 
         coeffs = equalizer.train(
-            signal=signal[prefix:-postfix], #only look at the part of the signal containing the training symbols
+            signal = signal,
+            #signal=signal[prefix:-postfix], #only look at the part of the signal containing the training symbols
             expected=np.concatenate([train_signal, np.zeros(lookahead)]),
             order=order, lookahead=lookahead
         )

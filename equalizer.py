@@ -44,12 +44,12 @@ class Equalizer:
         return np.array(list(itertools.islice(symbols, size)))
 
 carrier_length = 700
-carrier_silence_length = 2#10
-carrier_silence = carrier_silence_length*[0]
-carrier_preamble = [1]*carrier_length + carrier_silence
+#carrier_silence_length = 2#10
+#carrier_silence = carrier_silence_length*[0]
+#carrier_preamble = [1]*carrier_length + carrier_silence
 
 equalizer_length = 50#200
-silence_length = 2
+silence_length = 0
 prefix_silence = [0]*silence_length
 prefix = [1]*equalizer_length + prefix_silence
 

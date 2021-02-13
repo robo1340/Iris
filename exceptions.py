@@ -7,6 +7,9 @@ class IL2PHeaderDecodeError(Exception):
     
 class NoCarrierDetectedError(Exception):
     pass
+
+class NoBarkerCodeDetectedError(Exception):
+    pass
     
 class EndOfFrameDetected(Exception):
     pass
