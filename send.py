@@ -23,6 +23,7 @@ class Sender:
         self.equalizer = equalizer.Equalizer(config)
         self.barker_symbols = [-1, 1, 1, 1,-1,-1,-1, 1,-1,-1, 1,-1]
         self.barker_signal = np.concatenate(self.equalizer.modulator(self.barker_symbols))
+        self.carrier_length = config.carrier_length
 
     def write(self, sym):
         sym = np.array(sym) * self.gain
@@ -31,28 +32,16 @@ class Sender:
         self.offset += len(sym)
 
     def start(self):
-        for i in range(0,equalizer.carrier_length):
+        for i in range(0,self.carrier_length):
             self.write(self.pilot)
         
         self.write(self.barker_signal)
         
         symbols = self.equalizer.train_symbols(equalizer.equalizer_length)
         signal = self.equalizer.modulator(symbols)
-        self.write(self.silence) #prefix
+        #self.write(self.silence) #prefix
         self.write(signal) #train symbols
-        self.write(self.silence) #postfix
-        
-    '''
-    def start(self):
-        for value in equalizer.carrier_preamble:
-            self.write(self.pilot * value)
-
-        symbols = self.equalizer.train_symbols(equalizer.equalizer_length)
-        signal = self.equalizer.modulator(symbols)
-        self.write(self.silence) #prefix
-        self.write(signal) #train symbols
-        self.write(self.silence) #postfix
-    '''
+        #self.write(self.silence) #postfix
                 
     ##@brief modulates and sends a stream of bytes to self.fd
     ##@param data an iterable stream of bytes
