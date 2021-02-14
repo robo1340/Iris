@@ -90,7 +90,7 @@ class IL2P_API:
         #acknowledgments are identified by the 1-bit ui field in the header and the length of the payload:
         # 1) A frame with the ui field set to 1 and a payload length greater than 0 is requesting an acknowledgment from the destination callsign
         # 2) A frame with the ui field set to 1 and no payload is an acknowledgment responding to case 1 above
-        # 3) A frame with the ui field is not an acknowledgment and is not requesting an acknowledgment
+        # 3) A frame with the ui field set to 0 is not an acknowledgment and is not requesting an acknowledgment
         # 4) (special case) When ui is set to 1 and the destination callsign is the broadcast callsign, the sender will not re-transmit the message if no ack is received
         self.isAck          = lambda hdr,pld : ((hdr.ui == 1) and (len(pld)==0))
         self.requestsAck    = lambda hdr,pld : ((hdr.ui == 1) and (len(pld) > 0))
@@ -184,25 +184,30 @@ class IL2P_API:
             return toReturn
             
     ##@brief return the next Frame to be transmitted
-    ##@return - Returns the next frame to be transmitted, prioritizing new frames, and then re-transmissions. Returns None if there is nothing to transmit
+    ##@return - Returns a tuple containing the next frame to be transmitted and the carrier length to use
+    ## New Frames are prioritized, then re-transmissions
+    ## If there is nothing to transmit, returns (None,0)
     def getNextFrameToTransmit(self):
         if (self.msg_send_queue.empty() == False):
-            return self.msgToFrame(self.msg_send_queue.get())
+            msg = self.msg_send_queue.get()
+            carrier_len = msg.carrier_len
+            return (self.msgToFrame(msg),carrier_len)
         elif (len(self.pending_acks) == 0):
-            return None
+            return (None,0)
         else:
             toReturn = None
             self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
+                #if (retry.ready() == True):
                 if (retry.ready() == True):
-                    if (retry.ready() == True):
-                        retry.decrement()
-                        toReturn = self.writer.getFrameFromTextMessage(retry.msg)
-                    else:
-                        self.pending_acks.pop(key)
-                        toReturn = self.getNextFrameToTransmit()   
+                    retry.decrement()
+                    toReturn = self.writer.getFrameFromTextMessage(retry.msg)
+                    carrier_len = retry.msg.carrier_len
+                    #else:
+                    #    self.pending_acks.pop(key)
+                    #    toReturn = self.getNextFrameToTransmit()   
             self.pending_acks_lock.release()
-            return toReturn
+            return (toReturn,carrier_len)
 
     ##class used to read bytes from the phy layer and detect when a valid Frame is being received
     class IL2P_Frame_Reader:

@@ -44,6 +44,7 @@ class ServiceController():
         self.gps_beacon_period = int(period_str) if period_str.isdigit() else 30
         
         self.gps_beacon_sched = sched.scheduler(time.time, time.sleep)
+        self.carrier_length = int(ini_config['MAIN']['carrier_length'])
         
         self.client = SimpleUDPClient('127.0.0.1',8000) #create the UDP client
         
@@ -71,6 +72,7 @@ class ServiceController():
     def txt_msg_handler(self, address, *args):
         log.info('text message received from the View Controller')
         txt_msg = TextMessageObject.unmarshal(args)
+        #log.info(txt_msg.carrier_len)
         self.il2p.msg_send_queue.put(txt_msg)
     
     ## @brief callback for when the View Controller sends a new callsign
@@ -188,7 +190,7 @@ class ServiceController():
             if (loc is None):
                 log.warning('WARNING: No GPS location provided')
                 return
-            gps_msg = GPSMessageObject(loc, self.il2p.my_callsign)
+            gps_msg = GPSMessageObject(loc, self.il2p.my_callsign,self.carrier_length)
             self.send_my_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
             
             self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted

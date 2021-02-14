@@ -10,8 +10,8 @@ import dsp
 from kivy.logger import Logger as log
 
 class Sender:
-    def __init__(self, fd, config, gain=1.0):
-        self.gain = gain
+    def __init__(self, fd, config, carrier_length=750):
+        self.gain = 1.0
         self.offset = 0
         self.fd = fd
         self.modem = dsp.MODEM(config.symbols)
@@ -23,7 +23,7 @@ class Sender:
         self.equalizer = equalizer.Equalizer(config)
         self.barker_symbols = [-1, 1, 1, 1,-1,-1,-1, 1,-1,-1, 1,-1]
         self.barker_signal = np.concatenate(self.equalizer.modulator(self.barker_symbols))
-        self.carrier_length = config.carrier_length
+        self.carrier_length = carrier_length
 
     def write(self, sym):
         sym = np.array(sym) * self.gain

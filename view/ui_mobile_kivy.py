@@ -124,6 +124,7 @@ class ui_mobileApp(App, UI_Interface):
         self.autoScroll = False
         self.modulation_type = 2
         self.carrier_frequency = 1000
+        self.carrier_length = 750
         
         self.gps_beacon_enable = False
         self.gps_beacon_period = 0
@@ -165,6 +166,20 @@ class ui_mobileApp(App, UI_Interface):
         self.ini_config['MAIN']['dst_callsign'] = self.dstCallsign
         updateConfigFile(self.ini_config)
 
+    def uiSetCarrierLength(self, text_input_widget):
+        newString = ''
+        try:
+            for char in text_input_widget.text:
+                if (char.isdigit() == True):
+                    newString = newString + char
+            self.carrier_length = max(250,min(3000,int(newString))) #absolute max and min values are hardcoded here          
+        except BaseException:
+            self.carrier_length = 750 #default to this value if anything goes wrong
+        #text_input_widget.text = str(self.carrier_length)
+        #log.info(self.carrier_length)
+        self.ini_config['MAIN']['carrier_length'] = str(self.carrier_length)
+        updateConfigFile(self.ini_config)
+    
     def sendMessage(self, text_input_widget): 
         chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
  
@@ -174,7 +189,7 @@ class ui_mobileApp(App, UI_Interface):
         ack = self.ackChecked
         #print('ackChecked ' + str(ack))
         for msg_str in messages:
-            msg = TextMessageObject(msg_str, src, dst, ack)
+            msg = TextMessageObject(msg_str, src, dst, ack, carrier_len = self.carrier_length)
             self.viewController.send_txt_message(msg)
             self.addMessageToUI(msg, my_message=True)
 
@@ -448,6 +463,10 @@ class ui_mobileApp(App, UI_Interface):
         my_callsign_widget = self.__get_child(settings,'my_callsign')
         my_callsign_widget.text = ini_config['MAIN']['my_callsign']
         self.my_callsign = ini_config['MAIN']['my_callsign']  
+        
+        carrier_length_widget = self.__get_child(settings,'carrier_length')
+        carrier_length_widget.text = ini_config['MAIN']['carrier_length']
+        self.carrier_length = ini_config['MAIN']['carrier_length']
         
         modulation_selector = self.__get_child(settings, 'modulation_type')
         self.modulation_type = int(ini_config['MAIN']['npoints'])

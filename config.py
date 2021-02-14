@@ -12,7 +12,7 @@ class Configuration:
     latency = 0.1
 
     # sender config
-    carrier_length = 750 ##carrier length in milliseconds
+    #carrier_length = 750 ##carrier length in milliseconds
     silence_start = 0.1
     silence_stop = 0.1
 

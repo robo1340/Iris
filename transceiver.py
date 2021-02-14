@@ -58,10 +58,11 @@ class StatusUpdater():
 ##@config Configuration object
 ##@src a stream of bytes to be sent
 ##@dst a stream to send bytes to
+##@param carrier_length specifies the carrier length (in milliseconds) to use
 ##@return returns true when src is sent successfully, returns false when an exception occurs
 @func_set_timeout(master_timeout)
-def send(config, src, dst):    
-    sender = _send.Sender(dst, config=config)
+def send(config, src, dst, carrier_length):    
+    sender = _send.Sender(dst, config=config, carrier_length=carrier_length)
     Fs = config.Fs
 
     try: 
@@ -132,7 +133,7 @@ def recv(config, src, dst, stat_update, service_controller):
         stat_update.update_status(Status.SQUELCH_CLOSED)
         return 0
     except (exceptions.NoBarkerCodeDetectedError): #exception is raised when carrier is detected but no susequent barker code is
-        stat_update.update_status(Status.SQUELCH_CLOSED)
+        stat_update.update_status(Status.SQUELCH_CONTESTED)
         return 0
     except FunctionTimedOut:
         stat_update.update_status(Status.SQUELCH_CLOSED)
@@ -252,7 +253,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                 
                 if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
                     stat_update.update_status(Status.TRANSMITTING)
-                    frame_to_send = il2p.getNextFrameToTransmit()
+                    frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
                     if (frame_to_send == None):
                         continue
                     args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
@@ -262,7 +263,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         args.sender_dst = open('temp.pcm','wb')
                     
                     #push the data to args.sender_dst
-                    if (send(config, src=args.sender_src, dst=args.sender_dst)):
+                    if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
                         stats.txs += 1
                         service_controller.send_statistic('tx_success',stats.txs)
                     else:

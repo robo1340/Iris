@@ -8,11 +8,11 @@ log = logging.getLogger('__name__')
 class TextMessageObject():
 
     @staticmethod
-    def unmarshal(tuple):
-        ack = True if (tuple[3] == 'True') else False
-        return TextMessageObject(tuple[0], tuple[1], tuple[2], ack, int(tuple[4]))
+    def unmarshal(tup):
+        ack = True if (tup[3] == 'True') else False
+        return TextMessageObject(tup[0], tup[1], tup[2], ack, int(tup[4]), int(tup[5]))
 
-    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None):
+    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None, carrier_len=750):
         self.msg_str = msg_str
         self.src_callsign = src_callsign
         self.dst_callsign = dst_callsign
@@ -23,6 +23,7 @@ class TextMessageObject():
             self.seq_num = 0
         else:
             self.seq_num = seq_num
+        self.carrier_len = carrier_len
         
     def getInfoString(self):
         fmt = 'SRC Callsign: [{0:s}], DST Callsign: [{1:s}], Ack?: {3:s}, sequence#: {4:s}, Message: {2:s}'
@@ -32,19 +33,19 @@ class TextMessageObject():
         print(self.getInfoString())
         
     def marshal(self):
-        return [self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num)]
+        return (self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num), str(self.carrier_len))
         
         
 class GPSMessageObject():
 
     @staticmethod
-    def unmarshal(tuple):
+    def unmarshal(tup):
         try:
-            gps_dict = json.loads( tuple[0] )
+            gps_dict = json.loads( tup[0] )
             log.debug(gps_dict['lat'])
             log.debug(gps_dict['lon'])
             log.debug(gps_dict['altitude'])
-            return GPSMessageObject(gps_dict, tuple[1])  
+            return GPSMessageObject(gps_dict, tup[1])  
         except BaseException:
             log.warning('WARNING: failed to unmarshal a gps message')
             return None   
@@ -52,9 +53,10 @@ class GPSMessageObject():
     ##@brief constructor for a GPSMessageObject
     ##@param location a dictionary object containing the current location, speed, bearing etc.
     ##@param src_callsign the callsign of the radio sending this gps message
-    def __init__(self, location, src_callsign=''):
+    def __init__(self, location, src_callsign='',carrier_len=750):
         self.location = location
         self.src_callsign = src_callsign
+        self.carrier_len = carrier_len
        
     def getInfoString(self):
         fmt = 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
@@ -83,5 +85,5 @@ class GPSMessageObject():
         
     def marshal(self):
         loc = str(self.location).replace('\'','\"')
-        return (loc, self.src_callsign)
+        return (loc, self.src_callsign, str(self.carrier_len))
     

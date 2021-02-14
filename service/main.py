@@ -90,8 +90,7 @@ if __name__ == "__main__":
     Fs = int(ini_config['MAIN']['Fs'])
     Npoints = int(ini_config['MAIN']['Npoints'])
     cf = int(ini_config['MAIN']['carrier_frequency'])
-    carrier_length = int(ini_config['MAIN']['carrier_length_ms'])
-    config = config.Configuration(Fs=Fs, Npoints=Npoints, frequencies=[cf], carrier_length=carrier_length)
+    config = config.Configuration(Fs=Fs, Npoints=Npoints, frequencies=[cf])
 
     args = Args(interface=audio.Interface(config).load(os.path.join(cwd, 'libportaudio.so')))
     stats = common.Stats()

@@ -117,16 +117,20 @@ def FileType(mode, interface_factory=None):
     return opener
 
 class BitPacker:
-    byte_size = 8
-
     def __init__(self):
         bits_list = []
-        for index in range(2 ** self.byte_size):
-            bits = [index & (2 ** k) for k in range(self.byte_size)]
+        for index in range(2 ** 8): #iterate over every possible byte value, 0 through 255
+            bits = [index & (2 ** k) for k in range(8)] #create an array of bits corresponding to the given index
             bits_list.append(tuple((1 if b else 0) for b in bits))
-        #print(bits_list)
 
+        #create a dictionary to convert a given byte to a tuple of bits
+        #the dictionary key, i is the byte value to convert
+        #the dictionary value, bits is a tuple of 8 bit values
         self.to_bits = dict((i, bits) for i, bits in enumerate(bits_list))
+        
+        #create a dictionary to convert a given tuple of bits to a byte value
+        #the dictionary key, bits is a tuple of 8 bits
+        #the dictionary value, i is the byte value
         self.to_byte = dict((bits, i) for i, bits in enumerate(bits_list))
 
 def load(fileobj):

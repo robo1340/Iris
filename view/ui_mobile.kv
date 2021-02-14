@@ -175,6 +175,25 @@
         valign : 'center'
         on_text : app.uiSetDstCallsign(value)
 
+<SetablePropertyCarrierLength@BoxLayout>:
+    id : property
+    orientation: 'horizontal'
+    size_hint : (1, None)
+    height : key.height
+    text : '750'
+    MediumLabel:
+        id : key
+        text: 'Carrier(ms):'
+    TextInput:
+        multiline : False
+        padding : [1,1,1,1]
+        font_size: '35dp'
+        id : value
+        text: property.text
+        halign : 'left'
+        valign : 'center'
+        on_text : app.uiSetCarrierLength(value)
+    
 <DiscreteSelector@BoxLayout>:
     id : selector
     option1_text : ''
@@ -664,6 +683,9 @@ WindowManager:
             text: 'Audio Modem Settings'  
             halign : 'center'
 
+        SetablePropertyCarrierLength:
+            name : 'carrier_length'
+        
         MediumLabel:
             name : 'modulation_type_lbl'
             text: 'Modulation Scheme'  

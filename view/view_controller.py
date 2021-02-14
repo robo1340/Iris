@@ -72,6 +72,7 @@ class ViewController():
     @exception_suppressor
     def send_txt_message(self, txt_msg):
         log.info('sending a text message to the service')
+        #log.info(txt_msg.carrier_len)
         self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
     ## @brief send a new callsign entered by the user to the service
