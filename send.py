@@ -21,6 +21,7 @@ class Sender:
         self.iters_per_report = config.baud  # report once per second
         self.padding = [0] * config.bits_per_baud
         self.equalizer = equalizer.Equalizer(config)
+        self.train_symbols = self.equalizer.train_symbols(equalizer.equalizer_length)
         self.barker_symbols = [-1, 1, 1, 1,-1,-1,-1, 1,-1,-1, 1,-1]
         self.barker_signal = np.concatenate(self.equalizer.modulator(self.barker_symbols))
         self.carrier_length = carrier_length
@@ -36,12 +37,8 @@ class Sender:
             self.write(self.pilot)
         
         self.write(self.barker_signal)
-        
-        symbols = self.equalizer.train_symbols(equalizer.equalizer_length)
-        signal = self.equalizer.modulator(symbols)
-        #self.write(self.silence) #prefix
+        signal = self.equalizer.modulator(self.train_symbols)
         self.write(signal) #train symbols
-        #self.write(self.silence) #postfix
                 
     ##@brief modulates and sends a stream of bytes to self.fd
     ##@param data an iterable stream of bytes

@@ -1,11 +1,9 @@
 """Audio capabilities for amodem."""
 
 import ctypes
-import logging
 import time
 
-log = logging.getLogger(__name__)
-
+from kivy.logger import Logger as log
 
 class Interface:
     def __init__(self, config, debug=False):
@@ -63,8 +61,6 @@ class Interface:
 
 class Stream:
 
-    timer = time.time
-
     class Parameters(ctypes.Structure):
         _fields_ = [
             ('device', ctypes.c_int),
@@ -111,7 +107,7 @@ class Stream:
 
         self.interface.streams.append(self)
         self.interface.call('StartStream', self.stream)
-        self.start_time = self.timer()
+        self.start_time = time.time()
         self.io_time = 0
 
     def close(self):
@@ -124,9 +120,9 @@ class Stream:
         assert size % self.bytes_per_sample == 0
         buf = ctypes.create_string_buffer(size)
         frames = ctypes.c_ulong(size // self.bytes_per_sample)
-        t0 = self.timer()
+        t0 = time.time()
         self.interface.call('ReadStream', self.stream, buf, frames)
-        t1 = self.timer()
+        t1 = time.time()
         self.io_time += (t1 - t0)
         if self.interface.debug:
             io_wait = self.io_time / (t1 - self.start_time)

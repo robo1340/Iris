@@ -3,6 +3,7 @@
 import logging
 import threading
 import queue
+import time
 
 from kivy.logger import Logger as log
 
@@ -10,7 +11,6 @@ class AsyncReader:
     def __init__(self, stream, bufsize):
         self.stream = stream
         self.queue = queue.Queue()
-        #self.queue = six.moves.queue.Queue()
         self.stop = threading.Event()
         args = (stream, bufsize, self.queue, self.stop)
         self.thread = threading.Thread(target=AsyncReader._thread, args=args, name='AsyncReader')
@@ -24,6 +24,10 @@ class AsyncReader:
             log.debug('AsyncReader thread started')
             while not stop.isSet():
                 buf = src.read(bufsize)
+                if (queue.full()):
+                    time.sleep(0.01)
+                    log.info('queue is full')
+                    queue.get()
                 queue.put(buf)
                 total += len(buf)
             log.debug('AsyncReader thread stopped (read %d bytes)', total)

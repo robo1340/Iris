@@ -18,7 +18,7 @@ class Configuration:
 
     # receiver config
     skip_start = 0.1
-    timeout = 2.0 #timeout before raising a no carrier detected exception when a frame is not currently being received
+    timeout = 2.0 #timeout when looking for prefix symbols
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)

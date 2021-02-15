@@ -43,56 +43,35 @@ class Detector:
     CARRIER_THRESHOLD = 10 #number of milliseconds the carrier needs to be coherently detected
     #CARRIER_THRESHOLD = int(0.03 * equalizer.carrier_length)
 
-    def __init__(self, config, pylab):
+    def __init__(self, config):
         self.freq = config.Fc
+        self.samp_freq = config.Fs
         #log.info(config.Fs)
-        self.omega = 2 * np.pi * self.freq / config.Fs
+        self.omega = 2 * np.pi * self.freq / self.samp_freq
         self.Nsym = config.Nsym
         self.Tsym = config.Tsym
         self.maxlen = config.baud  # 1 second of symbols
-        self.max_offset = config.timeout * config.Fs
+        self.max_offset = config.timeout * self.samp_freq
         
         self.equalizer = equalizer.Equalizer(config)
         self.barker_symbols = [-1, 1, 1, 1,-1,-1,-1, 1,-1,-1, 1,-1]
         self.barker_detector = MooreMachine()
 
     def _wait(self, samples, stat_update):
-        bufs = collections.deque([], maxlen=50)
+        bufs = collections.deque([], maxlen=self.CARRIER_THRESHOLD)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
             #look for a signal that is coherent with the carrier wave
             if (abs(dsp.coherence(buf, self.omega)) > self.COHERENCE_THRESHOLD):
                 bufs.append(buf)
+                #log.info(len(bufs))
                 if (len(bufs) == self.CARRIER_THRESHOLD):
                     return np.concatenate(bufs)
             else: #reset the buffer if the sample is not coherent
                 bufs.clear()
-                if offset > self.max_offset:
+                if (offset > 0.25*self.samp_freq):#(self.max_offset)):
                     raise exceptions.NoCarrierDetectedError  
         raise exceptions.NoCarrierDetectedError
-    '''
-    def _prefix(self, samples, gain=1.0):
-        t = np.arange(self.Nsym)
 
-        #take one symbol worth of samples and run it through a bandpass filter set to the carrier frequency
-        buf = common.take(samples,self.Nsym)
-        w_prev = buf*np.cos(2*np.pi*t*self.omega)
-        z_prev = buf*np.sin(2*np.pi*t*self.omega)
-
-        for offset, buf in common.iterate(samples, self.Nsym, index=True):
-            #take one symbol worth of samples and run it through a bandpass filter set to the carrier frequency
-            w = buf*np.cos(2*np.pi*t*self.omega)
-            z = buf*np.sin(2*np.pi*t*self.omega)
-            ak = np.sum(w)*np.sum(w_prev) + np.sum(z)*np.sum(z_prev)
-            phase_changed = (ak < 0) #if the result is negative, the phase changed between these two symbols
-            if (self.barker_detector.feed(phase_changed)==True):
-                log.info('barker code detected in the symbol phase changes')
-                return True
-            elif (offset > self.max_offset):
-                return False
-            w_prev = w
-            z_prev = z
-            
-    '''
     def _prefix(self, samples, gain=1.0):
         t = np.arange(self.Nsym)
 

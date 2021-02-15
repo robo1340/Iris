@@ -29,7 +29,7 @@ def timeit(method):
 
 class Receiver:
 
-    def __init__(self, config, pylab=None):
+    def __init__(self, config):
         self.stats = {}
         self.modem = dsp.MODEM(config.symbols)
         self.frequencies = np.array(config.frequencies)

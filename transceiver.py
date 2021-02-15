@@ -92,14 +92,15 @@ def send(config, src, dst, carrier_length):
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
+'''
 @func_set_timeout(master_timeout)
 def recv(config, src, dst, stat_update, service_controller):
     reader = stream.Reader(src, data_type=common.loads)
     signal = itertools.chain.from_iterable(reader)
 
     #pylab = pylab or common.Dummy()
-    detector = detect.Detector(config=config, pylab=None)
-    receiver = _recv.Receiver(config=config, pylab=None)
+    detector = detect.Detector(config=config)
+    receiver = _recv.Receiver(config=config)
      
     try:
         log.debug('Waiting for carrier tone: %.1f kHz', config.Fc / 1e3)
@@ -144,7 +145,55 @@ def recv(config, src, dst, stat_update, service_controller):
         log.exception('Decoding failed')
         return -1
     return 0
+'''
+
+@func_set_timeout(master_timeout)
+def recv(detector, receiver, signal, dst, stat_update, service_controller):
+    try:
+        log.debug('Waiting for carrier tone')
         
+        #now look for the carrier
+        gain = detector.run(signal,stat_update)
+        if (gain < 0): #if the program gets here, a carrier was detected but no barker code was found thereafter
+            raise exceptions.NoBarkerCodeDetectedError
+        
+        stat_update.update_status(Status.SQUELCH_OPEN)
+            
+        service_controller.send_signal_strength(1.0/gain)
+        
+        log.info('Gain correction: %.3f', gain)
+
+        sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=1)
+        receiver.run(sampler, signal, gain=gain, output=dst) #this method will keep running until an exception occurs
+
+    except exceptions.EndOfFrameDetected: #the full frame was received
+        if (dst.il2p.readFrame()):
+            stat_update.update_status(Status.MESSAGE_RECEIVED)
+            return 1
+        else:
+            stat_update.update_status(Status.SQUELCH_CLOSED)
+            return -1
+    except exceptions.IL2PHeaderDecodeError:
+        log.warning('WARNING: failed when pre-emptively decoding frame header')
+        stat_update.update_status(Status.SQUELCH_CLOSED)
+        return -1
+    except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
+        stat_update.update_status(Status.SQUELCH_CLOSED)
+        return 0
+    except (exceptions.NoBarkerCodeDetectedError): #exception is raised when carrier is detected but no susequent barker code is
+        stat_update.update_status(Status.SQUELCH_CONTESTED)
+        return 0
+    except FunctionTimedOut:
+        stat_update.update_status(Status.SQUELCH_CLOSED)
+        print('\nERROR!:  receiver.run timed out\n')
+        return -1
+    except BaseException: 
+        stat_update.update_status(Status.SQUELCH_CLOSED)
+        log.exception('Decoding failed')
+        return -1
+    return 0
+
+
 ##@brief class used to pipe data to the link layer and tell it when the full packet has been received        
 class ReceiverPipe():
     def __init__(self, il2p=None):
@@ -227,21 +276,32 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     
     stat_update = StatusUpdater(service_controller)
     
+    #receiver objects
+    detector = detect.Detector(config=config)
+    receiver = _recv.Receiver(config=config)
+    
     with args.interface:
     #    args.interface.print_input_devices()
+
+        input_opener = common.FileType('rb', interface_factory)
+        args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
+        reader = stream.Reader(args.recv_src, data_type=common.loads)
+        signal = itertools.chain.from_iterable(reader)
     
         while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
         #while (threading.currentThread().stopped() == False) and (service_controller.stopped() == False): #main program loop for the receiver
             try:
                 #sender args
-                if (AndroidMediaPlayer is None):
-                    output_opener = common.FileType('wb', interface_factory)
-                    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
-
-                input_opener = common.FileType('rb', interface_factory)
-                args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
-
-                ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
+                #if (AndroidMediaPlayer is None):
+                #    output_opener = common.FileType('wb', interface_factory)
+                #    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
+                
+                
+                #print(time.time())
+                
+                ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
+                #ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
+                
                 if (ret_val == 1):
                     stats.rxs += 1
                     service_controller.send_statistic('rx_success',stats.rxs)
@@ -296,8 +356,8 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
             #except:
             #    print('uncaught exception or keyboard interrupt')
             finally:
-                if args.recv_src is not None:
-                    args.recv_src.close()
+                #if args.recv_src is not None:
+                #    args.recv_src.close()
                 if args.sender_src is not None:
                     args.sender_src.close()
                 if args.sender_dst is not None:
