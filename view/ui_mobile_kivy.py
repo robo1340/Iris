@@ -26,8 +26,9 @@ kivy.require('1.11.1')
 
 Window.softinput_mode = "below_target" #this setting will move the text input field when the keyboard is active on an android device
 
+import time
 from datetime import datetime
-import threading
+import threading, queue
 #import random
 import functools
 import textwrap
@@ -114,8 +115,6 @@ class ui_mobileApp(App, UI_Interface):
         
         self.viewController = viewController
         self.ini_config = ini_config
-
-        self.statusIndicatorLock = threading.Lock()
         
         self.my_callsign = ''
         self.dstCallsign = ''
@@ -141,8 +140,13 @@ class ui_mobileApp(App, UI_Interface):
         self.statistics_window  = lambda : self.root.ids.statistics_window
         self.gps_window         = lambda : self.root.ids.gps_window
         
-        self.gps_msg_widgets = deque()
-        self.max_gps_msg_widgets = 5
+        self.gps_msg_widgets = deque(maxlen=5)
+        
+        self.status_updates = queue.Queue(maxsize=50) #a queue used to store status updates
+        self.last_status_update_time = time.time() #the time of the last status update
+        self.status_update_dwell_time = 0.25 #the dwell time of status updates in seconds
+        self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
+        self.has_ellapsed = lambda start, duration : ((time.time() - start) > duration)
     
         super().__init__()
         
@@ -246,28 +250,55 @@ class ui_mobileApp(App, UI_Interface):
     
     ############## input functions implementing UI_Interface #################
     
-    def updateStatusIndicator(self, status):
-        root = self.main_window()
-        status_indicator = self.__get_child_from_base(root, ('root_main', 'first_row'), 'status_indicator')
-        
-        self.statusIndicatorLock.acquire()
-        
-        if (status is Status.SQUELCH_CONTESTED):
-            root.indicator_color = root.indicator_pre_rx_color
-        if (status is Status.SQUELCH_OPEN):
-            root.indicator_color = root.indicator_rx_color 
-        elif (status is Status.CARRIER_DETECTED):
-            root.indicator_color = root.indicator_rx_color
-        elif (status is Status.SQUELCH_CLOSED):
-            root.indicator_color = root.indicator_inactive_color
-        elif (status is Status.MESSAGE_RECEIVED):
-            root.indicator_color = root.indicator_success_color
-        elif (status is Status.TRANSMITTING):
-            root.indicator_color = root.indicator_tx_color
+    #self.status_updates = deque(maxlen=50) #a queue used to store status updates
+    #self.last_status_update_time = time.time #the time of the last status update
+    #self.status_update_dwell_time = 0.25 #the dwell time of status updates in seconds
+    
+    ##@brief the method called by the viewController that will schedule a status update, after the
+    ##       dwell time for the previous status update has ellapsed
+    ##@param status an integer value that maps to the new status to be added to the queue
+    def updateStatusIndicator(self,status):
+        if (self.has_ellapsed(self.last_status_update_time,self.status_update_dwell_time)):
+            self.status_updates.put(status)
+            threading.Timer(0, self.status_update_callback).start()
         else:
-            root.indicator_color = root.indicator_inactive_color
+            if self.status_updates.full(): #drop the update if the queue is full, this should never happen
+                return
+            elif self.status_updates.empty(): #add the update to the queue and start the timer   
+                self.status_updates.put(status)
+                threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
+            else: #the timer is already started, just add the update to the queue
+                self.status_updates.put(status)
             
-        self.statusIndicatorLock.release()
+    def status_update_callback(self):
+        status = self.status_updates.get()
+        self.__updateStatusIndicatorUI(status)
+        if not self.status_updates.empty(): #if the queue isn't empty, restart the timer
+            threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
+
+    ##@brief private method that is responsible for updating the status UI's status indicator
+    ##@param status, an integer value that maps to the new status
+    def __updateStatusIndicatorUI(self,status):
+        with self.statusIndicatorLock:
+            self.last_status_update_time = time.time()
+            root = self.main_window()
+            status_indicator = self.__get_child_from_base(root, ('root_main', 'first_row'), 'status_indicator')
+            #self.statusIndicatorLock.acquire()
+            if (status is Status.SQUELCH_CONTESTED):
+                root.indicator_color = root.indicator_pre_rx_color
+            if (status is Status.SQUELCH_OPEN):
+                root.indicator_color = root.indicator_rx_color 
+            elif (status is Status.CARRIER_DETECTED):
+                root.indicator_color = root.indicator_rx_color
+            elif (status is Status.SQUELCH_CLOSED):
+                root.indicator_color = root.indicator_inactive_color
+            elif (status is Status.MESSAGE_RECEIVED):
+                root.indicator_color = root.indicator_success_color
+            elif (status is Status.TRANSMITTING):
+                root.indicator_color = root.indicator_tx_color
+            else:
+                root.indicator_color = root.indicator_inactive_color         
+        #self.statusIndicatorLock.release()   
         
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param text_msg A TextMessageObject containing the received message
@@ -392,7 +423,7 @@ class ui_mobileApp(App, UI_Interface):
         message_container.add_widget(gps_msg_widget)
         self.gps_msg_widgets.append(gps_msg_widget)
         
-        if (len(self.gps_msg_widgets) >= self.max_gps_msg_widgets):
+        if (len(self.gps_msg_widgets) == self.gps_msg_widgets.maxlen):
             to_delete = self.gps_msg_widgets.popleft()
             message_container.remove_widget(to_delete)
         
