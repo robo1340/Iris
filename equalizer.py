@@ -43,7 +43,7 @@ class Equalizer:
         symbols = dsp.Demux(sampler=sampling.Sampler(signal), omegas=self.omegas, Nsym=self.Nsym)
         return np.array(list(itertools.islice(symbols, size)))
 
-equalizer_length = 50#200
+equalizer_length = 20#200
 silence_length = 0
 prefix_silence = [0]*silence_length
 prefix = [1]*equalizer_length + prefix_silence

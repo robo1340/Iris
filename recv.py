@@ -141,7 +141,7 @@ class Receiver:
         log.debug('Carrier Detected: Receiving')
         symbols = dsp.Demux(sampler, omegas=self.omegas, Nsym=self.Nsym)
 
-        filt = self._train(sampler, order=10, lookahead=10) #train the equalizer filter
+        filt = self._train(sampler, order=10, lookahead=2) #train the equalizer filter
         sampler.equalizer = lambda x: list(filt(x))
 
         bitstream = self._demodulate(sampler, symbols)

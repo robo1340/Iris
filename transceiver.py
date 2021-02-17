@@ -31,13 +31,13 @@ import config
 
 import IL2P_API
 
-master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
+master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
 tx_cooldown = 1 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
 rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
 # Python 3 has `buffer` attribute for byte-based I/O
-_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
-_stdout = getattr(sys.stdout, 'buffer', sys.stdout)
+#_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
+#_stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
 from kivy.logger import Logger as log
 
@@ -92,61 +92,6 @@ def send(config, src, dst, carrier_length):
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
-'''
-@func_set_timeout(master_timeout)
-def recv(config, src, dst, stat_update, service_controller):
-    reader = stream.Reader(src, data_type=common.loads)
-    signal = itertools.chain.from_iterable(reader)
-
-    #pylab = pylab or common.Dummy()
-    detector = detect.Detector(config=config)
-    receiver = _recv.Receiver(config=config)
-     
-    try:
-        log.debug('Waiting for carrier tone: %.1f kHz', config.Fc / 1e3)
-        
-        #now look for the carrier
-        gain = detector.run(signal,stat_update)
-        stat_update.update_status(Status.SQUELCH_OPEN)
-        
-        if (gain < 0): #if the program gets here, a carrier was detected but no barker code was found thereafter
-            raise exceptions.NoBarkerCodeDetectedError
-
-        service_controller.send_signal_strength(1.0/gain)
-        
-        log.info('Gain correction: %.3f', gain)
-
-        sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=1)
-        receiver.run(sampler, signal, gain=gain, output=dst) #this method will keep running until an exception occurs
-
-    except exceptions.EndOfFrameDetected: #the full frame was received
-        if (dst.il2p.readFrame()):
-            stat_update.update_status(Status.MESSAGE_RECEIVED)
-            return 1
-        else:
-            stat_update.update_status(Status.SQUELCH_CLOSED)
-            return -1
-    except exceptions.IL2PHeaderDecodeError:
-        log.warning('WARNING: failed when pre-emptively decoding frame header')
-        stat_update.update_status(Status.SQUELCH_CLOSED)
-        return -1
-    except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
-        stat_update.update_status(Status.SQUELCH_CLOSED)
-        return 0
-    except (exceptions.NoBarkerCodeDetectedError): #exception is raised when carrier is detected but no susequent barker code is
-        stat_update.update_status(Status.SQUELCH_CONTESTED)
-        return 0
-    except FunctionTimedOut:
-        stat_update.update_status(Status.SQUELCH_CLOSED)
-        print('\nERROR!:  receiver.run timed out\n')
-        return -1
-    except BaseException: 
-        stat_update.update_status(Status.SQUELCH_CLOSED)
-        log.exception('Decoding failed')
-        return -1
-    return 0
-'''
-
 @func_set_timeout(master_timeout)
 def recv(detector, receiver, signal, dst, stat_update, service_controller):
     try:
@@ -185,7 +130,7 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
         return 0
     except FunctionTimedOut:
         stat_update.update_status(Status.SQUELCH_CLOSED)
-        print('\nERROR!:  receiver.run timed out\n')
+        log.error('\nERROR!:  receiver.run timed out\n')
         return -1
     except BaseException: 
         stat_update.update_status(Status.SQUELCH_CLOSED)
@@ -262,7 +207,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     
     AndroidMediaPlayer = None
     if (args.platform == common.Platform.ANDROID):
-        #import wave
         from jnius import autoclass
         AndroidMediaPlayer = autoclass('android.media.MediaPlayer')
         
@@ -289,15 +233,12 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
         signal = itertools.chain.from_iterable(reader)
     
         while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
-        #while (threading.currentThread().stopped() == False) and (service_controller.stopped() == False): #main program loop for the receiver
+        #while (threading.currentThread().stopped() == False)
             try:
                 #sender args
                 #if (AndroidMediaPlayer is None):
                 #    output_opener = common.FileType('wb', interface_factory)
                 #    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
-                
-                
-                #print(time.time())
                 
                 ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
                 #ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
@@ -305,7 +246,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                 if (ret_val == 1):
                     stats.rxs += 1
                     service_controller.send_statistic('rx_success',stats.rxs)
-                    #time.sleep(rx_cooldown)
                     most_recent_rx = time.time()
                 elif (ret_val == -1):
                     stats.rxf += 1
@@ -342,7 +282,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         mPlayer = AndroidMediaPlayer()
                         mPlayer.setDataSource('temp.wav')
                         mPlayer.prepare()
-                        #print(mPlayer.getDuration())
                         mPlayer.start()
                         time.sleep(mPlayer.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
                         mPlayer.release()
@@ -356,8 +295,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
             #except:
             #    print('uncaught exception or keyboard interrupt')
             finally:
-                #if args.recv_src is not None:
-                #    args.recv_src.close()
                 if args.sender_src is not None:
                     args.sender_src.close()
                 if args.sender_dst is not None:
