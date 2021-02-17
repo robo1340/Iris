@@ -54,7 +54,7 @@ class StatusUpdater():
                 self.service_controller.send_status(new_status)
                 self.current_status = new_status
                 
-##@brief main program function to send frames
+##@brief method to write link layer frames into audio data
 ##@config Configuration object
 ##@src a stream of bytes to be sent
 ##@dst a stream to send bytes to
@@ -86,6 +86,24 @@ def send(config, src, dst, carrier_length):
         log.warning('WARNING: the sender failed, message may have not been fully sent')
         return False
 
+##@brief method that uses android.media.MediaPlayer to play a .pcm audio file
+##@param player an Android Media Player instance
+##@param pcmFileName the name of the file to be played, example 'temp.pcm'
+def playAudioData(player, pcmFileName):
+    wavFileName = pcmFileName.split('.')[0] + '.wav'
+    with open(pcmFileName, 'rb') as pcmfile:
+        pcmdata = pcmfile.read()
+    with wave.open(wavFileName, 'wb') as wavfile:
+        wavfile.setparams((1, 2, 8000, 0, 'NONE', 'NONE'))
+        wavfile.writeframes(pcmdata)        
+    
+    player.setDataSource(wavFileName)
+    player.prepare()
+    player.start()
+    time.sleep(player.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
+    player.release()
+
+    
 ##@brief program loop to receive frames
 ##@config Configuration object
 ##@src input stream containing raw audio data
@@ -273,18 +291,19 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     #convert the intermediate pcm file to a wav file and play it with a java class
                     if (AndroidMediaPlayer is not None):
                         args.sender_dst.close()   
-                        with open('temp.pcm', 'rb') as pcmfile:
-                            pcmdata = pcmfile.read()
-                        with wave.open('temp.wav', 'wb') as wavfile:
-                            wavfile.setparams((1, 2, 8000, 0, 'NONE', 'NONE'))
-                            wavfile.writeframes(pcmdata)
+                        playAudioData(AndroidMediaPlayer(),'temp.pcm')
+                        #with open('temp.pcm', 'rb') as pcmfile:
+                        #    pcmdata = pcmfile.read()
+                        #with wave.open('temp.wav', 'wb') as wavfile:
+                        #    wavfile.setparams((1, 2, 8000, 0, 'NONE', 'NONE'))
+                        #    wavfile.writeframes(pcmdata)
                             
-                        mPlayer = AndroidMediaPlayer()
-                        mPlayer.setDataSource('temp.wav')
-                        mPlayer.prepare()
-                        mPlayer.start()
-                        time.sleep(mPlayer.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
-                        mPlayer.release()
+                        #mPlayer = AndroidMediaPlayer()
+                        #mPlayer.setDataSource('temp.wav')
+                        #mPlayer.prepare()
+                        #mPlayer.start()
+                        #time.sleep(mPlayer.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
+                        #mPlayer.release()
                     
                     most_recent_tx = time.time()
                     stat_update.update_status(Status.SQUELCH_CLOSED)
