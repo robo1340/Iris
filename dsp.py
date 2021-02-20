@@ -5,6 +5,7 @@ import numpy as np
 
 import common
 import exceptions
+from kivy.logger import Logger as log
 
 
 class FIR:
@@ -34,6 +35,7 @@ class Demux:
         frame = self.sampler.take(size=self.Nsym)
         if len(frame) == self.Nsym:
             symbol = np.dot(self.filters, frame)
+            #log.info(symbol)
             magnitude = np.abs(symbol) #calculate distance between the symbol and the unit circle
             return symbol
         raise StopIteration

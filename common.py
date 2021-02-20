@@ -16,7 +16,7 @@ import kivy.utils
 
 CONFIG_FILE_NAME = 'config.ini'
 
-log = logging.getLogger(__name__)
+from kivy.logger import Logger as log
 
 scaling = 32000.0  # out of 2**15
 

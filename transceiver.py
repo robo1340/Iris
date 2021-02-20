@@ -24,7 +24,6 @@ import send as _send
 import recv as _recv
 import stream
 import detect
-import sampling
 import exceptions
 
 import config
@@ -106,7 +105,7 @@ def playAudioData(player, pcmFileName):
     
 ##@brief program loop to receive frames
 ##@config Configuration object
-##@src input stream containing raw audio data
+##@signal input stream containing raw audio data
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
@@ -126,8 +125,7 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
         
         log.info('Gain correction: %.3f', gain)
 
-        sampler = sampling.Sampler(signal, sampling.defaultInterpolator, freq=1)
-        receiver.run(sampler, signal, gain=gain, output=dst) #this method will keep running until an exception occurs
+        receiver.run(signal, gain=gain, output=dst) #this method will keep running until an exception occurs
 
     except exceptions.EndOfFrameDetected: #the full frame was received
         if (dst.il2p.readFrame()):
@@ -284,27 +282,13 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
                         stats.txs += 1
                         service_controller.send_statistic('tx_success',stats.txs)
+                        
+                        if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
+                            args.sender_dst.close()   
+                            playAudioData(AndroidMediaPlayer(),'temp.pcm') 
                     else:
                         stats.txf += 1
                         service_controller.send_statistic('tx_failure',stats.txf)  
-
-                    #convert the intermediate pcm file to a wav file and play it with a java class
-                    if (AndroidMediaPlayer is not None):
-                        args.sender_dst.close()   
-                        playAudioData(AndroidMediaPlayer(),'temp.pcm')
-                        #with open('temp.pcm', 'rb') as pcmfile:
-                        #    pcmdata = pcmfile.read()
-                        #with wave.open('temp.wav', 'wb') as wavfile:
-                        #    wavfile.setparams((1, 2, 8000, 0, 'NONE', 'NONE'))
-                        #    wavfile.writeframes(pcmdata)
-                            
-                        #mPlayer = AndroidMediaPlayer()
-                        #mPlayer.setDataSource('temp.wav')
-                        #mPlayer.prepare()
-                        #mPlayer.start()
-                        #time.sleep(mPlayer.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
-                        #mPlayer.release()
-                    
                     most_recent_tx = time.time()
                     stat_update.update_status(Status.SQUELCH_CLOSED)
                 else:
