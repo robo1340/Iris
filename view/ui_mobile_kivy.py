@@ -1,10 +1,8 @@
 '''
 Application built from a  .kv file
 ==================================
-
 This shows how to implicitly use a .kv file for your application. You
 should see a full screen button labelled "Hello from test.kv".
-
 After Kivy instantiates a subclass of App, it implicitly searches for a .kv
 file. The file test.kv is selected because the name of the subclass of App is
 TestApp, which implies that kivy should try to load "test.kv". That file
@@ -246,31 +244,35 @@ class ui_mobileApp(App, UI_Interface):
             property.value_text = spinner.text
             self.gps_beacon_period = int(spinner.text)
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+
     
     ############## input functions implementing UI_Interface #################
+    
+    #self.status_updates = deque(maxlen=50) #a queue used to store status updates
+    #self.last_status_update_time = time.time #the time of the last status update
+    #self.status_update_dwell_time = 0.25 #the dwell time of status updates in seconds
     
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
     def updateStatusIndicator(self,status):
-        def callback(self):
-            status = self.status_updates.get()
-            self.__updateStatusIndicatorUI(status)
-            if not self.status_updates.empty(): #if the queue isn't empty, restart the timer
-                threading.Timer(self.status_update_dwell_time, callback, args=[self]).start()
-        #start of the updateStatusIndicator method
-        
         if (self.has_ellapsed(self.last_status_update_time,self.status_update_dwell_time)):
             self.status_updates.put(status)
-            threading.Timer(0, callback, args=[self]).start()
+            threading.Timer(0, self.status_update_callback).start()
         else:
             if self.status_updates.full(): #drop the update if the queue is full, this should never happen
                 return
             elif self.status_updates.empty(): #add the update to the queue and start the timer   
                 self.status_updates.put(status)
-                threading.Timer(self.status_update_dwell_time, callback, args=[self]).start()
+                threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
             else: #the timer is already started, just add the update to the queue
                 self.status_updates.put(status)
+            
+    def status_update_callback(self):
+        status = self.status_updates.get()
+        self.__updateStatusIndicatorUI(status)
+        if not self.status_updates.empty(): #if the queue isn't empty, restart the timer
+            threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
 
     ##@brief private method that is responsible for updating the status UI's status indicator
     ##@param status, an integer value that maps to the new status

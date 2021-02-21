@@ -268,7 +268,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     service_controller.send_statistic('rx_failure',stats.rxf)
                 
                 if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
-                    stat_update.update_status(Status.TRANSMITTING)
+                    #stat_update.update_status(Status.TRANSMITTING)
                     frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
                     if (frame_to_send == None):
                         continue
@@ -290,7 +290,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         stats.txf += 1
                         service_controller.send_statistic('tx_failure',stats.txf)  
                     most_recent_tx = time.time()
-                    stat_update.update_status(Status.SQUELCH_CLOSED)
+                    #stat_update.update_status(Status.SQUELCH_CLOSED)
                 else:
                     time.sleep(0)
             except FunctionTimedOut:
