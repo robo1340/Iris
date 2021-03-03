@@ -84,7 +84,7 @@ class Detector:
             z = np.sum(p * p_prev) #numerically integrate the product of the current symbol and the previous symbol
             phase_changed = (z < 0) #if the result is negative, the phase changed between these two symbols
             if (self.barker_detector.feed(phase_changed)==True):
-                log.info('barker code detected in the symbol phase changes')
+                log.debug('barker code detected')
                 return True
             elif (offset > self.max_offset):
                 return False

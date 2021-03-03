@@ -236,78 +236,92 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     
     stat_update = StatusUpdater(service_controller)
     
-    #receiver objects
-    detector = detect.Detector(config=config)
-    receiver = _recv.Receiver(config=config)
-    
-    with args.interface:
-    #    args.interface.print_input_devices()
+    while (service_controller.stopped() == False):
 
-        input_opener = common.FileType('rb', interface_factory)
-        args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
-        reader = stream.Reader(args.recv_src, data_type=common.loads)
-        signal = itertools.chain.from_iterable(reader)
-    
-        while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
-        #while (threading.currentThread().stopped() == False)
-            try:
-                #sender args
-                #if (AndroidMediaPlayer is None):
-                #    output_opener = common.FileType('wb', interface_factory)
-                #    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
-                
-                ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
-                #ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
-                
-                if (ret_val == 1):
-                    stats.rxs += 1
-                    service_controller.send_statistic('rx_success',stats.rxs)
-                    most_recent_rx = time.time()
-                elif (ret_val == -1):
-                    stats.rxf += 1
-                    service_controller.send_statistic('rx_failure',stats.rxf)
-                
-                if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
-                    #stat_update.update_status(Status.TRANSMITTING)
-                    frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
-                    if (frame_to_send == None):
-                        continue
-                    args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
-                    
-                    #save to an intermediate file if this is android
-                    if (AndroidMediaPlayer is not None):
-                        args.sender_dst = open('temp.pcm','wb')
-                    
-                    #push the data to args.sender_dst
-                    if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
-                        stats.txs += 1
-                        service_controller.send_statistic('tx_success',stats.txs)
-                        
-                        if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
-                            args.sender_dst.close()   
-                            playAudioData(AndroidMediaPlayer(),'temp.pcm') 
+        with args.interface:
+        #    args.interface.print_input_devices()
+        
+            ## can probably move these parts out of the loop
+            #########################################################################
+
+            #receiver objects
+            detector = detect.Detector(config=config)
+            receiver = _recv.Receiver(config=config)
+
+            input_opener = common.FileType('rb', interface_factory)
+            args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
+            reader = stream.Reader(args.recv_src, data_type=common.loads)
+            signal = itertools.chain.from_iterable(reader)
+
+            #####################################################################
+
+
+
+            while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
+            #while (threading.currentThread().stopped() == False)
+                try:
+
+                    #sender args
+                    #if (AndroidMediaPlayer is None):
+                    #    output_opener = common.FileType('wb', interface_factory)
+                    #    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
+
+                    ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
+                    #ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
+
+                    if (ret_val == 1):
+                        stats.rxs += 1
+                        service_controller.send_statistic('rx_success',stats.rxs)
+                        most_recent_rx = time.time()
+                    elif (ret_val == -1):
+                        stats.rxf += 1
+                        service_controller.send_statistic('rx_failure',stats.rxf)
+
+                    if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
+                        stat_update.update_status(Status.TRANSMITTING)
+                        frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
+                        if (frame_to_send == None):
+                            continue
+                        args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
+
+                        #save to an intermediate file if this is android
+                        if (AndroidMediaPlayer is not None):
+                            args.sender_dst = open('temp.pcm','wb')
+
+                        #push the data to args.sender_dst
+                        if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
+                            stats.txs += 1
+                            service_controller.send_statistic('tx_success',stats.txs)
+
+                            if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
+                                args.sender_dst.close()   
+                                playAudioData(AndroidMediaPlayer(),'temp.pcm') 
+                        else:
+                            stats.txf += 1
+                            service_controller.send_statistic('tx_failure',stats.txf)  
+                        most_recent_tx = time.time()
+                        stat_update.update_status(Status.SQUELCH_CLOSED)
                     else:
-                        stats.txf += 1
-                        service_controller.send_statistic('tx_failure',stats.txf)  
-                    most_recent_tx = time.time()
-                    #stat_update.update_status(Status.SQUELCH_CLOSED)
-                else:
-                    time.sleep(0)
-            except FunctionTimedOut:
-                log.error('\nERROR!:  recv or send timed out\n')
-            #except:
-            #    print('uncaught exception or keyboard interrupt')
-            finally:
-                if args.sender_src is not None:
-                    args.sender_src.close()
-                if args.sender_dst is not None:
-                    args.sender_dst.close()
+                        time.sleep(0)
+                except FunctionTimedOut:
+                    log.error('\nERROR!:  recv or send timed out\n')
+                #except:
+                #    print('uncaught exception or keyboard interrupt')
+                finally:
+                    #if args.recv_src is not None:
+                    #    args.recv_src.close()
+                    if args.sender_src is not None:
+                        args.sender_src.close()
+                    if args.sender_dst is not None:
+                        args.sender_dst.close()
 
-        #end of main while loop
-        if args.recv_src is not None:
-            args.recv_src.close()
-        if args.sender_src is not None:
-            args.sender_src.close()
-        if args.sender_dst is not None:
-            args.sender_dst.close()
-        log.info('Transceiver Thread shutting down')  
+            #end of main while loop
+            if args.recv_src is not None:
+                args.recv_src.close()
+            if args.sender_src is not None:
+                args.sender_src.close()
+            if args.sender_dst is not None:
+                args.sender_dst.close()
+                
+    #end of recovery loop
+    log.info('Transceiver Thread shutting down')  

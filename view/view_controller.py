@@ -11,6 +11,7 @@ import functools
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import BlockingOSCUDPServer
 from pythonosc.osc_server import ThreadingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
@@ -19,6 +20,7 @@ from messages import TextMessageObject, GPSMessageObject
 import common
 
 from kivy.logger import Logger as log
+from kivy.clock import Clock
 
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
@@ -55,7 +57,9 @@ class ViewController():
         dispatcher.map('/rx_failure', self.rx_failure_handler)
         dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
         dispatcher.map('/signal_strength',self.signal_strength_handler)
-        self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        
+        self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        #self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.view_controller_func = lambda server : server.serve_forever() #the thread function
     
@@ -120,7 +124,7 @@ class ViewController():
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     ##@param args, a list of values holding the GPSMessage's contents
-    @exception_suppressor
+    #@exception_suppressor
     def gps_msg_handler(self, address, *args):
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
@@ -150,7 +154,8 @@ class ViewController():
     @exception_suppressor
     def transceiver_status_handler(self, address, *args):
         #log.info('received a status update from the service')
-        self.ui.updateStatusIndicator(args[0])
+        Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, args[0]), 0)
+        #self.ui.updateStatusIndicator(args[0])
         
     @exception_suppressor
     def tx_success_handler(self, address, *args):

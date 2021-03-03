@@ -54,7 +54,8 @@ if __name__ == "__main__":
         service.start(mActivity, 'arg')
 
         ui.run() #blocking call until user exits the app
-
+        log.info('UI has exited!')
+        
         service.stop(mActivity)
         viewController.service_stop_command() # send a message to stop the service threads
         viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller   

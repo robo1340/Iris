@@ -20,6 +20,7 @@ from kivy.uix.stacklayout import StackLayout
 from kivy.core.window import Window
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.clock import Clock
 kivy.require('1.11.1')
 
 Window.softinput_mode = "below_target" #this setting will move the text input field when the keyboard is active on an android device
@@ -140,11 +141,8 @@ class ui_mobileApp(App, UI_Interface):
         
         self.gps_msg_widgets = deque(maxlen=5)
         
-        self.status_updates = queue.Queue(maxsize=50) #a queue used to store status updates
-        self.last_status_update_time = time.time() #the time of the last status update
-        self.status_update_dwell_time = 0.5 #the dwell time of status updates in seconds
+        self.status_update_dwell_time = 1.0 #the dwell time of status updates in seconds
         self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
-        self.has_ellapsed = lambda start, duration : ((time.time() - start) > duration)
     
         super().__init__()
         
@@ -247,57 +245,38 @@ class ui_mobileApp(App, UI_Interface):
 
     
     ############## input functions implementing UI_Interface #################
-    
-    #self.status_updates = deque(maxlen=50) #a queue used to store status updates
-    #self.last_status_update_time = time.time #the time of the last status update
-    #self.status_update_dwell_time = 0.25 #the dwell time of status updates in seconds
+        
     
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
-    def updateStatusIndicator(self,status):
-        if (self.has_ellapsed(self.last_status_update_time,self.status_update_dwell_time)):
-            self.status_updates.put(status)
-            threading.Timer(0, self.status_update_callback).start()
-        else:
-            if self.status_updates.full(): #drop the update if the queue is full, this should never happen
-                return
-            elif self.status_updates.empty(): #add the update to the queue and start the timer   
-                self.status_updates.put(status)
-                threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
-            else: #the timer is already started, just add the update to the queue
-                self.status_updates.put(status)
-            
-    def status_update_callback(self):
-        status = self.status_updates.get()
-        self.__updateStatusIndicatorUI(status)
-        if not self.status_updates.empty(): #if the queue isn't empty, restart the timer
-            threading.Timer(self.status_update_dwell_time, self.status_update_callback).start()
+    def updateStatusIndicator(self,status,*largs):
+        def callback1(dt):
+            self.main_window().squelch_color = self.main_window().indicator_inactive_color
 
-    ##@brief private method that is responsible for updating the status UI's status indicator
-    ##@param status, an integer value that maps to the new status
-    def __updateStatusIndicatorUI(self,status):
-        with self.statusIndicatorLock:
-            self.last_status_update_time = time.time()
-            root = self.main_window()
-            status_indicator = self.__get_child_from_base(root, ('root_main', 'first_row'), 'status_indicator')
-            #self.statusIndicatorLock.acquire()
-            if (status is Status.SQUELCH_CONTESTED):
-                root.indicator_color = root.indicator_pre_rx_color
-            if (status is Status.SQUELCH_OPEN):
-                root.indicator_color = root.indicator_rx_color 
-            elif (status is Status.CARRIER_DETECTED):
-                root.indicator_color = root.indicator_rx_color
-            elif (status is Status.SQUELCH_CLOSED):
-                root.indicator_color = root.indicator_inactive_color
-            elif (status is Status.MESSAGE_RECEIVED):
-                root.indicator_color = root.indicator_success_color
-            elif (status is Status.TRANSMITTING):
-                root.indicator_color = root.indicator_tx_color
-            else:
-                root.indicator_color = root.indicator_inactive_color         
-        #self.statusIndicatorLock.release()   
+        def callback2(dt):
+            self.main_window().receiver_color = self.main_window().indicator_inactive_color
+
+        def callback3(dt):
+            self.main_window().success_color = self.main_window().indicator_inactive_color
+
+        def callback4(dt):
+            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
         
+        #with self.statusIndicatorLock:
+        if (status is Status.SQUELCH_OPEN):
+            self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
+            Clock.schedule_once(callback1, self.status_update_dwell_time)
+        elif (status is Status.CARRIER_DETECTED):
+            self.main_window().receiver_color = self.main_window().indicator_rx_color
+            Clock.schedule_once(callback2, self.status_update_dwell_time)
+        elif (status is Status.MESSAGE_RECEIVED):
+            self.main_window().success_color = self.main_window().indicator_success_color
+            Clock.schedule_once(callback3, self.status_update_dwell_time)
+        elif (status is Status.TRANSMITTING):
+            self.main_window().transmitter_color = self.main_window().indicator_tx_color
+            Clock.schedule_once(callback4, self.status_update_dwell_time)
+ 
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param text_msg A TextMessageObject containing the received message
     ##@param my_message, set to True when this method is being called by this program
@@ -456,17 +435,18 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief update the audio signal strength indicator on the main page of the app
     ##@param signal_strength, floating point value indicating the signal strength, should be between 0.05 and 0.6
     def update_signal_strength(self,signal_strength):
+        main_window = self.main_window()
         if (signal_strength < 0.1):
-            self.main_window().signal_strength_color = self.main_window().signal_low_color
+            main_window.signal_strength_color = main_window.signal_low_color
         elif (signal_strength > 0.5):
-            self.main_window().signal_strength_color = self.main_window().signal_high_color
+            main_window.signal_strength_color = main_window.signal_high_color
         else:
-            self.main_window().signal_strength_color = self.main_window().signal_correct_color
+            main_window.signal_strength_color = main_window.signal_correct_color
         
         #status_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
         #status_indicator.text = 
         s = "%2.2f" % (signal_strength)
-        self.main_window().signal_strength = s
+        main_window.signal_strength = s
         
     ################### private functions ##############################
     

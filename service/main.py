@@ -71,9 +71,9 @@ if __name__ == "__main__":
 
     log.info('start of service')
 
-    from jnius import autoclass
-    PythonService = autoclass('org.kivy.android.PythonService')
-    PythonService.mService.setAutoRestartService(True)
+    #from jnius import autoclass
+    #PythonService = autoclass('org.kivy.android.PythonService')
+    #PythonService.mService.setAutoRestartService(True)
 
     cwd = os.path.dirname(os.path.abspath(__file__)) #get the current working directory
 
