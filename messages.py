@@ -10,9 +10,9 @@ class TextMessageObject():
     @staticmethod
     def unmarshal(tup):
         ack = True if (tup[3] == 'True') else False
-        return TextMessageObject(tup[0], tup[1], tup[2], ack, int(tup[4]), int(tup[5]))
+        return TextMessageObject(tup[0], tup[1], tup[2], ack, int(tup[4]), int(tup[5]), int(tup[6]) )
 
-    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None, carrier_len=750):
+    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None, attempt_index=0, carrier_len=750):
         self.msg_str = msg_str
         self.src_callsign = src_callsign
         self.dst_callsign = dst_callsign
@@ -23,6 +23,7 @@ class TextMessageObject():
             self.seq_num = 0
         else:
             self.seq_num = seq_num
+        self.attempt_index = attempt_index
         self.carrier_len = carrier_len
         
     def getInfoString(self):
@@ -33,7 +34,7 @@ class TextMessageObject():
         print(self.getInfoString())
         
     def marshal(self):
-        return (self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num), str(self.carrier_len))
+        return (self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num), str(self.attempt_index), str(self.carrier_len))
         
         
 class GPSMessageObject():

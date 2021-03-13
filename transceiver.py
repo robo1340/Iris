@@ -31,8 +31,8 @@ import config
 import IL2P_API
 
 master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
-tx_cooldown = 1 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
-rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
+tx_cooldown = 0.5 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
+rx_cooldown = 0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
 # Python 3 has `buffer` attribute for byte-based I/O
 #_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
@@ -69,18 +69,18 @@ def send(config, src, dst, carrier_length):
 
         sender.start()
 
-        training_duration = sender.offset
-        log.debug('Sending %.3f seconds of training audio', training_duration / Fs)
+        #training_duration = sender.offset
+        #log.debug('Sending %.3f seconds of training audio', training_duration / Fs)
 
         reader = stream.Reader(src, eof=True)
         data = itertools.chain.from_iterable(reader)
         sender.modulate(data)
 
-        data_duration = sender.offset - training_duration
-        log.info('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, data_duration / Fs)
+        log.info('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
 
         sender.write(np.zeros(int(Fs * config.silence_stop))) # post-padding audio with silence
-        return True
+        log.info('sender complete')
+        return True 
     except BaseException:
         log.warning('WARNING: the sender failed, message may have not been fully sent')
         return False
@@ -254,8 +254,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
             signal = itertools.chain.from_iterable(reader)
 
             #####################################################################
-
-
 
             while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
             #while (threading.currentThread().stopped() == False)

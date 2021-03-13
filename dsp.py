@@ -119,6 +119,26 @@ class MODEM:
                 error_handler(received=received, decoded=decoded)
             yield bits
 
+##@brief convert an array of bits to a differentially encoded BPSK signal
+##@param bits an array of 0 and 1's
+##@param L the upsampling factor to be applied to the signal
+##@param prev_bit the last differentially encoded bit from the previous call if the method is being called multiple times
+def bits2baseband(bits,L,prev_bit=0):
+    dif_encoded_bits = np.zeros(len(bits))
+    for i in range(0,len(bits)):
+        dif_encoded_bits[i] = (bits[i] + prev_bit)%2 
+        prev_bit = dif_encoded_bits[i]
+
+
+    toReturn = np.zeros(len(dif_encoded_bits)*L)
+    for i in range(0,len(dif_encoded_bits)):
+        #upsample the signal and apply NRZ encoding
+        if (dif_encoded_bits[i] == 0):
+            toReturn[i*L : (i*L)+L] = -1
+        else:
+            toReturn[i*L : (i*L)+L] = 1
+    t = np.arange(start=0, stop=len(dif_encoded_bits)*L)
+    return (toReturn,t,prev_bit)
 
 def prbs(reg, poly, bits):
     """ Simple pseudo-random number generator. """

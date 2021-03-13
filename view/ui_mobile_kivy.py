@@ -250,7 +250,7 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
-    def updateStatusIndicator(self,status,*largs):
+    def updateStatusIndicator(self, status, *largs):
         def callback1(dt):
             self.main_window().squelch_color = self.main_window().indicator_inactive_color
 
@@ -280,7 +280,7 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param text_msg A TextMessageObject containing the received message
     ##@param my_message, set to True when this method is being called by this program
-    def addMessageToUI(self, text_msg, my_message=False):
+    def addMessageToUI(self, text_msg, my_message=False, *largs):
         chat_window = self.chat_window()
         message_container = self.__get_child_from_base(chat_window,('root_chat','second_row','scroll_bar'), 'message_container')
         scroll_bar = self.__get_child_from_base(chat_window, ('root_chat','second_row'), 'scroll_bar')
@@ -289,6 +289,9 @@ class ui_mobileApp(App, UI_Interface):
         
         #get the strings the widget will be filled with
         header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
+        if (text_msg.expectAck == True):
+            header_text = header_text + ' Attempt: ' + str(text_msg.attempt_index)
+        
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = text_msg.msg_str.rstrip('\n')
         
@@ -299,7 +302,10 @@ class ui_mobileApp(App, UI_Interface):
             message_text = '@' + self.my_callsign + ' ' + message_text
             
         if ((my_message == True) and(text_msg.src_callsign == self.my_callsign)): #if the message was sent by me
+            
             if (text_msg.expectAck == True):
+                #if (text_msg.attempt_index > 0):
+                #    return
                 txt_msg_widget.background_color = chat_window.text_msg_color_ack_pending
             else:
                 txt_msg_widget.background_color = chat_window.text_msg_color_no_ack_expect
@@ -323,7 +329,7 @@ class ui_mobileApp(App, UI_Interface):
         
     ##@brief look through the current messages displayed on the ui and delete any that have an ack_key matching the ack_key passed in
     ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to delete
-    def addAckToUI(self, ack_key):
+    def addAckToUI(self, ack_key, *largs):
         self.messagesLock.acquire()
         for msg in self.messages:
             if (msg.ack_key == ack_key):
@@ -332,20 +338,20 @@ class ui_mobileApp(App, UI_Interface):
                 msg.widget.background_color = self.chat_window().text_msg_color_ack_received
         self.messagesLock.release()
         
-    @exception_suppressor
-    def update_tx_success_cnt(self,val):
+    #@exception_suppressor
+    def update_tx_success_cnt(self,val, *largs):
         self.__update_property('tx_success_cnt',str(val))
         
-    @exception_suppressor
-    def update_tx_failure_cnt(self,val):
+    #@exception_suppressor
+    def update_tx_failure_cnt(self,val, *largs):
         self.__update_property('tx_failure_cnt',str(val))
         
-    @exception_suppressor
-    def update_rx_success_cnt(self,val):
+    #@exception_suppressor
+    def update_rx_success_cnt(self,val, *largs):
         self.__update_property('rx_success_cnt',str(val))
         
-    @exception_suppressor
-    def update_rx_failure_cnt(self,val):
+    #@exception_suppressor
+    def update_rx_failure_cnt(self,val, *largs):
         self.__update_property('rx_failure_cnt',str(val))
         
     def __update_property(self,property_name,new_val):
@@ -368,19 +374,19 @@ class ui_mobileApp(App, UI_Interface):
         return self.gps_beacon_period
     
     #@exception_suppressor
-    def update_my_displayed_location(self, gps_dict):
+    def update_my_displayed_location(self, gps_dict, *largs):
         self.__update_gps_property('latitude' ,str(gps_dict['lat']))
         self.__update_gps_property('longitude',str(gps_dict['lon']))
-        self.__update_gps_property('speed'    ,str(round(gps_dict['speed'],2)))
-        self.__update_gps_property('bearing'  ,str(round(gps_dict['bearing'],2)))
+        #self.__update_gps_property('speed'    ,str(round(gps_dict['speed'],2)))
+        #self.__update_gps_property('bearing'  ,str(round(gps_dict['bearing'],2)))
         self.__update_gps_property('altitude' ,str(round(gps_dict['altitude'],2)))
-        self.__update_gps_property('accuracy' ,str(round(gps_dict['accuracy'],2)))
+        #self.__update_gps_property('accuracy' ,str(round(gps_dict['accuracy'],2)))
             
     def __update_gps_property(self,property_name,new_val):
         property = self.__get_child_from_base(self.gps_window(), ('root_gps',), property_name)
         property.value_text = new_val
         
-    def addGPSMessageToUI(self, gps_msg):
+    def addGPSMessageToUI(self, gps_msg, *largs):
         gps_window = self.gps_window()
         message_container = self.__get_child_from_base(gps_window,('root_gps','scroll_bar'), 'message_container')
         scroll_bar = self.__get_child_from_base(gps_window, ('root_gps',), 'scroll_bar')
@@ -407,7 +413,7 @@ class ui_mobileApp(App, UI_Interface):
         if (self.autoScroll == True):
             scroll_bar.scroll_to(gps_msg_widget)
     
-    def addNewGPSContactToUI(self, gps_msg):
+    def addNewGPSContactToUI(self, gps_msg, *largs):
         main_window = self.main_window()
         
         message_container = self.__get_child_from_base(main_window,('root_main','second_row','scroll_bar'), 'message_container')
@@ -423,18 +429,18 @@ class ui_mobileApp(App, UI_Interface):
         message_container.add_widget(contact_widget) #add the widget to the UI
         self.contact_widgets[gps_msg.src_callsign] = contact_widget #add the widget to a dictionary, where the key is the callsign of the gps message
     
-    def updateGPSContact(self, gps_msg):
+    def updateGPSContact(self, gps_msg, *largs):
         if gps_msg.src_callsign in self.contact_widgets:
             widget = self.contact_widgets[gps_msg.src_callsign]
             widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
             
-    def notifyGPSLockAchieved(self):
+    def notifyGPSLockAchieved(self, *largs):
         gps_lock_label = self.__get_child_from_base(self.gps_window(),('root_gps',), 'gps_lock_label')
         gps_lock_label.text = "GPS Lock Achieved"
         
     ##@brief update the audio signal strength indicator on the main page of the app
     ##@param signal_strength, floating point value indicating the signal strength, should be between 0.05 and 0.6
-    def update_signal_strength(self,signal_strength):
+    def update_signal_strength(self, signal_strength, *largs):
         main_window = self.main_window()
         if (signal_strength < 0.1):
             main_window.signal_strength_color = main_window.signal_low_color

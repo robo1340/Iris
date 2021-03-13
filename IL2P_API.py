@@ -109,6 +109,7 @@ class IL2P_API:
             dst = header.dst_callsign
             ack = True if (header.ui == 1) else False
             seq = header.control
+            attempt_index = header.src_ssid
             msg = payload.tobytes().decode('ascii','ignore') #convert payload bytes to a string while ignoring all non-ascii characters
             
             log.info('Frame Received, src=' + src + ' dst=' + dst + ' ack=' + str(ack) + ' seq=' + str(seq) + ' msg=' + msg)
@@ -130,7 +131,7 @@ class IL2P_API:
                     if (self.msg_send_queue.full() == True):
                         log.error('ERROR: frame send queue is full')
                     else:
-                        ack_msg = TextMessageObject(msg_str='', src_callsign=self.my_callsign, dst_callsign=src, expectAck=True, seq_num=seq) #create the ack message to be sent
+                        ack_msg = TextMessageObject(msg_str='', src_callsign=self.my_callsign, dst_callsign=src, expectAck=True, seq_num=seq, attempt_index=attempt_index) #create the ack message to be sent
                         self.msg_send_queue.put(ack_msg) #put the message on a queue to be sent to the radio
             
             if (self.isAck(header,payload) == False): #send all messages to the output queue except those which are acks
@@ -201,9 +202,9 @@ class IL2P_API:
             toReturn = None
             self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
-                #if (retry.ready() == True):
                 if (retry.ready() == True):
                     retry.decrement()
+                    retry.msg.attempt_index += 1
                     toReturn = self.writer.getFrameFromTextMessage(retry.msg)
                     carrier_len = retry.msg.carrier_len
                     #else:
@@ -287,7 +288,7 @@ class IL2P_API:
         ##@param msg a TextMessageObject to be converted into a frame
         def getFrameFromTextMessage(self, msg):
             ui_ack = 1 if (msg.expectAck==True) else 0
-            header = IL2P_Frame_Header(src_callsign=msg.src_callsign,dst_callsign=msg.dst_callsign,header_type=3,payload_byte_count=len(msg.msg_str), ui=ui_ack, control=msg.seq_num)
+            header = IL2P_Frame_Header(src_callsign=msg.src_callsign,dst_callsign=msg.dst_callsign,header_type=3,payload_byte_count=len(msg.msg_str), ui=ui_ack, control=msg.seq_num, src_ssid=msg.attempt_index)
             frame = self.frame_engine.encode_frame(header, np.frombuffer(msg.msg_str.encode(),dtype=np.uint8))
             toReturn = frame.tobytes()
             if (self.verbose == True):

@@ -18,7 +18,8 @@ from kivy.logger import Logger as log
 class MooreMachine:
     
     def __init__(self):
-        self.state_transition_array = [True, True, False, False, True, False, False, True, True, False, True, True]
+        self.state_transition_array = [True, True, True, True, True, False, False, True, True, False, True, False, True] 
+        #self.state_transition_array = [True, True, False, False, True, False, False, True, True, False, True, True]
         self.current_state = 0
     
     ##@brief feed a boolean input into the Moore Machine
@@ -53,8 +54,7 @@ class Detector:
         self.maxlen = config.baud  # 1 second of symbols
         self.max_offset = config.timeout * self.samp_freq
         
-        self.equalizer = equalizer.Equalizer(config)
-        self.barker_symbols = [-1, 1, 1, 1,-1,-1,-1, 1,-1,-1, 1,-1]
+        #self.equalizer = equalizer.Equalizer(config)
         self.barker_detector = MooreMachine()
 
     def _wait(self, samples, stat_update):
@@ -84,7 +84,7 @@ class Detector:
             z = np.sum(p * p_prev) #numerically integrate the product of the current symbol and the previous symbol
             phase_changed = (z < 0) #if the result is negative, the phase changed between these two symbols
             if (self.barker_detector.feed(phase_changed)==True):
-                log.debug('barker code detected')
+                log.info('barker code detected')
                 return True
             elif (offset > self.max_offset):
                 return False
