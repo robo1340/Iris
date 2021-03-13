@@ -8,7 +8,7 @@ import time
 import numpy as np
 
 import dsp
-import equalizer
+#import equalizer
 import common
 from common import Status
 import exceptions
@@ -19,7 +19,6 @@ class MooreMachine:
     
     def __init__(self):
         self.state_transition_array = [True, True, True, True, True, False, False, True, True, False, True, False, True] 
-        #self.state_transition_array = [True, True, False, False, True, False, False, True, True, False, True, True]
         self.current_state = 0
     
     ##@brief feed a boolean input into the Moore Machine

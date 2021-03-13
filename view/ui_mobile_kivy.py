@@ -290,7 +290,8 @@ class ui_mobileApp(App, UI_Interface):
         #get the strings the widget will be filled with
         header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
         if (text_msg.expectAck == True):
-            header_text = header_text + ' Attempt: ' + str(text_msg.attempt_index)
+            pass
+            #header_text = header_text + ' Attempt: ' + str(text_msg.attempt_index)
         
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = text_msg.msg_str.rstrip('\n')

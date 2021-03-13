@@ -31,7 +31,6 @@ RETRANSMIT_TIME = 15 #the time in seconds to wait before re-transmitting a frame
 TEXT_PID = 0
 GPS_PID = 1
 
-
 frame_engine_default = IL2P_Frame_Engine()
 
 ##class used to keep track of how many re-transmits have been made on a message requesting an ack        

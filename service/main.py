@@ -27,7 +27,6 @@ import send as _send
 import recv as _recv
 import stream
 import detect
-import sampling
 import exceptions
 import ctypes
 
