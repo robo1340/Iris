@@ -48,6 +48,7 @@ sys.path.insert(0,'..') #need to insert parent path to import something from mes
 from messages import TextMessageObject
 from common import Status
 from common import updateConfigFile
+import IL2P_API
 
 class MainWindow(Screen):
     pass
@@ -253,45 +254,57 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         def callback1(dt):
             self.main_window().squelch_color = self.main_window().indicator_inactive_color
+            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
             self.main_window().receiver_color = self.main_window().indicator_inactive_color
+            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
             self.main_window().success_color = self.main_window().indicator_inactive_color
+            self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
             self.main_window().transmitter_color = self.main_window().indicator_inactive_color
+            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         #with self.statusIndicatorLock:
         if (status is Status.SQUELCH_OPEN):
             self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
+            self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
             Clock.schedule_once(callback1, self.status_update_dwell_time)
         elif (status is Status.CARRIER_DETECTED):
             self.main_window().receiver_color = self.main_window().indicator_rx_color
+            self.chat_window().receiver_color = self.chat_window().indicator_rx_color
             Clock.schedule_once(callback2, self.status_update_dwell_time)
         elif (status is Status.MESSAGE_RECEIVED):
             self.main_window().success_color = self.main_window().indicator_success_color
+            self.chat_window().success_color = self.chat_window().indicator_success_color
             Clock.schedule_once(callback3, self.status_update_dwell_time)
         elif (status is Status.TRANSMITTING):
             self.main_window().transmitter_color = self.main_window().indicator_tx_color
+            self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
             Clock.schedule_once(callback4, self.status_update_dwell_time)
  
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param text_msg A TextMessageObject containing the received message
-    ##@param my_message, set to True when this method is being called by this program
+    ##@param my_message, set to True when the method is coming from the local UI, set to False when the message is being received from the service
     def addMessageToUI(self, text_msg, my_message=False, *largs):
         chat_window = self.chat_window()
         message_container = self.__get_child_from_base(chat_window,('root_chat','second_row','scroll_bar'), 'message_container')
         scroll_bar = self.__get_child_from_base(chat_window, ('root_chat','second_row'), 'scroll_bar')
         
+        if ((my_message==False) and (text_msg.src_callsign == self.my_callsign)): #don't display message received from the audio loopback
+            return
+        
         txt_msg_widget = TextMessage() #create the new widget
         
         #get the strings the widget will be filled with
-        header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
-        if (text_msg.expectAck == True):
-            pass
-            #header_text = header_text + ' Attempt: ' + str(text_msg.attempt_index)
+        header_text = ''
+        if (text_msg.dst_callsign == IL2P_API.BROADCAST_CALLSIGN):
+            header_text = 'BROADCAST from ' + text_msg.src_callsign
+        else: 
+            header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
         
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = text_msg.msg_str.rstrip('\n')
@@ -305,12 +318,10 @@ class ui_mobileApp(App, UI_Interface):
         if ((my_message == True) and(text_msg.src_callsign == self.my_callsign)): #if the message was sent by me
             
             if (text_msg.expectAck == True):
-                #if (text_msg.attempt_index > 0):
-                #    return
                 txt_msg_widget.background_color = chat_window.text_msg_color_ack_pending
             else:
                 txt_msg_widget.background_color = chat_window.text_msg_color_no_ack_expect
-            sent_time_str = ('sent at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+            sent_time_str = ('| {0:s}').format(datetime.now().strftime("%H:%M:%S"))
             ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
             time_text = sent_time_str + ack_time_str
         
@@ -328,17 +339,32 @@ class ui_mobileApp(App, UI_Interface):
         if (self.autoScroll == True):
             scroll_bar.scroll_to(txt_msg_widget)
         
-    ##@brief look through the current messages displayed on the ui and delete any that have an ack_key matching the ack_key passed in
-    ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to delete
+    ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
+    ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to update
     def addAckToUI(self, ack_key, *largs):
         self.messagesLock.acquire()
         for msg in self.messages:
             if (msg.ack_key == ack_key):
-                ack_time_str = ('Acknowledged at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+                ack_time_str = ('Acked at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.widget.time_text = ack_time_str
                 msg.widget.background_color = self.chat_window().text_msg_color_ack_received
         self.messagesLock.release()
-        
+
+    ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
+    ##@ack_key, a tuple of src, dst, and sequence number forming the ack this message expects
+    ##@remaining_retries, the number of times this message will be re-transmitted if no ack is received
+    def updateRetryCount(self, ack_key, remaining_retries, *largs):
+        self.messagesLock.acquire()
+        for msg in self.messages:
+            if (msg.ack_key == ack_key):
+                if (remaining_retries == -1): #mark this message as having received no acknowledgments before timeout
+                    msg.widget.time_text = ' | No Ack Received'
+                else: #update the remaining retries value
+                    update_time_str = ('| {0:s} | ').format(datetime.now().strftime("%H:%M:%S"))
+                    time_text = update_time_str + str(remaining_retries) + ' retries left'
+                    msg.widget.time_text = time_text
+        self.messagesLock.release()
+  
     #@exception_suppressor
     def update_tx_success_cnt(self,val, *largs):
         self.__update_property('tx_success_cnt',str(val))

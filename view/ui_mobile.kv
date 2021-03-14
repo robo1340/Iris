@@ -551,6 +551,16 @@ WindowManager:
     text_msg_color_ack_received  : [0,1,0,1]
     text_msg_color_no_ack_expect : [0.9,1,0.8,1]
     
+    indicator_pre_rx_color      : [0.2,0.2,1,1]
+    indicator_rx_color          : [0,0,1,1]
+    indicator_tx_color          : [1,0,0,1]
+    indicator_success_color     : [0,1,0,1]
+    indicator_inactive_color    : [0,0,0,1]
+    squelch_color               : [0,0,0,1]
+    receiver_color              : [0,0,0,1]
+    transmitter_color           : [0,0,0,1]
+    success_color               : [0,0,0,1]
+    
     top_rowh : 0.1
     center_rowh : 0.6
     bottom_rowh : 0.3
@@ -596,6 +606,51 @@ WindowManager:
                     Line:
                         width: 1
                         rectangle: self.x, self.y, self.width, self.height
+    
+            GridLayout:
+                cols : 2
+                rows : 2
+                name : 'status_indicators'
+                anchor_x : 'left'
+                anchor_y : 'top'
+                size_hint_x : None
+                width : self.height
+    
+                Label:
+                    name : 'squelch'
+                    canvas: 
+                        Color: 
+                            rgba: root.squelch_color
+                        Rectangle: 
+                            pos: self.pos 
+                            size: self.size 
+    
+                Label:
+                    name : 'receiver'
+                    canvas: 
+                        Color: 
+                            rgba: root.receiver_color
+                        Rectangle: 
+                            pos: self.pos 
+                            size: self.size 
+    
+                Label:
+                    name : 'transmitter'
+                    canvas: 
+                        Color: 
+                            rgba: root.transmitter_color
+                        Rectangle: 
+                            pos: self.pos 
+                            size: self.size 
+    
+                Label:
+                    name : 'receiver_success'
+                    canvas: 
+                        Color: 
+                            rgba: root.success_color
+                        Rectangle: 
+                            pos: self.pos 
+                            size: self.size 
                 
                 
     ########################### Second Row ####################################            

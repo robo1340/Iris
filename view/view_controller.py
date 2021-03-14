@@ -57,6 +57,7 @@ class ViewController():
         dispatcher.map('/rx_failure', self.rx_failure_handler)
         dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
         dispatcher.map('/signal_strength',self.signal_strength_handler)
+        dispatcher.map('/retry_msg',self.retry_msg_handler)
         
         #self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
         self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
@@ -114,7 +115,7 @@ class ViewController():
         log.info('received text message from the service')
         txt_msg = TextMessageObject.unmarshal(args)
         if (txt_msg is not None):
-            Clock.schedule_once(functools.partial(self.ui.addMessageToUI, txt_msg), 0)
+            Clock.schedule_once(functools.partial(self.ui.addMessageToUI, txt_msg, False), 0)
             if not txt_msg.src_callsign in self.contacts_dict:
                 Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, txt_msg), 0)
             else:
@@ -181,7 +182,10 @@ class ViewController():
     def signal_strength_handler(self, address, *args):
         log.info('view controller received signal strength- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.update_signal_strength, args[0]), 0)
-        
+    
+    def retry_msg_handler(self, address, *args):
+        log.debug('received a retry message from the service controller')
+        Clock.schedule_once(functools.partial(self.ui.updateRetryCount, (args[0],args[1],int(args[2])), int(args[3]) ), 0) 
         
     def test_handler(self, address, *args):
         log.info(args)

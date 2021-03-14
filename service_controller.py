@@ -164,6 +164,11 @@ class ServiceController():
     def send_signal_strength(self, signal_strength):
         self.client.send_message('/signal_strength',signal_strength)
     
+    @exception_suppressor
+    def send_retry_message(self, ack_key, remaining_retries):
+        log.debug('sending retry message to View Controller')
+        self.client.send_message('/retry_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]), str(remaining_retries) ) )
+    
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################
     ###############################################################################

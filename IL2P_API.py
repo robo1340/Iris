@@ -37,7 +37,7 @@ frame_engine_default = IL2P_Frame_Engine()
 class AckRetryObject():
     def __init__(self, msg, retry_cnt):
         self.msg = msg
-        self.retry_cnt = retry_cnt - 1
+        self.retry_cnt = retry_cnt
         self.time_since_last_retry = time.time()
     
     ##@brief decrement the retry_cnt member variable by one
@@ -179,7 +179,7 @@ class IL2P_API:
         else:
             toReturn = False
             self.pending_acks_lock.acquire()
-            for retry in self.pending_acks.values():
+            for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     toReturn = True
                     break
@@ -198,17 +198,22 @@ class IL2P_API:
         elif (len(self.pending_acks) == 0):
             return (None,0)
         else:
+            toPop = None
             toReturn = None
+            carrier_len = 0
             self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
-                    retry.decrement()
-                    retry.msg.attempt_index += 1
+                    if (retry.decrement() == 0): #if the remaining number of tries is zero, do not re-transmit
+                        self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), -1)
+                        toPop = key
+                        continue
+                    #retry.msg.attempt_index += 1 #now would be the time to send a message to the self.service_controller
+                    self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), retry.retry_cnt-1)
                     toReturn = self.writer.getFrameFromTextMessage(retry.msg)
                     carrier_len = retry.msg.carrier_len
-                    #else:
-                    #    self.pending_acks.pop(key)
-                    #    toReturn = self.getNextFrameToTransmit()   
+            if (toPop != None):
+                self.pending_acks.pop(toPop)
             self.pending_acks_lock.release()
             return (toReturn,carrier_len)
 
