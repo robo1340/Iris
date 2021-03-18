@@ -96,8 +96,23 @@ class StoppableThread(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
+    
+def audioOpener(mode, interface_factory, callback):
+    assert 'r' in mode or 'w' in mode
+    
+    audio_interface = interface_factory() if interface_factory else None
+    if (audio_interface is None):
+        raise BaseException
+
+    if 'r' in mode:
+        s = audio_interface.recorder()
+        return async_reader.AsyncReader(stream=s, bufsize=s.bufsize, mean_abs_callback=callback)
+    if 'w' in mode:
+        return audio_interface.player()
+
+'''
 def FileType(mode, interface_factory=None):
-    def opener(fname):
+    def opener(fname, callback):
         audio_interface = interface_factory() if interface_factory else None
 
         assert 'r' in mode or 'w' in mode
@@ -108,13 +123,14 @@ def FileType(mode, interface_factory=None):
             assert audio_interface is not None
             if 'r' in mode:
                 s = audio_interface.recorder()
-                return async_reader.AsyncReader(stream=s, bufsize=s.bufsize)
+                return async_reader.AsyncReader(stream=s, bufsize=s.bufsize, mean_abs_callback=callback)
             if 'w' in mode:
                 return audio_interface.player()
 
         return open(fname, mode)
 
     return opener
+    '''
 
 class BitPacker:
     def __init__(self):

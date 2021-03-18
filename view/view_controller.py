@@ -180,7 +180,7 @@ class ViewController():
         
     #@exception_suppressor
     def signal_strength_handler(self, address, *args):
-        log.info('view controller received signal strength- ' + str(args[0]))
+        #log.info('view controller received signal strength- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.update_signal_strength, args[0]), 0)
     
     def retry_msg_handler(self, address, *args):

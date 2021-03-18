@@ -4,7 +4,8 @@ class Reader:
 
     wait = 0.2
     timeout = 2.0
-    bufsize = (8 << 10)
+    bufsize = (8 << 5)
+    #bufsize = (8 << 10)
 
     ##@brief constructor for the Reader class
     ##@param fd the file pointer object to create read out of

@@ -12,11 +12,12 @@ import threading
 import time
 import queue
 import wave
+import math
 
 from func_timeout import func_set_timeout, FunctionTimedOut
 
 import pkg_resources
-import async_reader
+#import async_reader
 import audio
 import common
 from common import Status
@@ -52,6 +53,22 @@ class StatusUpdater():
         if (new_status != self.current_status):
                 self.service_controller.send_status(new_status)
                 self.current_status = new_status
+
+##@brief a Carrier Sense Multiple Access Controller
+class CSMA_Controller():
+    def __init__(self, service_controller):
+        self.service_controller = service_controller
+        
+        
+    ##@brief feed a new value to the CSMA Controller
+    ##send a new message to the view_controller with the new channel noise estimate
+    ##@return return True when the channel is clear, return False otherwise
+    def feedNewValue(self, mean_abs_value):
+        log_val = 10*np.log10(mean_abs_value)
+        if (not np.isfinite(log_val)):
+            return False
+        self.service_controller.send_signal_strength(log_val)
+        return False
                 
 ##@brief method to write link layer frames into audio data
 ##@config Configuration object
@@ -121,7 +138,7 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
         
         stat_update.update_status(Status.SQUELCH_OPEN)
             
-        service_controller.send_signal_strength(1.0/gain)
+        #service_controller.send_signal_strength(1.0/gain)
         
         log.info('Gain correction: %.3f', gain)
 
@@ -230,6 +247,8 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     args.recv_dst = link_layer_pipe
     il2p.reader.setSource(link_layer_pipe)
     
+    csma = CSMA_Controller(service_controller)
+    
     most_recent_tx = 0 #the time of the most recent frame transmission
     most_recent_rx = 0 #the time of the most recent frame reception
     has_ellapsed = lambda start, duration : ((time.time() - start) > duration)
@@ -248,8 +267,9 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
             detector = detect.Detector(config=config)
             receiver = _recv.Receiver(config=config)
 
-            input_opener = common.FileType('rb', interface_factory)
-            args.recv_src = input_opener(args.input) #receive encoded symbols from the audio library
+            #input_opener = common.FileType('rb', interface_factory)
+            #args.recv_src = input_opener(args.input) #receive data from the audio library
+            args.recv_src = common.audioOpener('rb', interface_factory, csma.feedNewValue)
             reader = stream.Reader(args.recv_src, data_type=common.loads)
             signal = itertools.chain.from_iterable(reader)
 

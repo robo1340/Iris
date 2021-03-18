@@ -349,6 +349,12 @@ WindowManager:
     signal_correct_color        : [0,0.75,0,1]
     signal_strength_color       : [1,1,1,1]
     
+    #radius and angle of the gauge
+    #radius : self.height/2
+    guage_x : 0
+    guage_y : 0
+
+    
     toggle_button_color         : [0,1,0,1]
     
     signal_strength : '0.00'
@@ -440,6 +446,13 @@ WindowManager:
                     Rectangle: 
                         pos: self.pos 
                         size: self.size 
+                canvas: 
+                    Color: 
+                        rgba: root.black
+                    Line: 
+                        points: [self.x + self.width/2, self.y, self.x + self.width/2 + root.guage_x, self.y + root.guage_y]
+                        width : 5
+                
                 size_hint_x : None
                 width : self.height
                 text_size: (self.width, None)
