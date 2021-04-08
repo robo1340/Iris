@@ -26,6 +26,7 @@ kivy.require('1.11.1')
 Window.softinput_mode = "below_target" #this setting will move the text input field when the keyboard is active on an android device
 
 import time
+import numpy as np
 from datetime import datetime
 import threading, queue
 #import random
@@ -199,6 +200,7 @@ class ui_mobileApp(App, UI_Interface):
             text_input_widget.cursor = (0,0)
             
     def sendGPSBeacon(self):
+        log.info('at sendGPSBeacon()')
         self.viewController.gps_one_shot_command()
     
     def selector_pressed(self, selector, pressed_button):
@@ -468,7 +470,6 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief update the audio signal strength indicator on the main page of the app
     ##@param signal_strength, floating point value indicating the signal strength, should be between 0.05 and 0.6
     def update_signal_strength(self, signal_strength, *largs):
-        import numpy as np
         main_window = self.main_window()
         signal_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
         
@@ -481,17 +482,8 @@ class ui_mobileApp(App, UI_Interface):
         main_window.guage_y = int(radius * np.sin(np.pi/180 * angle_deg))
         #main_window.signal_strength_color = [signal_strength/(9*np.log10(2**15))+0.1, 0, 0, 1] 
         
-        #if (signal_strength < 0.1):
-        #    main_window.signal_strength_color = main_window.signal_low_color
-        #elif (signal_strength > 0.5):
-        #    main_window.signal_strength_color = main_window.signal_high_color
-        #else:
-        #    main_window.signal_strength_color = main_window.signal_correct_color
-        
-        #status_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
-        #status_indicator.text = 
-        s = "%2.0f" % (signal_strength)
-        main_window.signal_strength = s
+        #s = "%2.0f" % (signal_strength)
+        main_window.signal_strength = ''
         
     ################### private functions ##############################
     

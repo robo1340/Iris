@@ -37,7 +37,7 @@ version = 0.5
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,numpy,func_timeout,jnius,plyer,python-osc
+requirements = python3,plyer,kivy,numpy,func_timeout,jnius,python-osc,android,android-toast
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -86,7 +86,7 @@ fullscreen = 0
 android.presplash_color = lightgrey
 
 # (list) Permissions
-android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET
+android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET,VIBRATE
 
 # (int) Target Android API, should be as high as possible.
 #android.api = 27

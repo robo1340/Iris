@@ -2,7 +2,8 @@ import numpy as np
 import io
 import time
 #import threading
-import queue
+#import queue
+from queue import PriorityQueue
 import view
 import random
 import threading
@@ -25,11 +26,15 @@ PREAMBLE_LEN = 1
 
 BROADCAST_CALLSIGN = 6*' '
 
-DEFAULT_RETRY_CNT = 3 #the number of times to re-transmit a frame that expects an ack
+DEFAULT_RETRY_CNT = 5 #the number of times to re-transmit a frame that expects an ack
 RETRANSMIT_TIME = 15 #the time in seconds to wait before re-transmitting a frame that expects an ack
 
 TEXT_PID = 0
 GPS_PID = 1
+
+GPS_PRIORITY = 15 #the priority of a GPS message
+TEXT_PRIORITY = 10 #the priority of a text message
+ACK_PRIORITY = 5 #the priority of an acknowledgment
 
 frame_engine_default = IL2P_Frame_Engine()
 
@@ -60,7 +65,7 @@ class AckRetryObject():
 ##the main class that the rest of the program uses to interact with the IL2P link layer
 class IL2P_API:
 
-    def __init__(self, ini_config, verbose=False, msg_send_queue=None):
+    def __init__(self, ini_config, verbose=False):
         DEFAULT_RETRY_CNT = ini_config['MAIN']['ack_retries']
         RETRANSMIT_TIME = ini_config['MAIN']['ack_timeout']
     
@@ -71,7 +76,9 @@ class IL2P_API:
         self.service_controller = None #set this after the object is created
         #self.msg_output_queue = msg_output_queue
         #self.ack_output_queue = ack_output_queue
-        self.msg_send_queue = msg_send_queue
+        #self.msg_send_queue = msg_send_queue
+        self.msg_send_queue = PriorityQueue(50)
+        self.read_msg_send_queue = lambda : self.msg_send_queue.get()[1]
         
         self.pending_acks_lock = threading.Lock()
         self.pending_acks = {} #dictionary where the keys are tuples representing messages I sent that are pending acknowledgments, tuples are of the form (callsign, seq_num)
@@ -115,7 +122,10 @@ class IL2P_API:
             
             #now need to add handling of acks here
             if (self.isAck(header,payload) == True): #the message received is an acknowledgment
+                
                 if (dst == self.my_callsign): #this is an acknowledgment for me
+                    #log.info('recv: ' + dst)
+                    #log.info('mine: ' + self.my_callsign)
                     self.pending_acks_lock.acquire()
                     ack_key = self.ack_rx_key(src,dst,seq)
                     if (ack_key in self.pending_acks): #if I have been expecting this ack
@@ -124,14 +134,14 @@ class IL2P_API:
                         #self.ack_output_queue.put(ack_key)
                     self.pending_acks_lock.release()
                         
-            elif (self.requestsAck(header,payload) == True): #len(msg) > 0, the message received is requesting an acknowledgment
-                if ((dst == self.my_callsign) or (dst == BROADCAST_CALLSIGN)): #this message is addressed to me (or is a broadcast) and requests an ack. I need to send an ack
-                    
+            elif (self.requestsAck(header,payload) == True): #the message received is requesting an acknowledgment
+                if (dst == self.my_callsign):
+                #if (common.compareCallsigns(dst, self.my_callsign)): # or (dst == BROADCAST_CALLSIGN)): #this message is addressed to me (or is a broadcast) and requests an ack. I need to send an ack
                     if (self.msg_send_queue.full() == True):
                         log.error('ERROR: frame send queue is full')
                     else:
                         ack_msg = TextMessageObject(msg_str='', src_callsign=self.my_callsign, dst_callsign=src, expectAck=True, seq_num=seq, attempt_index=attempt_index) #create the ack message to be sent
-                        self.msg_send_queue.put(ack_msg) #put the message on a queue to be sent to the radio
+                        self.msg_send_queue.put((ACK_PRIORITY, ack_msg)) #put the message on a queue to be sent to the radio
             
             if (self.isAck(header,payload) == False): #send all messages to the output queue except those which are acks
                 received_txt_msg = TextMessageObject(msg, src, dst, ack, seq)
@@ -192,7 +202,10 @@ class IL2P_API:
     ## If there is nothing to transmit, returns (None,0)
     def getNextFrameToTransmit(self):
         if (self.msg_send_queue.empty() == False):
-            msg = self.msg_send_queue.get()
+            msg = self.read_msg_send_queue()
+            #msg = self.msg_send_queue.get()
+            #log.info(msg)
+            
             carrier_len = msg.carrier_len
             return (self.msgToFrame(msg),carrier_len)
         elif (len(self.pending_acks) == 0):

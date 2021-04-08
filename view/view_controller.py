@@ -15,7 +15,16 @@ from pythonosc.osc_server import BlockingOSCUDPServer
 from pythonosc.osc_server import ThreadingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
-sys.path.insert(0,'..') #need to insert parent path to import something from messages
+sys.path.insert(0,'..') #need to insert parent path to import something from message
+
+#import notification.AndroidNotification as notification
+from androidtoast import toast
+from plyer import vibrator
+
+new_gps_contact_vibe_pattern = (0,0.5)
+text_msg_vibe_pattern = (0,1)
+ack_vibe_pattern = (0,0.25,0.15,0.25,0.15,0.25)
+
 from messages import TextMessageObject, GPSMessageObject
 import common
 
@@ -59,8 +68,8 @@ class ViewController():
         dispatcher.map('/signal_strength',self.signal_strength_handler)
         dispatcher.map('/retry_msg',self.retry_msg_handler)
         
-        #self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
-        self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        #self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.view_controller_func = lambda server : server.serve_forever() #the thread function
     
@@ -69,6 +78,11 @@ class ViewController():
         
         self.stop = lambda : self.server.shutdown()
     
+    #the thread function
+    #def view_controller_func(server):
+    #    #while(True):
+    #    server.serve_forever()
+    
     ###############################################################################
     ############### Methods for sending messages to the Service ###################
     ###############################################################################
@@ -76,7 +90,7 @@ class ViewController():
     ## @brief send a text message to the service to be transmitted
     #@exception_suppressor
     def send_txt_message(self, txt_msg):
-        log.info('sending a text message to the service')
+        log.debug('sending a text message to the service')
         #log.info(txt_msg.carrier_len)
         self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
@@ -90,18 +104,18 @@ class ViewController():
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
     #@exception_suppressor
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
-        log.info('sending a gps beacon command to the Service')
+        log.debug('sending a gps beacon command to the Service')
         self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     #@exception_suppressor
     def gps_one_shot_command(self):
-        log.info('sending a gps one shot command to the service')
+        log.debug('sending a gps one shot command to the service')
         self.client.send_message('/gps_one_shot',(True,))
         
     ##@brief send the service a command to shutdown
     def service_stop_command(self):
-        log.info('view controller shutting down the service')
+        log.debug('view controller shutting down the service')
         self.client.send_message('/stop',(True,))
     
     ###############################################################################
@@ -121,6 +135,10 @@ class ViewController():
             else:
                 Clock.schedule_once(functools.partial(self.ui.updateGPSContact, txt_msg), 0)
             self.contacts_dict[txt_msg.src_callsign] = txt_msg
+            
+            if (txt_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my message
+                toast('Text from ' + txt_msg.src_callsign)
+                vibrator.pattern(pattern=text_msg_vibe_pattern)
         
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
@@ -130,13 +148,18 @@ class ViewController():
         gps_msg = GPSMessageObject.unmarshal(args)
         if (gps_msg is not None):
             if not gps_msg.src_callsign in self.contacts_dict:
+                if (gps_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my gps beacon
+                    vibrator.pattern(pattern=new_gps_contact_vibe_pattern)
                 Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, gps_msg), 0)
             else:
                 Clock.schedule_once(functools.partial(self.ui.updateGPSContact, gps_msg), 0)
             self.contacts_dict[gps_msg.src_callsign] = gps_msg
             
+            if (gps_msg.src_callsign != self.ui.my_callsign): #don't notify, this is my own beacon
+                #pass
+                toast('GPS Beacon from ' + gps_msg.src_callsign)
             
-            log.info('received gps message from the service: ' + gps_msg.src_callsign)
+            log.debug('received gps message from the service: ' + gps_msg.src_callsign)
             #Clock.schedule_once(functools.partial(self.ui.addGPSMessageToUI, gps_msg), 0)
     
     ##@brief handler for when a GPSMessage object is received from the service this is my current location
@@ -149,8 +172,12 @@ class ViewController():
 
     #@exception_suppressor
     def ack_msg_handler(self, address, *args):
-        log.info('received an acknoweledgement message from the service: '+ str(args))
-        Clock.schedule_once(functools.partial(self.ui.addAckToUI, (args[0],args[1],int(args[2])) ), 0)   
+        log.debug('received an acknoweledgement message from the service: '+ str(args))
+        Clock.schedule_once(functools.partial(self.ui.addAckToUI, (args[0],args[1],int(args[2])) ), 0)  
+        
+        if (args[1] != self.ui.my_callsign): #don't notify, this is my own ack
+            toast('Ack received from ' + args[1])
+            vibrator.pattern(pattern=ack_vibe_pattern)
     
     #@exception_suppressor
     def transceiver_status_handler(self, address, *args):

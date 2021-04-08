@@ -11,7 +11,7 @@ import io
 import numpy as np
 import threading
 import time
-import queue
+from queue import PriorityQueue
 import wave
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
@@ -93,11 +93,12 @@ if __name__ == "__main__":
 
     args = Args(interface=audio.Interface(config).load(os.path.join(cwd, 'libportaudio.so')))
     stats = common.Stats()
-    msg_send_queue = queue.Queue(50)
+    #msg_send_queue = PriorityQueue()
+    #msg_send_queue = queue.Queue(50)
     #ack_output_queue = queue.Queue(25)
     #msg_output_queue = queue.Queue(25)
 
-    il2p = IL2P_API.IL2P_API(ini_config=ini_config, verbose=False, msg_send_queue=msg_send_queue)
+    il2p = IL2P_API.IL2P_API(ini_config=ini_config, verbose=False)#, msg_send_queue=msg_send_queue)
     args.platform = common.Platform.ANDROID
     from android_only.gps import GPS
     from android_only.OsmAndInterface import OsmAndInterface

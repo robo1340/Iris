@@ -33,7 +33,7 @@ import IL2P_API
 
 master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
 tx_cooldown = 0.5 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
-rx_cooldown = 0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
+rx_cooldown = 0#0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
 # Python 3 has `buffer` attribute for byte-based I/O
 #_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
@@ -294,33 +294,34 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     elif (ret_val == -1):
                         stats.rxf += 1
                         service_controller.send_statistic('rx_failure',stats.rxf)
-
-                    if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
-                        frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
-                        if (frame_to_send == None):
-                            continue
-                        stat_update.update_status(Status.TRANSMITTING)
-                        args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
-
-                        #save to an intermediate file if this is android
-                        if (AndroidMediaPlayer is not None):
-                            args.sender_dst = open('temp.pcm','wb')
-
-                        #push the data to args.sender_dst
-                        if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
-                            stats.txs += 1
-                            service_controller.send_statistic('tx_success',stats.txs)
-
-                            if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
-                                args.sender_dst.close()   
-                                playAudioData(AndroidMediaPlayer(),'temp.pcm') 
-                        else:
-                            stats.txf += 1
-                            service_controller.send_statistic('tx_failure',stats.txf)  
-                        most_recent_tx = time.time()
-                        stat_update.update_status(Status.SQUELCH_CLOSED)
                     else:
-                        time.sleep(0)
+                        if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
+                            frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
+                            if (frame_to_send == None):
+                                continue
+                            stat_update.update_status(Status.TRANSMITTING)
+                            args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
+
+                            #save to an intermediate file if this is android
+                            if (AndroidMediaPlayer is not None):
+                                args.sender_dst = open('temp.pcm','wb')
+
+                            #push the data to args.sender_dst
+                            if (send(config, src=args.sender_src, dst=args.sender_dst, carrier_length=carrier_length)):
+
+                                stats.txs += 1
+                                service_controller.send_statistic('tx_success',stats.txs)
+
+                                if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
+                                    args.sender_dst.close()   
+                                    playAudioData(AndroidMediaPlayer(),'temp.pcm') 
+                            else:
+                                stats.txf += 1
+                                service_controller.send_statistic('tx_failure',stats.txf)  
+                            most_recent_tx = time.time()
+                            stat_update.update_status(Status.SQUELCH_CLOSED)
+                        else:
+                            time.sleep(0)
                 except FunctionTimedOut:
                     log.error('\nERROR!:  recv or send timed out\n')
                 #except:

@@ -17,6 +17,7 @@ from pythonosc.udp_client import SimpleUDPClient
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import TextMessageObject, GPSMessageObject
 import common
+import IL2P_API
 
 from kivy.logger import Logger as log
 
@@ -73,7 +74,7 @@ class ServiceController():
         log.info('text message received from the View Controller')
         txt_msg = TextMessageObject.unmarshal(args)
         #log.info(txt_msg.carrier_len)
-        self.il2p.msg_send_queue.put(txt_msg)
+        self.il2p.msg_send_queue.put((10, txt_msg))
     
     ## @brief callback for when the View Controller sends a new callsign
     @exception_suppressor
@@ -125,7 +126,7 @@ class ServiceController():
     
     @exception_suppressor
     def send_gps_message(self, gps_msg):
-        log.info('sending gps message to View Controller')
+        log.debug('sending gps message to View Controller')
         
         self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
         
@@ -135,12 +136,12 @@ class ServiceController():
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
     def send_my_gps_message(self, gps_msg):
-        log.info('sending my gps message to View Controller')
+        log.debug('sending my gps message to View Controller')
         self.client.send_message('/my_gps_msg', gps_msg.marshal())
     
     @exception_suppressor
     def send_ack_message(self, ack_key):
-        log.info('sending message acknowledgment to View Controller')
+        log.debug('sending message acknowledgment to View Controller')
         self.client.send_message('/ack_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]) ) )
     
     @exception_suppressor
@@ -198,5 +199,6 @@ class ServiceController():
             gps_msg = GPSMessageObject(loc, self.il2p.my_callsign,self.carrier_length)
             self.send_my_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
             
-            self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted
+            self.il2p.msg_send_queue.put((15, gps_msg)) #send my gps location to the il2p transceiver so that it can be transmitted
+       
 

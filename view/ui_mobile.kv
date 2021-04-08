@@ -445,12 +445,12 @@ WindowManager:
                         rgb: root.signal_strength_color
                     Rectangle: 
                         pos: self.pos 
-                        size: self.size 
+                        size: self.size
                 canvas: 
                     Color: 
                         rgba: root.black
                     Line: 
-                        points: [self.x + self.width/2, self.y, self.x + self.width/2 + root.guage_x, self.y + root.guage_y]
+                        points: [self.x + self.width/2, self.y + self.height/4, self.x + self.width/2 + root.guage_x, self.y + self.height/4 + root.guage_y]
                         width : 5
                 
                 size_hint_x : None

@@ -64,10 +64,11 @@ class Detector:
                 bufs.append(buf)
                 #log.info(len(bufs))
                 if (len(bufs) == self.CARRIER_THRESHOLD):
+                    log.info('coherence threshhold reached')
                     return np.concatenate(bufs)
             else: #reset the buffer if the sample is not coherent
                 bufs.clear()
-                if (offset > 0.25*self.samp_freq):#(self.max_offset)):
+                if (offset > 0.5*self.samp_freq):#(self.max_offset)):
                     raise exceptions.NoCarrierDetectedError  
         raise exceptions.NoCarrierDetectedError
 
