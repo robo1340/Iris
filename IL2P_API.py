@@ -308,8 +308,8 @@ class IL2P_API:
             header = IL2P_Frame_Header(src_callsign=msg.src_callsign,dst_callsign=msg.dst_callsign,header_type=3,payload_byte_count=len(msg.msg_str), ui=ui_ack, control=msg.seq_num, src_ssid=msg.attempt_index)
             frame = self.frame_engine.encode_frame(header, np.frombuffer(msg.msg_str.encode(),dtype=np.uint8))
             toReturn = frame.tobytes()
-            if (self.verbose == True):
-                log.info('raw frame to be sent: 0x%s', toReturn.hex())
+            #if (self.verbose == True):
+            log.info('raw frame to be sent: 0x%s', toReturn.hex())
             return toReturn
             
         ##@brief convert a GPSMessageObject to a frame ready to be sent

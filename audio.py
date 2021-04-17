@@ -37,7 +37,9 @@ class Interface:
         #index = self.call(api_name, restype=ctypes.c_int)
         #print(index)
         count = self.call('GetDeviceCount',restype=ctypes.c_int)
-        print(count)
+        print('---')
+        print('Number of devices: ' + str(count))
+        print('---')
 
     def _error_check(self, res):
         if res != 0:

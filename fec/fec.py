@@ -16,8 +16,6 @@ class FrameHeaderCodec:
     ##@return A numpy 1d array of bytes holding the 25 byte IL2P header with ecc symbols appended
     def encode(self,header_msg):
         assert (header_msg.size == 13)
-        #if (header_msg.size != 13):
-        #    raise Exception("header message is not the correct length, expected length is 13 bytes")
     
         toReturn = np.frombuffer(self.rsc.encode(header_msg), dtype=np.uint8)
         return toReturn
@@ -27,8 +25,6 @@ class FrameHeaderCodec:
     ##@return A tuple. The first element is true when decoding was successful. The second element is a numpy 1d array of bytes holding the 13 byte IL2P header
     def decode(self,header,verbose=True):
         assert (header.size == 25)
-        #if (header.size != 25):
-        #    raise Exception("header message is not the correct length, expected length is 25 bytes")
         
         toReturn = np.zeros((13), dtype=np.uint8)
         decodeSuccess = True

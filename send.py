@@ -46,6 +46,7 @@ class Sender:
         s = baseband_signal * np.cos( (2*np.pi*self.Fc*t) / self.Fs)# DBPSK with carrier
         self.write(s) #transmit the synchronization signal
         
+        self.prev_bit = 0 #set the previous bit to 0 since we place an in-phase bit time between the sync signal and frame
         self.write(pilot_signal) #transmit a zero right after the syncrhonization signal to separate it from the data signal
     
     ##@brief modulates and sends a stream of bytes to self.fd

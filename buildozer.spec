@@ -29,7 +29,7 @@ source.dir = .
 #source.exclude_patterns = license,images/*/*.jpg
 
 # (str) Application versioning (method 1)
-version = 0.5
+version = 0.6
 
 # (str) Application versioning (method 2)
 # version.regex = __version__ = ['"](.*)['"]
@@ -86,7 +86,7 @@ fullscreen = 0
 android.presplash_color = lightgrey
 
 # (list) Permissions
-android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET,VIBRATE
+android.permissions = RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,INTERNET,VIBRATE,MODIFY_AUDIO_SETTINGS
 
 # (int) Target Android API, should be as high as possible.
 #android.api = 27

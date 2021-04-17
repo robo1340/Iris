@@ -16,6 +16,9 @@ import math
 
 from func_timeout import func_set_timeout, FunctionTimedOut
 
+from jnius import autoclass
+from jnius import cast
+
 import pkg_resources
 #import async_reader
 import audio
@@ -117,7 +120,7 @@ def playAudioData(player, pcmFileName):
     player.prepare()
     player.start()
     time.sleep(player.getDuration()*1.0/1000)#mPlayer.getDuration is in milliseconds
-    player.release()
+    player.reset()
 
     
 ##@brief program loop to receive frames
@@ -225,6 +228,18 @@ class ReceiverPipe():
         self.header = None
         self.recv_queue.queue.clear()
 
+def setAudioOutputRadio(manager, AudioManager):
+    manager.setMode(AudioManager.MODE_NORMAL)
+    manager.setSpeakerphoneOn(False)
+    manager.setMicrophoneMute(False)
+    
+def setAudioOutputSpeaker(manager, AudioManager):
+    #MODE_IN_CALL
+    #MODE_IN_COMMUNICATION
+    manager.setMode(AudioManager.MODE_IN_COMMUNICATION)
+    manager.setSpeakerphoneOn(True)
+    manager.setMicrophoneMute(True)
+        
 def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     master_timeout = float(ini_config['MAIN']['master_timeout'])
     tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
@@ -239,10 +254,25 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
         return args.interface
     
     AndroidMediaPlayer = None
+    AudioManager = None
     if (args.platform == common.Platform.ANDROID):
-        from jnius import autoclass
         AndroidMediaPlayer = autoclass('android.media.MediaPlayer')
-        
+        AudioManager = autoclass('android.media.AudioManager')
+    
+    mplayer = AndroidMediaPlayer()
+    '''
+    log.info('Trying to do audio things')
+    
+    PythonService = autoclass("org.kivy.android.PythonService")
+    activity = cast("android.app.Service", PythonService.mService)
+    context = cast('android.content.Context', activity.getApplicationContext())
+    audioManager = context.getSystemService(autoclass('android.content.Context').AUDIO_SERVICE)
+    
+    log.info('Did audio things')
+    '''
+    
+    #setAudioOutputRadio(audioManager, AudioManager)
+
     link_layer_pipe = ReceiverPipe(il2p)
     args.recv_dst = link_layer_pipe
     il2p.reader.setSource(link_layer_pipe)
@@ -259,9 +289,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
 
         with args.interface:
         #    args.interface.print_input_devices()
-        
-            ## can probably move these parts out of the loop
-            #########################################################################
 
             #receiver objects
             detector = detect.Detector(config=config)
@@ -276,16 +303,9 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
             #####################################################################
 
             while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
-            #while (threading.currentThread().stopped() == False)
                 try:
 
-                    #sender args
-                    #if (AndroidMediaPlayer is None):
-                    #    output_opener = common.FileType('wb', interface_factory)
-                    #    args.sender_dst = output_opener(args.output) #pipe the encoded symbols into the audio library
-
                     ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
-                    #ret_val = recv(config, src=args.recv_src, dst=args.recv_dst, stat_update=stat_update, service_controller=service_controller)
 
                     if (ret_val == 1):
                         stats.rxs += 1
@@ -312,9 +332,12 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                                 stats.txs += 1
                                 service_controller.send_statistic('tx_success',stats.txs)
 
-                                if (AndroidMediaPlayer is not None): #convert the intermediate pcm file to a wav file and play it with a java class
-                                    args.sender_dst.close()   
-                                    playAudioData(AndroidMediaPlayer(),'temp.pcm') 
+                                if (mplayer is None):
+                                    mplayer = AndroidMediaPlayer()
+                                #convert the intermediate pcm file to a wav file and play it with a java class
+                                args.sender_dst.close()   
+                                playAudioData(mplayer,'temp.pcm')
+                                
                             else:
                                 stats.txf += 1
                                 service_controller.send_statistic('tx_failure',stats.txf)  
@@ -327,6 +350,8 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                 #except:
                 #    print('uncaught exception or keyboard interrupt')
                 finally:
+                    if mplayer is not None:
+                        mplayer.reset()
                     #if args.recv_src is not None:
                     #    args.recv_src.close()
                     if args.sender_src is not None:

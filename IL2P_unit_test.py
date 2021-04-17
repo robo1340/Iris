@@ -5,7 +5,7 @@ import exceptions
 from fec.fec import inject_symbol_errors
 
 frame_engine = IL2P_Frame_Engine()
-
+'''
 ########header packing/unpacking unit test ##################
 header_obj = IL2P_Frame_Header(src_callsign='BAYWAX',dst_callsign='WAYGAK',src_ssid=0x0f,dst_ssid=0x03,ui=1,pid=2,control=0x74,header_type=3,payload_byte_count=1023)
 header_bytes = header_obj.pack_header()
@@ -18,13 +18,17 @@ else:
 
 
 ########### full IL2P unit test #########################
+'''
 
+#msg_str = 'What the fuck did you just fucking say about me, you little bitch? Ill have you know I graduated top of my class in the Navy Seals, and Ive been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.'
+msg_str = 'hey'
+#header = IL2P_Frame_Header(src_callsign='BAYWAX',dst_callsign='WAYGAK',header_type=3,payload_byte_count=len(msg_str))
+header = IL2P_Frame_Header(src_callsign='BA    ',dst_callsign='HAY   ',header_type=3,payload_byte_count=len(msg_str))
 
-msg_str = 'What the fuck did you just fucking say about me, you little bitch? Ill have you know I graduated top of my class in the Navy Seals, and Ive been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.'
-header = IL2P_Frame_Header(src_callsign='BAYWAX',dst_callsign='WAYGAK',header_type=3,payload_byte_count=len(msg_str))
 
 frame_to_send = frame_engine.encode_frame(header, np.frombuffer(msg_str.encode(),dtype=np.uint8))
-corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
+corrupted_frame = frame_to_send
+#corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
 
 try:
 	(header_received, decode_success, payload_received) = frame_engine.decode_frame(frame_to_send)
@@ -42,7 +46,7 @@ msg_str = 'message'
 header = IL2P_Frame_Header(src_callsign='BAYWAX',dst_callsign='WAYGAK',header_type=3,payload_byte_count=len(msg_str))
 
 frame_to_send = frame_engine.encode_frame(header, np.frombuffer(msg_str.encode(),dtype=np.uint8))
-corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
+#corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
 
 try:
 	(header_received, decode_success, payload_received) = frame_engine.decode_frame(frame_to_send)
@@ -61,7 +65,7 @@ for i in range(0,msg.size):
 
 header.setPayloadSize(msg.size)
 frame_to_send = frame_engine.encode_frame(header, msg)
-corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
+#corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
 
 
 try:

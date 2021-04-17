@@ -134,8 +134,6 @@ class IL2P_Frame_Engine:
     def decode_header(self, raw_header, verbose=True):
         if (len(raw_header) < 25):#26):
             raise ValueError('raw_header is to short to be an IL2P header')
-        #if (raw_header[0] != preamble[0]):
-        #    log.warning('WARNING: link layer preamble is incorrect')
         (decode_success,header_decoded) = self.header_codec.decode(self._descramble_bytes(raw_header[0:25]),verbose)
          
         if (decode_success == False): #if the header could not be decoded

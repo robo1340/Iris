@@ -36,7 +36,7 @@ if __name__ == "__main__":
     if (device_type == common.Platform.ANDROID):
         from android.permissions import request_permissions, Permission
         from kivy.utils import platform
-        request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET, Permission.VIBRATE])
+        request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET, Permission.VIBRATE, Permission.MODIFY_AUDIO_SETTINGS])
 
         ini_config = common.parseConfigFile(common.CONFIG_FILE_NAME)
         #print(ini_config.sections())
