@@ -332,8 +332,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                                 stats.txs += 1
                                 service_controller.send_statistic('tx_success',stats.txs)
 
-                                if (mplayer is None):
-                                    mplayer = AndroidMediaPlayer()
+                                #mplayer = AndroidMediaPlayer()
                                 #convert the intermediate pcm file to a wav file and play it with a java class
                                 args.sender_dst.close()   
                                 playAudioData(mplayer,'temp.pcm')

@@ -11,6 +11,7 @@ import functools
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import BlockingOSCUDPServer
 from pythonosc.osc_server import ThreadingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
@@ -58,6 +59,7 @@ class ServiceController():
         dispatcher.map('/stop',self.stop_handler)
         #dispatcher.set_default_handler(default_handler)
         self.server = ThreadingOSCUDPServer(("127.0.0.2", 8000), dispatcher)
+        #self.server = BlockingOSCUDPServer(('127.0.0.2', 8000), dispatcher)
 
         self.service_controller_func = lambda server : server.serve_forever() #the thread function
     
@@ -122,12 +124,13 @@ class ServiceController():
         log.info('sending text message to the View Controller')
         #log.info(txt_msg.getInfoString())
         #log.info(txt_msg.marshal())
+        txt_msg.mark_time()
         self.client.send_message('/txt_msg_rx', txt_msg.marshal())
     
     @exception_suppressor
     def send_gps_message(self, gps_msg):
         log.debug('sending gps message to View Controller')
-        
+        gps_msg.mark_time() #record the current time into the gps message
         self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
         
         if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):

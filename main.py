@@ -36,7 +36,7 @@ if __name__ == "__main__":
     if (device_type == common.Platform.ANDROID):
         from android.permissions import request_permissions, Permission
         from kivy.utils import platform
-        request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET, Permission.VIBRATE, Permission.MODIFY_AUDIO_SETTINGS])
+        request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET, Permission.VIBRATE, Permission.MODIFY_AUDIO_SETTINGS, Permission.FOREGROUND_SERVICE])
 
         ini_config = common.parseConfigFile(common.CONFIG_FILE_NAME)
         #print(ini_config.sections())
@@ -48,15 +48,18 @@ if __name__ == "__main__":
         ui = view.ui_mobile_kivy.ui_mobileApp(viewController, ini_config)
         viewController.ui = ui
 
-        from jnius import autoclass
-        service = autoclass('com.projectx.nobob.ServiceService')
-        mActivity = autoclass('org.kivy.android.PythonActivity').mActivity
-        service.start(mActivity, 'arg')
+        #from jnius import autoclass
+        #service = autoclass('com.projectx.nobob.ServiceService')
+        #mActivity = autoclass('org.kivy.android.PythonActivity').mActivity
+        #service.start(mActivity, 'arg')
+        
+        import android
+        android.start_service(title='NoBoB Service',description='NoBoB Radio Service',arg='arg')
 
         ui.run() #blocking call until user exits the app
         log.info('UI has exited!')
         
-        service.stop(mActivity)
+        #service.stop(mActivity)
         viewController.service_stop_command() # send a message to stop the service threads
         viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller   
 

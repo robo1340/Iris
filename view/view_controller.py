@@ -24,6 +24,7 @@ from plyer import vibrator
 new_gps_contact_vibe_pattern = (0,0.5)
 text_msg_vibe_pattern = (0,1)
 ack_vibe_pattern = (0,0.25,0.15,0.25,0.15,0.25)
+gps_beacon_contact_vibe_pattern = (0, 0.25)
 
 from messages import TextMessageObject, GPSMessageObject
 import common
@@ -68,8 +69,8 @@ class ViewController():
         dispatcher.map('/signal_strength',self.signal_strength_handler)
         dispatcher.map('/retry_msg',self.retry_msg_handler)
         
-        self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
-        #self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        #self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
+        self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
     
         self.view_controller_func = lambda server : server.serve_forever() #the thread function
     
@@ -137,6 +138,7 @@ class ViewController():
             self.contacts_dict[txt_msg.src_callsign] = txt_msg
             
             if (txt_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my message
+                #pass
                 toast('Text from ' + txt_msg.src_callsign)
                 vibrator.pattern(pattern=text_msg_vibe_pattern)
         
@@ -149,10 +151,14 @@ class ViewController():
         if (gps_msg is not None):
             if not gps_msg.src_callsign in self.contacts_dict:
                 if (gps_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my gps beacon
+                    #pass
                     vibrator.pattern(pattern=new_gps_contact_vibe_pattern)
                 Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, gps_msg), 0)
             else:
                 Clock.schedule_once(functools.partial(self.ui.updateGPSContact, gps_msg), 0)
+                if (gps_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my gps beacon
+                    #pass
+                    vibrator.pattern(pattern=gps_beacon_contact_vibe_pattern)
             self.contacts_dict[gps_msg.src_callsign] = gps_msg
             
             if (gps_msg.src_callsign != self.ui.my_callsign): #don't notify, this is my own beacon
@@ -170,12 +176,13 @@ class ViewController():
         if (gps_msg is not None):
             Clock.schedule_once(functools.partial(self.ui.update_my_displayed_location, gps_msg.location), 0)
 
-    #@exception_suppressor
+    @exception_suppressor
     def ack_msg_handler(self, address, *args):
         log.debug('received an acknoweledgement message from the service: '+ str(args))
         Clock.schedule_once(functools.partial(self.ui.addAckToUI, (args[0],args[1],int(args[2])) ), 0)  
         
         if (args[1] != self.ui.my_callsign): #don't notify, this is my own ack
+            #pass
             toast('Ack received from ' + args[1])
             vibrator.pattern(pattern=ack_vibe_pattern)
     

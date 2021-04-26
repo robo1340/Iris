@@ -424,7 +424,8 @@ class ui_mobileApp(App, UI_Interface):
         
         #get the strings the widget will be filled with
         header_text = ('{0:s}').format(gps_msg.src_callsign)
-        time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        time_text = ('{0:s}').format(gps_msg.time_str)
+        #time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = gps_msg.getInfoString()
         
         gps_msg_widget.background_color = self.chat_window().text_msg_color
@@ -451,7 +452,8 @@ class ui_mobileApp(App, UI_Interface):
         contact_widget = ContactLabel() #create the new widget
         
         contact_widget.callsign_text = gps_msg.src_callsign
-        contact_widget.time_text     = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        contact_widget.time_text     = ('{0:s}').format(gps_msg.time_str)
+        #contact_widget.time_text     = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         
         contact_widget.background_color = OSM_COLORS[ (len(self.contact_widgets) % len(OSM_COLORS)) ]
         
@@ -461,7 +463,8 @@ class ui_mobileApp(App, UI_Interface):
     def updateGPSContact(self, gps_msg, *largs):
         if gps_msg.src_callsign in self.contact_widgets:
             widget = self.contact_widgets[gps_msg.src_callsign]
-            widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+            widget.time_text = ('{0:s}').format(gps_msg.time_str)
+            #widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
             
     def notifyGPSLockAchieved(self, *largs):
         gps_lock_label = self.__get_child_from_base(self.gps_window(),('root_gps',), 'gps_lock_label')
