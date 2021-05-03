@@ -1,8 +1,6 @@
 
 from plyer import gps
-import logging
-
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
 class GPS():
 

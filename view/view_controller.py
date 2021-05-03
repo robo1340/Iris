@@ -26,7 +26,7 @@ text_msg_vibe_pattern = (0,1)
 ack_vibe_pattern = (0,0.25,0.15,0.25,0.15,0.25)
 gps_beacon_contact_vibe_pattern = (0, 0.25)
 
-from messages import TextMessageObject, GPSMessageObject
+from messages import *
 import common
 
 from kivy.logger import Logger as log
@@ -68,6 +68,7 @@ class ViewController():
         dispatcher.map('/gps_lock_achieved', self.gps_lock_achieved_hander)
         dispatcher.map('/signal_strength',self.signal_strength_handler)
         dispatcher.map('/retry_msg',self.retry_msg_handler)
+        dispatcher.map('/header_info', self.header_info_handler)
         
         #self.server = BlockingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
         self.server = ThreadingOSCUDPServer(('127.0.0.1', 8000), dispatcher)
@@ -89,27 +90,27 @@ class ViewController():
     ###############################################################################
     
     ## @brief send a text message to the service to be transmitted
-    #@exception_suppressor
+    #
     def send_txt_message(self, txt_msg):
         log.debug('sending a text message to the service')
         #log.info(txt_msg.carrier_len)
         self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
     ## @brief send a new callsign entered by the user to the service
-    #@exception_suppressor
+    #
     def send_my_callsign(self, my_callsign):
         self.client.send_message('/my_callsign',my_callsign)
     
     ##@brief send the service a new gps beacon state and gps beacon period
     ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
-    #@exception_suppressor
+    #
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
         log.debug('sending a gps beacon command to the Service')
         self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
-    #@exception_suppressor
+    #
     def gps_one_shot_command(self):
         log.debug('sending a gps one shot command to the service')
         self.client.send_message('/gps_one_shot',(True,))
@@ -125,94 +126,91 @@ class ViewController():
     
     ##@brief handler for when a TextMessage object is received from the service
     ##@param args, a list of values holding the TextMessage's contents
-    #@exception_suppressor
+    #
     def txt_msg_handler(self, address, *args):
         log.info('received text message from the service')
-        txt_msg = TextMessageObject.unmarshal(args)
-        if (txt_msg is not None):
-            Clock.schedule_once(functools.partial(self.ui.addMessageToUI, txt_msg, False), 0)
-            if not txt_msg.src_callsign in self.contacts_dict:
-                Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, txt_msg), 0)
-            else:
-                Clock.schedule_once(functools.partial(self.ui.updateGPSContact, txt_msg), 0)
-            self.contacts_dict[txt_msg.src_callsign] = txt_msg
+        msg = MessageObject.unmarshal(args[0])
+        if (msg is not None):
+            if (msg.src_callsign == self.ui.my_callsign): #this is my own message
+                return
             
-            if (txt_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my message
-                #pass
-                toast('Text from ' + txt_msg.src_callsign)
-                vibrator.pattern(pattern=text_msg_vibe_pattern)
+            Clock.schedule_once(functools.partial(self.ui.addMessageToUI, msg, False), 0)
+            if not msg.src_callsign in self.contacts_dict:
+                Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, msg), 0)
+            else:
+                Clock.schedule_once(functools.partial(self.ui.updateGPSContact, msg), 0)
+            self.contacts_dict[msg.src_callsign] = msg
+            
+            toast('Text from ' + msg.src_callsign)
+            vibrator.pattern(pattern=text_msg_vibe_pattern)
         
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     ##@param args, a list of values holding the GPSMessage's contents
-    #@exception_suppressor
+    #
     def gps_msg_handler(self, address, *args):
-        gps_msg = GPSMessageObject.unmarshal(args)
+        gps_msg = GPSMessageObject.unmarshal(args[0])
         if (gps_msg is not None):
+            if (gps_msg.src_callsign == self.ui.my_callsign): #return immeadiatly, this is my own beacon
+                return
+            
             if not gps_msg.src_callsign in self.contacts_dict:
-                if (gps_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my gps beacon
-                    #pass
-                    vibrator.pattern(pattern=new_gps_contact_vibe_pattern)
+                vibrator.pattern(pattern=new_gps_contact_vibe_pattern)
                 Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, gps_msg), 0)
             else:
                 Clock.schedule_once(functools.partial(self.ui.updateGPSContact, gps_msg), 0)
-                if (gps_msg.src_callsign != self.ui.my_callsign): #don't vibrate if this is my gps beacon
-                    #pass
-                    vibrator.pattern(pattern=gps_beacon_contact_vibe_pattern)
+                vibrator.pattern(pattern=gps_beacon_contact_vibe_pattern)
             self.contacts_dict[gps_msg.src_callsign] = gps_msg
-            
-            if (gps_msg.src_callsign != self.ui.my_callsign): #don't notify, this is my own beacon
-                #pass
-                toast('GPS Beacon from ' + gps_msg.src_callsign)
+            toast('GPS Beacon from ' + gps_msg.src_callsign)
             
             log.debug('received gps message from the service: ' + gps_msg.src_callsign)
             #Clock.schedule_once(functools.partial(self.ui.addGPSMessageToUI, gps_msg), 0)
     
     ##@brief handler for when a GPSMessage object is received from the service this is my current location
     ##@param args, a list of values holding the GPSMessage's contents
-    #@exception_suppressor
+    #
     def my_gps_msg_handler(self, address, *args):
-        gps_msg = GPSMessageObject.unmarshal(args)
+        gps_msg = GPSMessageObject.unmarshal(args[0])
         if (gps_msg is not None):
             Clock.schedule_once(functools.partial(self.ui.update_my_displayed_location, gps_msg.location), 0)
 
-    @exception_suppressor
+    
     def ack_msg_handler(self, address, *args):
         log.debug('received an acknoweledgement message from the service: '+ str(args))
-        Clock.schedule_once(functools.partial(self.ui.addAckToUI, (args[0],args[1],int(args[2])) ), 0)  
+        if (args[1] == self.ui.my_callsign): #this is my ack
+            return
         
-        if (args[1] != self.ui.my_callsign): #don't notify, this is my own ack
-            #pass
-            toast('Ack received from ' + args[1])
-            vibrator.pattern(pattern=ack_vibe_pattern)
+        Clock.schedule_once(functools.partial(self.ui.addAckToUI, (args[0],args[1],int(args[2])) ), 0)  
+        toast('Ack received from ' + args[1])
+        vibrator.pattern(pattern=ack_vibe_pattern)
     
-    #@exception_suppressor
+    #
     def transceiver_status_handler(self, address, *args):
         #log.info('received a status update from the service')
         Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, args[0]), 0)
         
-    #@exception_suppressor
+    #
     def tx_success_handler(self, address, *args):
         Clock.schedule_once(functools.partial(self.ui.update_tx_success_cnt, args[0]), 0)
         
-    #@exception_suppressor
+    #
     def tx_failure_handler(self, address, *args):
         Clock.schedule_once(functools.partial(self.ui.update_tx_failure_cnt, args[0]), 0)
     
-    #@exception_suppressor
+    #
     def rx_success_handler(self, address, *args):
         Clock.schedule_once(functools.partial(self.ui.update_rx_success_cnt, args[0]), 0)
     
-    #@exception_suppressor
+    #
     def rx_failure_handler(self, address, *args):
         Clock.schedule_once(functools.partial(self.ui.update_rx_failure_cnt, args[0]), 0)
         
-    #@exception_suppressor
+    #
     def gps_lock_achieved_hander(self, address, *args):
         log.info('gps lock achieved set to- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.notifyGPSLockAchieved), 0) #update the ui elements to show gps lock achieved
         
-    #@exception_suppressor
+    #
     def signal_strength_handler(self, address, *args):
         #log.info('view controller received signal strength- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.update_signal_strength, args[0]), 0)
@@ -220,6 +218,10 @@ class ViewController():
     def retry_msg_handler(self, address, *args):
         log.debug('received a retry message from the service controller')
         Clock.schedule_once(functools.partial(self.ui.updateRetryCount, (args[0],args[1],int(args[2])), int(args[3]) ), 0) 
+        
+    def header_info_handler(self, address, *args):
+        header_info = AckSequenceList.unmarshal(args[0])
+        Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, header_info), 0)
         
     def test_handler(self, address, *args):
         log.info(args)

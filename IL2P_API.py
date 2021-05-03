@@ -14,7 +14,7 @@ import json
 from IL2P import *
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
-from messages import TextMessageObject, GPSMessageObject
+from messages import *
 
 from kivy.logger import Logger as log
 
@@ -61,7 +61,7 @@ class AckRetryObject():
         rdy = ((time.time() - self.time_since_last_retry) > RETRANSMIT_TIME)
         tries_left = (self.retry_cnt > 0)
         return (rdy and tries_left)
-
+    
 ##the main class that the rest of the program uses to interact with the IL2P link layer
 class IL2P_API:
 
@@ -74,14 +74,15 @@ class IL2P_API:
         self.engine = IL2P_Frame_Engine()
         
         self.service_controller = None #set this after the object is created
-        #self.msg_output_queue = msg_output_queue
-        #self.ack_output_queue = ack_output_queue
-        #self.msg_send_queue = msg_send_queue
+
         self.msg_send_queue = PriorityQueue(50)
         self.read_msg_send_queue = lambda : self.msg_send_queue.get()[1]
         
         self.pending_acks_lock = threading.Lock()
         self.pending_acks = {} #dictionary where the keys are tuples representing messages I sent that are pending acknowledgments, tuples are of the form (callsign, seq_num)
+        
+        self.forward_acks_lock = threading.Lock()
+        self.forward_acks = AckSequenceList()
         
         self.reader = IL2P_API.IL2P_Frame_Reader(verbose=verbose, frame_engine=self.engine)
         self.writer = IL2P_API.IL2P_Frame_Writer(verbose=verbose, frame_engine=self.engine)
@@ -92,92 +93,100 @@ class IL2P_API:
         #   -the sequence number used to identify the ack
         self.ack_tx_key = lambda src,dst,seq : (src,dst,seq) #create a key for an ack from the transmitter's perspective
         self.ack_rx_key = lambda src,dst,seq : (dst,src,seq) #create a key for an ack from the receiver's perspective
-        
-        #acknowledgments are identified by the 1-bit ui field in the header and the length of the payload:
-        # 1) A frame with the ui field set to 1 and a payload length greater than 0 is requesting an acknowledgment from the destination callsign
-        # 2) A frame with the ui field set to 1 and no payload is an acknowledgment responding to case 1 above
-        # 3) A frame with the ui field set to 0 is not an acknowledgment and is not requesting an acknowledgment
-        # 4) (special case) When ui is set to 1 and the destination callsign is the broadcast callsign, the sender will not re-transmit the message if no ack is received
-        self.isAck          = lambda hdr,pld : ((hdr.ui == 1) and (len(pld)==0))
-        self.requestsAck    = lambda hdr,pld : ((hdr.ui == 1) and (len(pld) > 0))
 
     def setMyCallsign(self,new):
         self.my_callsign = new
     
     def readFrame(self):
         (header, payload) = self.reader.readFrame()
+        forward_msg = False #set to true if this message will be forwarded
         
         if (header == None): #if the reader failed to decode the frame
             return False
         
-        if (header.pid == TEXT_PID):
-            src = header.src_callsign
-            dst = header.dst_callsign
-            ack = True if (header.ui == 1) else False
-            seq = header.control
-            attempt_index = header.src_ssid
-            msg = payload.tobytes().decode('ascii','ignore') #convert payload bytes to a string while ignoring all non-ascii characters
+        if (header.hops_remaining > 0): #if this message is to be forwarded
+            header.hops_remaining = header.hops_remaining - 1
+            if (header.dst_callsign != self.my_callsign):
+                forward_msg = True
+        
+        #handle any stats contained in this message
+        if (header.stat1 == True):
+            pass
+        
+        if (header.stat2 == True):
+            pass
+        
+        #handle any acks contained in this message
+        for seq in reversed(header.getForwardAckSequenceList()):
+            if (dst == self.my_callsign): #this is an acknowledgment for me
+                self.pending_acks_lock.acquire()
+                ack_key = self.ack_rx_key(src,dst,seq)
+                if (ack_key in self.pending_acks): #if I have been expecting this ack
+                    self.pending_acks.pop(ack_key) #remove the ack from the pending acks dictionary
+                    self.service_controller.send_ack_message(ack_key) #send the ack to the UI
+                self.pending_acks_lock.release()
+            else: #forward all received acknowledgements
+                self.forward_acks_lock.acquire()
+                self.forward_acks.append(seq)
+                self.service_controller.send_header_info(self.forward_acks)
+                self.forward_acks_lock.release()
+        
+        if (header.request_double_ack or header.request_ack):
+            if (self.msg_send_queue.full() == True):
+                log.error('ERROR: frame send queue is full')
+            else:
+                ack_header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=header.src_callsign, \
+                                               hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=False, \
+                                               stat1=False, stat2=False, \
+                                               acks=self.forward_acks.getAcksBool(),
+                                               request_ack=False, request_double_ack=False, \
+                                               payload_size=0, \
+                                               data=self.forward_acks.getAcksData())
+                ack_msg = MessageObject(header=ack_header, payload_str='')
+                self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
+                if (header.request_double_ack):
+                    self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
+        
+        #forward the message if the conditions are met
+        if (forward_msg == True):
+            if (self.msg_send_queue.full() == True):
+                log.error('ERROR: frame send queue full while forwarding')
+            else:
+                forward_msg = MessageObject(header=header, payload_str=payload)
+                priority = TEXT_PRIORITY if (header.is_text_msg) else GPS_PRIORITY
+                self.msg_send_queue.put((priority, forward_msg))               
+        
+        if (header.is_text_msg == True):
+            log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
             
-            log.info('Frame Received, src=' + src + ' dst=' + dst + ' ack=' + str(ack) + ' seq=' + str(seq) + ' msg=' + msg)
-            
-            #now need to add handling of acks here
-            if (self.isAck(header,payload) == True): #the message received is an acknowledgment
-                
-                if (dst == self.my_callsign): #this is an acknowledgment for me
-                    #log.info('recv: ' + dst)
-                    #log.info('mine: ' + self.my_callsign)
-                    self.pending_acks_lock.acquire()
-                    ack_key = self.ack_rx_key(src,dst,seq)
-                    if (ack_key in self.pending_acks): #if I have been expecting this ack
-                        self.pending_acks.pop(ack_key) #remove the ack from the pending acks dictionary
-                        self.service_controller.send_ack_message(ack_key) #send the ack to the UI
-                        #self.ack_output_queue.put(ack_key)
-                    self.pending_acks_lock.release()
-                        
-            elif (self.requestsAck(header,payload) == True): #the message received is requesting an acknowledgment
-                if (dst == self.my_callsign):
-                #if (common.compareCallsigns(dst, self.my_callsign)): # or (dst == BROADCAST_CALLSIGN)): #this message is addressed to me (or is a broadcast) and requests an ack. I need to send an ack
-                    if (self.msg_send_queue.full() == True):
-                        log.error('ERROR: frame send queue is full')
-                    else:
-                        ack_msg = TextMessageObject(msg_str='', src_callsign=self.my_callsign, dst_callsign=src, expectAck=True, seq_num=seq, attempt_index=attempt_index) #create the ack message to be sent
-                        self.msg_send_queue.put((ACK_PRIORITY, ack_msg)) #put the message on a queue to be sent to the radio
-            
-            if (self.isAck(header,payload) == False): #send all messages to the output queue except those which are acks
-                received_txt_msg = TextMessageObject(msg, src, dst, ack, seq)
-                self.service_controller.send_txt_message(received_txt_msg) #send the message to the UI
-                #self.msg_output_queue.put(received_txt_msg) #place the received text message into receive queue
+            if (header.payload_size > 0): #send all messages with payloads to the output queue
+                msg = MessageObject(header=header, payload_str='')
+                self.service_controller.send_txt_message(msg) #send the message to the ui
             return True
             
-        elif (header.pid == GPS_PID):
+        elif (header.is_beacon == True):
             try:
                 gps_dict = json.loads( payload.tobytes().decode('ascii','ignore') ) #convert payload bytes to a dictionary while ignoring all non-ascii characters
                 log.debug(gps_dict['lat'])
                 log.debug(gps_dict['lon'])
                 log.debug(gps_dict['altitude'])
-                received_gps_msg = GPSMessageObject(gps_dict, header.src_callsign)
+                received_gps_msg = GPSMessageObject(src_callsign=header.src_callsign, location=gps_dict)
                 self.service_controller.send_gps_message(received_gps_msg) #send the message to the UI
-                #self.msg_output_queue.put(received_gps_msg) #place the received gps message into the receive queue
                 return True   
             except BaseException:
                 log.warning('WARNING: failed to decode payload of a GPS message')
-                return False
-            
+                return False          
     
-    ## @brief convert a TextMessageObject to a Frame and return the raw frame to be transmitted
-    ## @param msg - The TextMessageObject or GPSMessageObject to be sent
+    ## @brief convert a MessageObject to a Frame and return the raw frame to be transmitted
+    ## @param msg - The MessageObject
     def msgToFrame(self, msg):
-        if (isinstance(msg,TextMessageObject)): 
-            if (msg.expectAck == True):
-                self.pending_acks_lock.acquire()
-                ack = self.ack_tx_key(msg.src_callsign,msg.dst_callsign,msg.seq_num)
-                if ((msg.dst_callsign is not BROADCAST_CALLSIGN) and (len(msg.msg_str) != 0)): #don't retransmit if this request for acks is a broadcast
-                    self.pending_acks[ack] = AckRetryObject(msg, DEFAULT_RETRY_CNT) #create a new entry in the dictionary
-                self.pending_acks_lock.release()
-                
-            return self.writer.getFrameFromTextMessage(msg)
-        elif (isinstance(msg,GPSMessageObject)):
-            return self.writer.getFrameFromGPSMessage(msg)
+        if (msg.header.request_double_ack or msg.header.request_ack):
+            self.pending_acks_lock.acquire()
+            ack = self.ack_tx_key(msg.header.src_callsign,msg.header.dst_callsign,msg.header.data[0])
+            self.pending_acks[ack] = AckRetryObject(msg,DEFAULT_RETRY_CNT) #create a new entry in the dictionary
+            self.pending_acks_lock.release()
+          
+        return self.writer.getFrameFromMessage(msg)
     
     ##@brief check to see if there is a frame to transmit right now
     ##@return - Returns true when there is a frame to send, returns false otherwise
@@ -203,9 +212,6 @@ class IL2P_API:
     def getNextFrameToTransmit(self):
         if (self.msg_send_queue.empty() == False):
             msg = self.read_msg_send_queue()
-            #msg = self.msg_send_queue.get()
-            #log.info(msg)
-            
             carrier_len = msg.carrier_len
             return (self.msgToFrame(msg),carrier_len)
         elif (len(self.pending_acks) == 0):
@@ -221,7 +227,6 @@ class IL2P_API:
                         self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), -1)
                         toPop = key
                         continue
-                    #retry.msg.attempt_index += 1 #now would be the time to send a message to the self.service_controller
                     self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), retry.retry_cnt-1)
                     toReturn = self.writer.getFrameFromTextMessage(retry.msg)
                     carrier_len = retry.msg.carrier_len
@@ -236,8 +241,6 @@ class IL2P_API:
         def __init__(self, verbose=False, frame_engine=frame_engine_default):
             self.src = None
             self.verbose = verbose
-            
-            self.state = 'IDLE'
             
             self.frame_engine = frame_engine
         
@@ -262,7 +265,6 @@ class IL2P_API:
                         raw_frame[ind] = ele
                         ind+=1  
                 else: #decode the frame
-                    self.state = 'IDLE'
                     log.info('raw frame received: 0x%s', raw_frame[0:ind].tobytes().hex())
                     try:
                         (header, payload_decode_success, payload_bytes) = self.frame_engine.decode_frame(raw_frame)
@@ -288,42 +290,14 @@ class IL2P_API:
             self.verbose = verbose
             self.frame_engine = frame_engine
         
-        ##@brief get a string entered over the command line and put it inside an IL2P frame
-        ##@return return the IL2P frame as an array of bytes
-        def getInput(self):
-            print(">", end ='') 
-            input_str = input()
-            
-            header = IL2P_Frame_Header(src_callsign='BAYWAX',dst_callsign='WAYGAK',header_type=3,payload_byte_count=len(input_str))        
-            frame = self.frame_engine.encode_frame(header, np.frombuffer(input_str.encode(),dtype=np.uint8))
+        ##@brief convert a Message Object to a frame ready to be sent
+        ##@param msg a MessageObject to be converted into a frame
+        def getFrameFromMessage(self, msg):
+            #frame = self.frame_engine.encode_frame(msg.header, np.frombuffer(msg.payload_str.encode(), dtype=np.uint8))
+             #frame_engine.encode_frame(header,     np.frombuffer( msg_str.encode(),dtype=np.uint8))
+            frame = self.frame_engine.encode_frame(msg.header, np.frombuffer(msg.payload_str.encode(),dtype=np.uint8))
             toReturn = frame.tobytes()
-            if (self.verbose == True):
-                log.info('raw frame to be sent: 0x%s', toReturn.hex())
-            return toReturn
-        
-        ##@brief convert a simple text message to a frame ready to be sent
-        ##@param msg a TextMessageObject to be converted into a frame
-        def getFrameFromTextMessage(self, msg):
-            ui_ack = 1 if (msg.expectAck==True) else 0
-            header = IL2P_Frame_Header(src_callsign=msg.src_callsign,dst_callsign=msg.dst_callsign,header_type=3,payload_byte_count=len(msg.msg_str), ui=ui_ack, control=msg.seq_num, src_ssid=msg.attempt_index)
-            frame = self.frame_engine.encode_frame(header, np.frombuffer(msg.msg_str.encode(),dtype=np.uint8))
-            toReturn = frame.tobytes()
-            #if (self.verbose == True):
-            log.info('raw frame to be sent: 0x%s', toReturn.hex())
-            return toReturn
-            
-        ##@brief convert a GPSMessageObject to a frame ready to be sent
-        ##@param msg a GPSMessageObject to be converted into a frame
-        def getFrameFromGPSMessage(self, msg):
-            payload = str(msg.location).replace('\'','\"')
-            header = IL2P_Frame_Header(src_callsign=msg.src_callsign, dst_callsign=BROADCAST_CALLSIGN, header_type=3, payload_byte_count=len(payload), ui=0, pid=GPS_PID, control=0)
-            frame = self.frame_engine.encode_frame(header, np.frombuffer(payload.encode(), dtype=np.uint8))
-            toReturn = frame.tobytes()
-            if (self.verbose == True):
-                log.info('raw frame to be sent: 0x%s', toReturn.hex())
-            return toReturn
-#if (b )
-#if (b != 0):
-#    print(b.to_bytes(1,'big'))                
+            log.info('raw frame to be sent: 0x%s',toReturn.hex())
+            return toReturn                   
 
 

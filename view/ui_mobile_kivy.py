@@ -46,10 +46,11 @@ from kivy.logger import Logger as log
 from view.ui_interface import UI_Interface
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
-from messages import TextMessageObject
+from messages import *
 from common import Status
 from common import updateConfigFile
 import IL2P_API
+from IL2P import IL2P_Frame_Header
 
 class MainWindow(Screen):
     pass
@@ -81,7 +82,7 @@ def exception_suppressor(func):
         
 class UI_Message():
     def __init__(self, msg, widget):
-        self.ack_key = (msg.src_callsign,msg.dst_callsign,msg.seq_num) if (msg.expectAck == True) else ('','',0)
+        self.ack_key = (msg.header.src_callsign,msg.header.dst_callsign,msg.header.data[0]) if (msg.header.request_ack == True) else ('','',0)
         self.widget = widget
 
 class TextMessage(BoxLayout):
@@ -116,6 +117,8 @@ class ui_mobileApp(App, UI_Interface):
         
         self.viewController = viewController
         self.ini_config = ini_config
+        
+        self.header_info = AckSequenceList()
         
         self.my_callsign = ''
         self.dstCallsign = ''
@@ -183,17 +186,24 @@ class ui_mobileApp(App, UI_Interface):
         updateConfigFile(self.ini_config)
     
     def sendMessage(self, text_input_widget): 
-        chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
- 
-        messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
-        src = self.my_callsign
-        dst = self.dstCallsign
-        ack = self.ackChecked
-        #print('ackChecked ' + str(ack))
-        for msg_str in messages:
-            msg = TextMessageObject(msg_str, src, dst, ack, carrier_len = self.carrier_length)
-            self.viewController.send_txt_message(msg)
-            self.addMessageToUI(msg, my_message=True)
+        #chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
+        #messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
+        if (self.ackChecked): #generate an ack sequence number
+            seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
+            self.header_info.append(seq,force=True)
+        
+        header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=self.dstCallsign, \
+               hops_remaining=0, hops=0, is_text_msg=True, is_beacon=False, \
+               stat1=False, stat2=False, \
+               acks=self.header_info.getAcksBool(), \
+               request_ack=self.ackChecked, request_double_ack=False, \
+               payload_size=len(text_input_widget.text), \
+               data=self.header_info.getAcksData())
+    
+        msg = MessageObject(header=header, payload_str=str(text_input_widget.text), carrier_len=self.carrier_length)
+    
+        self.viewController.send_txt_message(msg)
+        self.addMessageToUI(msg, my_message=True)
 
         if (self.clearOnSend == True):
             text_input_widget.text = ''
@@ -248,7 +258,6 @@ class ui_mobileApp(App, UI_Interface):
 
     
     ############## input functions implementing UI_Interface #################
-        
     
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
@@ -289,42 +298,38 @@ class ui_mobileApp(App, UI_Interface):
             Clock.schedule_once(callback4, self.status_update_dwell_time)
  
     ##@brief add a new message label to the main scroll panel on the gui
-    ##@param text_msg A TextMessageObject containing the received message
+    ##@param msg A TextMessageObject containing the received message
     ##@param my_message, set to True when the method is coming from the local UI, set to False when the message is being received from the service
-    def addMessageToUI(self, text_msg, my_message=False, *largs):
+    def addMessageToUI(self, msg, my_message=False, *largs):
         chat_window = self.chat_window()
         message_container = self.__get_child_from_base(chat_window,('root_chat','second_row','scroll_bar'), 'message_container')
         scroll_bar = self.__get_child_from_base(chat_window, ('root_chat','second_row'), 'scroll_bar')
         
-        if ((my_message==False) and (text_msg.src_callsign == self.my_callsign)): #don't display message received from the audio loopback
+        if ((my_message==False) and (msg.header.src_callsign == self.my_callsign)): #don't display message received from the audio loopback
             return
         
         txt_msg_widget = TextMessage() #create the new widget
         
         #get the strings the widget will be filled with
-        header_text = ''
-        if (text_msg.dst_callsign == IL2P_API.BROADCAST_CALLSIGN):
-            header_text = 'BROADCAST from ' + text_msg.src_callsign
-        else: 
-            header_text = ('{0:s} to {1:s}').format(text_msg.src_callsign, text_msg.dst_callsign)
+        header_text = ('{0:s} to {1:s}').format(msg.header.src_callsign, msg.header.dst_callsign)
         
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
-        message_text = text_msg.msg_str.rstrip('\n')
+        message_text = msg.payload_str.rstrip('\n')
         
         txt_msg_widget.background_color = chat_window.text_msg_color
 
-        if (text_msg.dst_callsign == self.my_callsign): #if the message was addressed to me
+        if (msg.header.dst_callsign == self.my_callsign): #if the message was addressed to me
             txt_msg_widget.background_color = chat_window.text_msg_at_color
             message_text = '@' + self.my_callsign + ' ' + message_text
             
-        if ((my_message == True) and(text_msg.src_callsign == self.my_callsign)): #if the message was sent by me
+        if ((my_message == True) and(msg.header.src_callsign == self.my_callsign)): #if the message was sent by me
             
-            if (text_msg.expectAck == True):
+            if (msg.header.request_ack == True):
                 txt_msg_widget.background_color = chat_window.text_msg_color_ack_pending
             else:
                 txt_msg_widget.background_color = chat_window.text_msg_color_no_ack_expect
             sent_time_str = ('| {0:s}').format(datetime.now().strftime("%H:%M:%S"))
-            ack_time_str = ' | Ack Pending' if (text_msg.expectAck == True) else ''
+            ack_time_str = ' | Ack Pending' if (msg.header.request_ack == True) else ''
             time_text = sent_time_str + ack_time_str
         
         txt_msg_widget.header_text = header_text
@@ -333,7 +338,7 @@ class ui_mobileApp(App, UI_Interface):
         message_container.add_widget(txt_msg_widget)
         
         self.messagesLock.acquire()
-        self.messages.append(UI_Message(text_msg, txt_msg_widget))
+        self.messages.append(UI_Message(msg, txt_msg_widget))
         self.messagesLock.release()
         
         #plyer.notification.notify(title="NoBoB Message Received", message=text_msg.src_callsign, app_name="NoBoB",timeout=10) #send a notification to Android OS
@@ -366,7 +371,11 @@ class ui_mobileApp(App, UI_Interface):
                     time_text = update_time_str + str(remaining_retries) + ' retries left'
                     msg.widget.time_text = time_text
         self.messagesLock.release()
-  
+    
+    def updateHeaderInfo(self, info, *largs):
+        self.header_info = info
+    
+    
     #@exception_suppressor
     def update_tx_success_cnt(self,val, *largs):
         self.__update_property('tx_success_cnt',str(val))

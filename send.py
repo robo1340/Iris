@@ -37,7 +37,8 @@ class Sender:
 
     def start(self):
         self.prev_bit = 0
-        (baseband_signal,t,self.prev_bit) = dsp.bits2baseband([0], self.Nsym, self.prev_bit)
+        #(baseband_signal,t,self.prev_bit) = dsp.bits2baseband([0], self.Nsym, self.prev_bit)
+        (baseband_signal,t,self.prev_bit) = dsp.bits2baseband([0], 8, self.prev_bit)
         pilot_signal = baseband_signal * np.cos( (2*np.pi*self.Fc*t) / self.Fs)# DBPSK with carrier
         for i in range(0,self.carrier_length): #transmit the pilot signal
             self.write(pilot_signal)

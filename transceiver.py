@@ -35,8 +35,8 @@ import config
 import IL2P_API
 
 master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
-tx_cooldown = 0.5 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
-rx_cooldown = 0#0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
+#tx_cooldown = 0.5 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
+#rx_cooldown = 0#0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
 # Python 3 has `buffer` attribute for byte-based I/O
 #_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
@@ -84,26 +84,26 @@ def send(config, src, dst, carrier_length):
     sender = _send.Sender(dst, config=config, carrier_length=carrier_length)
     Fs = config.Fs
 
-    try: 
-        sender.write(np.zeros(int(Fs * (config.silence_start)))) # pre-padding audio with silence (priming the audio sending queue)
+    #try: 
+    sender.write(np.zeros(int(Fs * (config.silence_start)))) # pre-padding audio with silence (priming the audio sending queue)
 
-        sender.start()
+    sender.start()
 
-        #training_duration = sender.offset
-        #log.debug('Sending %.3f seconds of training audio', training_duration / Fs)
+    #training_duration = sender.offset
+    #log.debug('Sending %.3f seconds of training audio', training_duration / Fs)
 
-        reader = stream.Reader(src, eof=True)
-        data = itertools.chain.from_iterable(reader)
-        sender.modulate(data)
+    reader = stream.Reader(src, eof=True)
+    data = itertools.chain.from_iterable(reader)
+    sender.modulate(data)
 
-        log.info('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
+    log.info('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
 
-        sender.write(np.zeros(int(Fs * config.silence_stop))) # post-padding audio with silence
-        log.info('sender complete')
-        return True 
-    except BaseException:
-        log.warning('WARNING: the sender failed, message may have not been fully sent')
-        return False
+    sender.write(np.zeros(int(Fs * config.silence_stop))) # post-padding audio with silence
+    log.info('sender complete')
+    return True 
+    #except BaseException:
+    #    log.warning('WARNING: the sender failed, message may have not been fully sent')
+    #    return False
 
 ##@brief method that uses android.media.MediaPlayer to play a .pcm audio file
 ##@param player an Android Media Player instance
@@ -245,6 +245,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
     rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
     config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
+    log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,rx_cooldown))
 
     fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')
     description = fmt.format(config.modem_bps / 1e3, len(config.symbols), config.Nfreq, config.Fs / 1e3)
@@ -314,6 +315,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                     elif (ret_val == -1):
                         stats.rxf += 1
                         service_controller.send_statistic('rx_failure',stats.rxf)
+                        most_recent_rx = time.time()
                     else:
                         if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
                             frame_to_send, carrier_length = il2p.getNextFrameToTransmit()

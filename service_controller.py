@@ -16,9 +16,10 @@ from pythonosc.osc_server import ThreadingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
-from messages import TextMessageObject, GPSMessageObject
+from messages import *
 import common
 import IL2P_API
+from IL2P import IL2P_Frame_Header
 
 from kivy.logger import Logger as log
 
@@ -71,20 +72,20 @@ class ServiceController():
     ###############################################################################
     
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
-    @exception_suppressor
+    #@
     def txt_msg_handler(self, address, *args):
         log.info('text message received from the View Controller')
-        txt_msg = TextMessageObject.unmarshal(args)
+        txt_msg = MessageObject.unmarshal(args[0])
         #log.info(txt_msg.carrier_len)
         self.il2p.msg_send_queue.put((10, txt_msg))
     
     ## @brief callback for when the View Controller sends a new callsign
-    @exception_suppressor
+    
     def my_callsign_handler(self, address, *args):
         log.info('my callsign received from View Controller')
         self.il2p.setMyCallsign(args[0])
     
-    @exception_suppressor
+    #
     def gps_beacon_handler(self, address, *args):
         log.info('gps beacon settings received from View Controller')
         self.gps_beacon_enable = args[0]
@@ -95,12 +96,12 @@ class ServiceController():
             for event in self.gps_beacon_sched.queue:
                 self.gps_beacon_sched.cancel(event)
     
-    @exception_suppressor
+    
     def gps_one_shot_handler(self,address, *args):
         log.info('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
         
-    @exception_suppressor
+    
     def stop_handler(self, address, *args):
         log.info('stopping the service threads')
         self.isStopped = True
@@ -119,22 +120,28 @@ class ServiceController():
     ########## Methods for sending messages to the View Controller ################
     ###############################################################################
     
-    @exception_suppressor
-    def send_txt_message(self, txt_msg):
-        log.info('sending text message to the View Controller')
-        #log.info(txt_msg.getInfoString())
-        #log.info(txt_msg.marshal())
-        txt_msg.mark_time()
-        self.client.send_message('/txt_msg_rx', txt_msg.marshal())
     
-    @exception_suppressor
-    def send_gps_message(self, gps_msg):
+    def send_txt_message(self, msg):
+        log.info('sending text message to the View Controller')
+        msg.mark_time()
+        self.client.send_message('/txt_msg_rx', msg.marshal())
+    
+    
+    def send_gps_message(self, msg):
         log.debug('sending gps message to View Controller')
-        gps_msg.mark_time() #record the current time into the gps message
-        self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
-        
-        if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
-            self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, datetime.now().strftime("%H:%M:%S")+'\n'+gps_msg.getInfoString())
+        gps_msg = msg.get_location()
+        if (gps_msg is None):
+            log.warning('a non-gps message ended up in a gps message handler')
+        else:
+            gps_msg.mark_time() #record the current time into the gps message
+            self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
+
+            if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
+                self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
+    
+    def send_header_info(self, info):
+        log.info('updating header info')
+        self.client.send_message('/header_info', info.marshal())
     
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
@@ -142,33 +149,33 @@ class ServiceController():
         log.debug('sending my gps message to View Controller')
         self.client.send_message('/my_gps_msg', gps_msg.marshal())
     
-    @exception_suppressor
+    
     def send_ack_message(self, ack_key):
         log.debug('sending message acknowledgment to View Controller')
         self.client.send_message('/ack_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]) ) )
     
-    @exception_suppressor
+    
     def send_status(self, status):
         #log.info('service sending status to View Controller')
         self.client.send_message('/status_indicator', status)
     
-    @exception_suppressor
+    
     def send_statistic(self, type, value):
         self.client.send_message('/' + type, value)
     
-    @exception_suppressor
+    
     def send_test(self):
         self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
         
-    @exception_suppressor
+    
     def send_gps_lock_achieved(self, isLockAchieved):
         self.client.send_message('/gps_lock_achieved', isLockAchieved)
         
-    @exception_suppressor
+    
     def send_signal_strength(self, signal_strength):
         self.client.send_message('/signal_strength',signal_strength)
     
-    @exception_suppressor
+    
     def send_retry_message(self, ack_key, remaining_retries):
         log.debug('sending retry message to View Controller')
         self.client.send_message('/retry_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]), str(remaining_retries) ) )
@@ -199,8 +206,19 @@ class ServiceController():
             if (loc is None):
                 log.warning('WARNING: No GPS location provided')
                 return
-            gps_msg = GPSMessageObject(loc, self.il2p.my_callsign,self.carrier_length)
-            self.send_my_gps_message(gps_msg) #send my gps location to the View Controller so it can be displayed
+
+            loc_str = str(loc).replace('\'','\"')
+            gps_hdr = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \
+                                       hops_remaining=0, hops=0, is_text_msg=False, is_beacon=True, \
+                                       stat1=False, stat2=False, \
+                                       acks=self.il2p.forward_acks.getAcksBool(), \
+                                       request_ack=False, request_double_ack=False, \
+                                       payload_size=len(loc_str), \
+                                       data=self.il2pforward_acks.getAcksData())
+            
+            gps_msg = MessageObject(header=gps_hdr, payload_str=loc_str)
+            
+            self.send_my_gps_message(GPSMessageObject(src_callsign=self.il2p.my_callsign, location=loc)) #send my gps location to the View Controller so it can be displayed
             
             self.il2p.msg_send_queue.put((15, gps_msg)) #send my gps location to the il2p transceiver so that it can be transmitted
        

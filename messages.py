@@ -1,75 +1,90 @@
-import random
+import numpy as np
 import time
 import json
-import logging
+import pickle
 from datetime import datetime
 
-log = logging.getLogger('__name__')
+from kivy.logger import Logger as log
 
-class TextMessageObject():
+class AckSequenceList():
+    @staticmethod
+    def unmarshal(str):
+        return pickle.loads(str)
+    
+    def __init__(self):
+        self.acks = [0,0,0,0]
+        
+    def append(self, new_seq, force=False):
+        for seq in self.acks:
+            if (seq == new_seq) and (forced == False):
+                return False
+        if (len(self.acks) >= 4):
+            self.acks.pop()
+        self.acks.insert(0,new_seq)
+        return True
+        
+    
+    def getAcksBool(self):
+        return len(self.acks)*[True] + (4-len(self.acks))*[False]
+        
+    def getAcksData(self):
+        return np.array(self.acks,dtype=np.uint16)
+    
+    def marshal(self):
+        return pickle.dumps(self)
 
+class MessageObject():
+    
     @staticmethod
     def unmarshal(tup):
-        ack = True if (tup[3] == 'True') else False
-        return TextMessageObject(tup[0], tup[1], tup[2], ack, int(tup[4]), int(tup[5]), int(tup[6]), tup[7] )
-
-    def __init__(self, msg_str='', src_callsign='', dst_callsign='', expectAck=False, seq_num=None, attempt_index=0, carrier_len=750, time_str=''):
-        self.msg_str = msg_str
-        self.src_callsign = src_callsign
-        self.dst_callsign = dst_callsign
-        self.expectAck = expectAck
-        if ((self.expectAck == True) and (seq_num==None)): #if an ack is expected for this message and the seq_num passed in is the default
-            self.seq_num = random.randint(1,127) #choose a number from 1 to 127
-        elif ((self.expectAck == False) and (seq_num==None)):
-            self.seq_num = 0
-        else:
-            self.seq_num = seq_num
-        self.attempt_index = attempt_index
-        self.carrier_len = carrier_len
+        return pickle.loads(tup)
+    
+    def __init__(self, header=None, payload_str='', attempt_index=0, carrier_len=750, time_str=''):
+        self.header = header
+        self.payload_str = payload_str
+        self.attempt_index = int(attempt_index)
+        self.carrier_len = int(carrier_len)
         self.time_str = time_str
-        
-    def getInfoString(self):
-        fmt = 'SRC Callsign: [{0:s}], DST Callsign: [{1:s}], Ack?: {3:s}, sequence#: {4:s}, Message: {2:s}'
-        return fmt.format(self.src_callsign, self.dst_callsign, self.msg_str.strip('\n'), str(self.expectAck), str(self.seq_num))
-       
-    def print(self):
-        print(self.getInfoString())
         
     #set the time string
     def mark_time(self):
         self.time_str = datetime.now().strftime("%H:%M:%S")
     
+    #extract location from the payload if this message is a gps beacon
+    def get_location(self):
+        if (self.header.is_beacon == False):
+            return None
+        else:
+            try:
+                gps_dict = json.loads( self.payload_str )
+                log.debug(gps_dict['lat'])
+                log.debug(gps_dict['lon'])
+                log.debug(gps_dict['altitude'])
+                return GPSMessageObject(src_callsign=self.header.src_callsign, location=gps_dict)  
+            except BaseException:
+                log.warning('WARNING: failed to unmarshal a gps message')
+                return None 
+    
+    def get_dummy_beacon(self):
+        return GPSMessageObject(src_callsign=self.header.src_callsign, location='')
+    
     def marshal(self):
-        return (self.msg_str, self.src_callsign, self.dst_callsign, str(self.expectAck), str(self.seq_num), str(self.attempt_index), str(self.carrier_len), self.time_str)
-        
-        
-class GPSMessageObject():
+        return pickle.dumps(self) 
 
+class GPSMessageObject():
     @staticmethod
     def unmarshal(tup):
-        try:
-            gps_dict = json.loads( tup[0] )
-            log.debug(gps_dict['lat'])
-            log.debug(gps_dict['lon'])
-            log.debug(gps_dict['altitude'])
-            return GPSMessageObject(location=gps_dict, src_callsign=tup[1], time_str=tup[2])  
-        except BaseException:
-            log.warning('WARNING: failed to unmarshal a gps message')
-            return None   
-
-    ##@brief constructor for a GPSMessageObject
-    ##@param location a dictionary object containing the current location, speed, bearing etc.
-    ##@param src_callsign the callsign of the radio sending this gps message
-    def __init__(self, location, src_callsign='',carrier_len=750, time_str=''):
-        self.location = location
+        return pickle.loads(tup)
+    
+    def __init__(self, src_callsign='',location=None, time_str=''):
         self.src_callsign = src_callsign
-        self.carrier_len = carrier_len
+        self.location = location
         self.time_str = time_str
-       
+    
     def getInfoString(self):
         fmt = 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
         return fmt
-        
+    
     def lat(self):
         try:
             return float(self.location['lat'])
@@ -87,15 +102,12 @@ class GPSMessageObject():
             return float(self.location['altitude'])
         except BaseException:
             return 0.0
-        
-    def print(self):
-        print(self.getInfoString())
-    
+
     #set the time string
     def mark_time(self):
         self.time_str = datetime.now().strftime("%H:%M:%S")
     
     def marshal(self):
-        loc = str(self.location).replace('\'','\"')
-        return (loc, self.src_callsign, self.time_str, str(self.carrier_len))
+        return pickle.dumps(self)
+    
     

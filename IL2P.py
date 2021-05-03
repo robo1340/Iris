@@ -11,8 +11,6 @@ import exceptions
 
 from kivy.logger import Logger as log
 
-#preamble = np.array([0x55],dtype=np.uint8)
-
 
 ##A class used to prepare IL2P data for transmission and decode received IL2P frames
 class IL2P_Frame_Engine:
@@ -26,91 +24,40 @@ class IL2P_Frame_Engine:
         self.interleaver = Interleaver()
         self.deinterleaver = Deinterleaver()
         self.f = lambda i, n, k : (i*k)%n #byte scrambling function
-    
-    #find the scrambling multiplier, which is the smallest prime number greater than 2 which does not evenly divide n
-    def _find_scrambling_multiplier(self,n):
-        for p in PRIMES:
-            if ((n%p) != 0):
-                return p
-        return -1
-
-    
-    
-    def _descramble_bytes(self,bytes_to_descramble):
-        return bytes_to_descramble
-        '''
-        n = bytes_to_descramble.size
-        if (n < 3): #do not scramble the bytes
-            return bytes_to_descramble
-        
-        k = self._find_scrambling_multiplier(n)
-        if (k == -1):
-            log.error('ERROR: could not find a suitable k value')
-            return bytes_to_descramble
-
-        toReturn = np.zeros_like(bytes_to_descramble)
-        for i in range(0,n):
-            toReturn[self.f(i,n,k)] = bytes_to_descramble[i]
-        return toReturn
-        '''
-        
-    
-    def _scramble_bytes(self,bytes_to_scramble):
-        return bytes_to_scramble 
-        '''
-        n = bytes_to_scramble.size
-        print(n)
-        if (n < 3): #do not scramble the bytes
-            return bytes_to_descramble
-        
-        k = self._find_scrambling_multiplier(n)
-        if (k == -1):
-            log.error('ERROR: could not find a suitable k value')
-            return bytes_to_descramble
-        
-        toReturn = np.zeros_like(bytes_to_scramble)
-        for i in range(0,n):
-            toReturn[i] = bytes_to_scramble[self.f(i,n,k)]
-        return toReturn
-        '''
-        
-    
-    ##@brief prepares frame for modulation by packing header information into 13 bytes and interleaving the bits
-    ##@param header_bytes 1d numpy array of length 13 holding the IL2P header information
+     
+    ##@brief prepares frame for modulation by packing header information into 24 bytes and interleaving the bits
+    ##@param header_bytes 1d numpy array of length 24 holding the IL2P header information
     ##@param frame_payload_bytes, the payload bytes to be interleaved right after the frame header
     ##@return a tuple of 1d numpy arrays, the first contains the interleaved header, the second the interleaved frame_payload_bytes
     def __apply_interleaving(self,header_bytes,frame_payload_bytes):
 
         frame_bytes = np.concatenate( (header_bytes,frame_payload_bytes) )
-        
+        print('here2')
         self.interleaver.reset()
         interleaved_frame_bytes = self.interleaver.scramble_bits(frame_bytes)
-        
-        return (interleaved_frame_bytes[0:13], interleaved_frame_bytes[13:,])
+        print('here2')
+        return (interleaved_frame_bytes[0:24], interleaved_frame_bytes[24:,])
     
     ##@brief method used to prepare frames for modulation
     ##@param header a IL2P_Frame_Header object containing the header information
     ##@param payload_bytes a 1d numpy array of bytes holding the frame payload information
     ##@return returns a 1d numpy array of bytes holding the data ready to be modulated over the radio interface
     def encode_frame(self,header,payload_bytes):
-    
         (interleaved_header, interleaved_payload) = self.__apply_interleaving(header.pack_header(), payload_bytes)
         fec_encoded_header = self.header_codec.encode(interleaved_header)
         fec_encoded_payload = self.payload_encoder.encode(interleaved_payload)
         
-        #return np.concatenate( (preamble,fec_encoded_header,fec_encoded_payload) )
-        return np.concatenate( (self._scramble_bytes(fec_encoded_header),self._scramble_bytes(fec_encoded_payload)) )
+        return np.concatenate( (fec_encoded_header,fec_encoded_payload) )
     
     ##@brief extract the header and payload information from a newly received frame
     ##@param raw_frame the raw frame bytes that were received
     ##@throws IL2PHeaderDecodeError thrown when the Solomon Reed decoder could not correct all the errors in the frame header
     ##@return returns a tuple. The first element is an IL2P_Frame_Header object, the second is a boolean that is true if the full payload could be corrected, the third is the frame payload information as a numpy 1d array of bytes
     def decode_frame(self, raw_frame):
-        if (len(raw_frame) < 25):#26):
+        if (len(raw_frame) < 50):
             raise ValueError('raw_frame is to short to be an IL2P frame')
-        #if (raw_frame[0] != preamble[0]):
-        #    log.warning('WARNING: link layer preamble is incorrect')
-        (decode_success,header_decoded) = self.header_codec.decode(self._descramble_bytes(raw_frame[0:25]))
+
+        (decode_success,header_decoded) = self.header_codec.decode(raw_frame[0:50])
         
         if (decode_success == False): #if the header could not be decoded
             raise exceptions.IL2PHeaderDecodeError('Error: could not decode the IL2P frame header')
@@ -120,7 +67,7 @@ class IL2P_Frame_Engine:
         header_bytes = self.deinterleaver.descramble_bits(header_decoded)
         header = IL2P_Frame_Header.unpack_header(header_bytes)
 
-        (payload_decode_success, payload_decoded) = self.payload_decoder.decode(self._descramble_bytes(raw_frame[25:,]), header.getPayloadSize())
+        (payload_decode_success, payload_decoded) = self.payload_decoder.decode(raw_frame[50:,], header.getPayloadSize())
 
         payload_bytes = self.deinterleaver.descramble_bits(payload_decoded)
 
@@ -132,9 +79,9 @@ class IL2P_Frame_Engine:
     ##@throws valueError, thrown when the arguments passed in are not correct
     ##@return returns an IL2P_Frame_Header object
     def decode_header(self, raw_header, verbose=True):
-        if (len(raw_header) < 25):#26):
+        if (len(raw_header) < 50):
             raise ValueError('raw_header is to short to be an IL2P header')
-        (decode_success,header_decoded) = self.header_codec.decode(self._descramble_bytes(raw_header[0:25]),verbose)
+        (decode_success,header_decoded) = self.header_codec.decode(raw_header[0:50],verbose)
          
         if (decode_success == False): #if the header could not be decoded
             raise exceptions.IL2PHeaderDecodeError('Error: could not decode the IL2P frame header')
@@ -150,39 +97,34 @@ class IL2P_Frame_Engine:
 ##A class representing an IL2P frame header and all its attributes
 class IL2P_Frame_Header:
 
-    SSID_MASK           = np.uint8(0x0f)
-    UI_MASK             = np.uint8(0x01)
-    PID_MASK            = np.uint8(0x0F) 
-    CONTROL_MASK        = np.uint8(0x7F) 
-    HEADER_TYPE_MASK    = np.uint8(0x03)
-    PAYLOAD_COUNT_MASK  = np.uint16(0x03FF) 
-
     ##@brief constructor for the IL2P_Frame class. Params for constructor include all the info needed to form a 13 byte header
     ##@param src_callsign the source callsign for this frame, a 6 character string
     ##@param dst_callsign the destination callsign for this frame, a 6 character string
-    ##@param src_ssid the source ssid for this frame, a 4 bit field
-    ##@param dst_ssid the destination ssid for this frame, a 4 bit field
-    ##@param ui a 1 bit field
-    ##@param pid a 4 bit field
-    ##@param control a 7 bit field
-    ##@param header_type a 2 bit field
-    ##@param payload_byte_count a 10 bit field indicating how many bytes of information is in the payload for this frame
-    def __init__(self, src_callsign='GAYWAX',dst_callsign='BAYWAX',src_ssid=0,dst_ssid=0,ui=0,pid=0,control=0,header_type=2,payload_byte_count=0):
-        self.src_callsign       = src_callsign
-        self.dst_callsign       = dst_callsign
-        self.src_ssid           = np.uint8(src_ssid)            & self.SSID_MASK
-        self.dst_ssid           = np.uint8(dst_ssid)            & self.SSID_MASK
-        self.ui                 = np.uint8(ui)                  & self.UI_MASK
-        self.pid                = np.uint8(pid)                 & self.PID_MASK
-        self.control            = np.uint8(control)             & self.CONTROL_MASK
-        self.header_type        = np.uint8(header_type)         & self.HEADER_TYPE_MASK
-        self.payload_byte_count = np.uint16(payload_byte_count) & self.PAYLOAD_COUNT_MASK
+    def __init__(self, src_callsign='GAYWAX', dst_callsign='BAYWAX', \
+               hops_remaining=1, hops=1, is_text_msg=True, is_beacon=False, \
+               stat1=False, stat2=False, \
+               acks=[False,False,False,False], \
+               request_ack=True, request_double_ack=False, \
+               payload_size=0, data=np.zeros((4),dtype=np.uint16)):
+        self.src_callsign = src_callsign.ljust(6,' ')[0:6]
+        self.dst_callsign = dst_callsign.ljust(6,' ')[0:6]
+        self.hops = hops
+        self.hops_remaining = hops_remaining
+        self.is_text_msg = is_text_msg
+        self.is_beacon = is_beacon
+        self.stat1 = stat1
+        self.stat2 = stat2
+        self.acks = acks
+        self.request_ack = request_ack
+        self.request_double_ack = request_double_ack
+        self.payload_size = np.uint16(payload_size)
+        self.data = data
     
     def getPayloadSize(self):
-        return int(self.payload_byte_count)
+        return self.payload_size
         
     def setPayloadSize(self, new_count):
-        self.payload_byte_count = np.uint16(new_count)  & self.PAYLOAD_COUNT_MASK
+        self.payload_size = np.uint16(new_count)
         
     ##@brief calculate the raw payload length from the payload length given in the frame header's 10 bit field
     ##@param payload_len the payload length given in the frame header's 10 bit field.
@@ -197,72 +139,95 @@ class IL2P_Frame_Header:
         ecc_sym_cnt = floor(small_block_len/5) + 10 #the number of error correction symbols that will be appended to each block
         return ((small_block_cnt*(small_block_len+ecc_sym_cnt)) + (large_block_cnt*(large_block_len+ecc_sym_cnt)))
     
-    ##@brief packs the header information into 13 bytes.
-    ##@return returns a 1d numpy array of 13 bytes
+    ##@brief packs the header information into 24 bytes.
+    ##@return returns a 1d numpy array of 24 bytes
     def pack_header(self):
-        toReturn = np.zeros((13),dtype=np.uint8)
+        toReturn = np.zeros((24),dtype=np.uint8)
         
-        ind = 0
-        #pack the destination callsign bytes
-        for char in self.dst_callsign:
-            b = np.frombuffer(char.encode(),dtype=np.uint8) #convert the character to a byte
-            toReturn[ind] = (b-np.uint8(0x20)) & np.uint8(0x3F) #get the sixbit representation of the character and store it to the lower six bits of one of toReturn's bytes
-            ind += 1
-            
-        #pack the source callsign bytes
-        for char in self.src_callsign:
-            b = np.frombuffer(char.encode(),dtype=np.uint8) #convert the character to a byte
-            toReturn[ind] = (b-np.uint8(0x20)) & np.uint8(0x3F) #get the sixbit representation of the character and store it to the lower six bits of one of toReturn's bytes
-            ind += 1
-            
-        #set the UI bit
-        toReturn[0] |= (self.ui & np.uint8(0x01)) << 6
+        dst = self.dst_callsign.encode()
+        toReturn[0] = np.uint8(dst[0])
+        toReturn[1] = np.uint8(dst[1])
+        toReturn[2] = np.uint8(dst[2])
+        toReturn[3] = np.uint8(dst[3])
+        toReturn[4] = np.uint8(dst[4])
+        toReturn[5] = np.uint8(dst[5])
         
-        #set the PID bits
-        toReturn[1] |= ((self.pid >> 3) & np.uint8(0x01)) << 6
-        toReturn[2] |= ((self.pid >> 2) & np.uint8(0x01)) << 6
-        toReturn[3] |= ((self.pid >> 1) & np.uint8(0x01)) << 6
-        toReturn[4] |= (self.pid & np.uint8(0x01)) << 6
+        src = self.src_callsign.encode()
+        toReturn[6] = np.uint8(src[0])
+        toReturn[7] = np.uint8(src[1])
+        toReturn[8] = np.uint8(src[2])
+        toReturn[9] = np.uint8(src[3])
+        toReturn[10] = np.uint8(src[4])
+        toReturn[11] = np.uint8(src[5])
         
-        #set the control bits
-        toReturn[5] |= ((self.control >> 6) & np.uint8(0x01)) << 6
-        toReturn[6] |= ((self.control >> 5) & np.uint8(0x01)) << 6
-        toReturn[7] |= ((self.control >> 4) & np.uint8(0x01)) << 6
-        toReturn[8] |= ((self.control >> 3) & np.uint8(0x01)) << 6
-        toReturn[9] |= ((self.control >> 2) & np.uint8(0x01)) << 6
-        toReturn[10]|= ((self.control >> 1) & np.uint8(0x01)) << 6
-        toReturn[11]|= (self.control & np.uint8(0x01)) << 6
+        #set the flag bits
+        toReturn[12] |= np.uint8(0x80) if (self.request_double_ack) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x40) if (self.request_ack) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x20) if (self.acks[3]) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x10) if (self.acks[2]) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x08) if (self.acks[1]) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x04) if (self.acks[0]) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x02) if (self.stat2) else np.uint8(0x00)
+        toReturn[12] |= np.uint8(0x01) if (self.stat1) else np.uint8(0x00)
         
-        #set the header type bits
-        toReturn[0] |= ((self.header_type >> 1) & np.uint8(0x01)) << 7
-        toReturn[1] |= ((self.header_type)      & np.uint8(0x01)) << 7
+        toReturn[13] |= np.uint8(0x20) if (self.hops >= 2) else np.uint8(0x00)
+        toReturn[13] |= np.uint8(0x10) if ((self.hops >= 1) and (self.hops != 2)) else np.uint8(0x00)
+        toReturn[13] |= np.uint8(0x08) if (self.is_beacon) else np.uint8(0x00)
+        toReturn[13] |= np.uint8(0x04) if (self.is_text_msg) else np.uint8(0x00)
+        toReturn[13] |= np.uint8(0x02) if (self.hops_remaining >= 2) else np.uint8(0x00)
+        toReturn[13] |= np.uint8(0x01) if ((self.hops_remaining >= 1) and (self.hops_remaining != 2)) else np.uint8(0x00)
+
+        ph = np.uint8(np.uint16(self.payload_size) >> 8)
+        pl = np.uint8(self.payload_size)
+        toReturn[14] = ph
+        toReturn[15] = pl
         
-        #set the payload byte count bits
-        toReturn[2] |= ((self.payload_byte_count >> 9) & np.uint8(0x01)) << 7
-        toReturn[3] |= ((self.payload_byte_count >> 8) & np.uint8(0x01)) << 7
-        toReturn[4] |= ((self.payload_byte_count >> 7) & np.uint8(0x01)) << 7
-        toReturn[5] |= ((self.payload_byte_count >> 6) & np.uint8(0x01)) << 7
-        toReturn[6] |= ((self.payload_byte_count >> 5) & np.uint8(0x01)) << 7
-        toReturn[7] |= ((self.payload_byte_count >> 4) & np.uint8(0x01)) << 7
-        toReturn[8] |= ((self.payload_byte_count >> 3) & np.uint8(0x01)) << 7
-        toReturn[9] |= ((self.payload_byte_count >> 2) & np.uint8(0x01)) << 7
-        toReturn[10]|= ((self.payload_byte_count >> 1) & np.uint8(0x01)) << 7
-        toReturn[11]|= (self.payload_byte_count & np.uint8(0x01)) << 7
+        d0h = np.uint8(np.uint16(self.data[0]) >> 8)
+        d0l = np.uint8(np.uint16(self.data[0]) & np.uint8(0xFF))
+        toReturn[16] = d0h
+        toReturn[17] = d0l
         
-        #set the SSID byte
-        toReturn[12] = ((self.dst_ssid & np.uint8(0x0F))<<4) | (self.src_ssid & np.uint8(0x0F))
-        
+        d1h = np.uint8(np.uint16(self.data[1]) >> 8)
+        d1l = np.uint8(np.uint16(self.data[1]) & np.uint8(0xFF))
+        toReturn[18] = d1h
+        toReturn[19] = d1l
+        d2h = np.uint8(np.uint16(self.data[2]) >> 8)
+        d2l = np.uint8(np.uint16(self.data[2]) & np.uint8(0xFF))
+        toReturn[20] = d2h
+        toReturn[21] = d2l
+        d3h = np.uint8(np.uint16(self.data[3]) >> 8)
+        d3l = np.uint8(np.uint16(self.data[3]) & np.uint8(0xFF))
+        toReturn[22] = d3h
+        toReturn[23] = d3l
         return toReturn
     
-    def getInfoString(self):
-        fmt = 'SRC Callsign: {0:s}, DST Callsign: {1:s}, src ssid: 0x{2:s}, dst ssid: 0x{3:s}, ui:0x{4:s}, pid:0x{5:s}, ctrl:0x{6:s}, type:0x{7:s}, payload length:{8:d}'
-        return fmt.format(self.src_callsign, self.dst_callsign, 
-          self.src_ssid.tobytes().hex(), self.dst_ssid.tobytes().hex(),
-          self.ui.tobytes().hex(), self.pid.tobytes().hex(), self.control.tobytes().hex(), 
-          self.header_type.tobytes().hex(), self.payload_byte_count )
+    #def getInfoString(self):
+    #    fmt = 'SRC Callsign: {0:s}, DST Callsign: {1:s}'
+    #    return fmt.format(self.src_callsign, self.dst_callsign)
+        #fmt = 'SRC Callsign: {0:s}, DST Callsign: {1:s}, src ssid: 0x{2:s}, dst ssid: 0x{3:s}, ui:0x{4:s}, pid:0x{5:s}, ctrl:0x{6:s}, type:0x{7:s}, payload length:{8:d}'
+        #return fmt.format(self.src_callsign, self.dst_callsign, 
+        #  self.src_ssid.tobytes().hex(), self.dst_ssid.tobytes().hex(),
+        #  self.ui.tobytes().hex(), self.pid.tobytes().hex(), self.control.tobytes().hex(), 
+        #  self.header_type.tobytes().hex(), self.payload_byte_count )
     
-    def print(self):
-        print(self.getInfoString())
+    #def print(self):
+    #    print(self.getInfoString())
+        
+    def print_header(self):
+        print(self.src_callsign)
+        print(self.dst_callsign)
+        print(self.hops)
+        print(self.hops_remaining)
+        print(self.is_text_msg)
+        print(self.is_beacon)
+        print(self.stat1)
+        print(self.stat2)
+        print(self.acks)
+        print(self.request_ack)
+        print(self.request_double_ack)
+        print(self.payload_size)
+        print(self.data)
+        print('-------------------')
     
     ##@brief compares the contents of two headers and returns true when they are the same
     ##@param the IL2P_Frame_Header object to compare to self
@@ -270,64 +235,84 @@ class IL2P_Frame_Header:
     def equals(self,header):
         if not((header.src_callsign == self.src_callsign) and (header.dst_callsign == self.dst_callsign)):
             return False
-        if not((header.src_ssid == self.src_ssid) and (header.dst_ssid == self.dst_ssid)):
+        if not (header.hops_remaining == self.hops_remaining):
             return False
-        if not((header.ui == self.ui)and(header.pid == self.pid)and(header.control == self.control)and(header.header_type == self.header_type)and(header.payload_byte_count == self.payload_byte_count)):
+        if not ((header.hops == self.hops) and (header.is_text_msg == self.is_text_msg) and (header.is_beacon == self.is_beacon)):
             return False
-            
+        if not (header.acks == self.acks):
+            return False
+        if not ((header.stat1 == self.stat1) and (header.stat2 == self.stat2)):
+            return False
+        if not ((header.request_ack == self.request_ack) and (header.request_double_ack == self.request_double_ack)):
+            return False
+        if not ((header.payload_size == self.payload_size) and (header.data[0] == self.data[0])):
+            return False
+        if not ((header.data[1] == self.data[1]) and (header.data[2] == self.data[2]) and (header.data[3] == self.data[3])):
+            return False
         return True
+    
+    def getForwardAckSequenceList(self):
+        toReturn = []
+        ind = 0
         
-    ##@brief unpacks header information that was stored in a 13 bytes array and returns a new IL2P_Frame_Header object
-    ##@param header_bytes numpy 1d array of bytes of length 13 holding the IL2P header information
+        if (self.requests_ack or self.request_double_ack): #if this message is requesting an ack ignore the first entry in the data list
+            ind += 1
+        
+        if (self.stat1): #if this message contains stats increment the indice by 2
+            ind += 2
+            
+        if (self.stat2):
+            ind += 2
+        
+        for ack in self.acks:
+            if (ack == True):
+                if (ind >= 4):
+                    return toReturn
+                else:
+                    toReturn.append(data[ind])
+                    ind += 1
+                
+        return toReturn
+    
+    def getMyAckSequence(self):
+        return self.data[0]
+    
+    ##@brief unpacks header information that was stored in a 24 bytes array and returns a new IL2P_Frame_Header object
+    ##@param header_bytes numpy 1d array of bytes of length 24 holding the IL2P header information
     ##@return returns an IL2P_Frame_Header object
     def unpack_header(header_bytes):
         src_cs = np.zeros((6), dtype=np.uint8)
         dst_cs = np.zeros((6), dtype=np.uint8)
         
         for i in range(0,6):
-            dst_cs[i] = (header_bytes[i]    & np.uint8(0x3F)) + np.uint8(0x20)
-            src_cs[i] = (header_bytes[i+6]  & np.uint8(0x3F)) + np.uint8(0x20)
-            
-        ui = (header_bytes[0] >> 6) & np.uint8(0x01)
+            dst_cs[i] = (header_bytes[i])
+            src_cs[i] = (header_bytes[i+6])
+        ack = [False,False,False,False]
+        request_double_ack = True if (header_bytes[12] & np.uint(0x80)) != 0 else False
+        request_ack        = True if (header_bytes[12] & np.uint(0x40)) != 0 else False
+        ack[3]             = True if (header_bytes[12] & np.uint(0x20)) != 0 else False
+        ack[2]             = True if (header_bytes[12] & np.uint(0x10)) != 0 else False
+        ack[1]             = True if (header_bytes[12] & np.uint(0x08)) != 0 else False
+        ack[0]             = True if (header_bytes[12] & np.uint(0x04)) != 0 else False
+        stat2              = True if (header_bytes[12] & np.uint(0x02)) != 0 else False
+        stat1              = True if (header_bytes[12] & np.uint(0x01)) != 0 else False
         
-        pid = np.uint8(0x00)
-        pid |= ((header_bytes[1] >> 6) & np.uint8(0x01)) << 3
-        pid |= ((header_bytes[2] >> 6) & np.uint8(0x01)) << 2
-        pid |= ((header_bytes[3] >> 6) & np.uint8(0x01)) << 1
-        pid |= ((header_bytes[4] >> 6) & np.uint8(0x01))
+        hops               = (header_bytes[13] >>4) & np.uint8(0x03)
+        is_beacon          = True if (header_bytes[13] & np.uint(0x08)) != 0 else False
+        is_text_msg        = True if (header_bytes[13] & np.uint(0x04)) != 0 else False                                                
+        hops_remaining     = header_bytes[13] & np.uint8(0x03)
         
-        control = np.uint8(0x00)
-        control |= ((header_bytes[5] >> 6) & np.uint8(0x01)) << 6
-        control |= ((header_bytes[6] >> 6) & np.uint8(0x01)) << 5
-        control |= ((header_bytes[7] >> 6) & np.uint8(0x01)) << 4
-        control |= ((header_bytes[8] >> 6) & np.uint8(0x01)) << 3
-        control |= ((header_bytes[9] >> 6) & np.uint8(0x01)) << 2
-        control |= ((header_bytes[10]>> 6) & np.uint8(0x01)) << 1
-        control |= ((header_bytes[11]>> 6) & np.uint8(0x01))
+        payload_size = np.uint16( (np.uint16(header_bytes[14])<<8) | np.uint16(header_bytes[15]) )
+        data = np.zeros((4),dtype=np.uint16)
+        data[0] = np.uint16( (np.uint16(header_bytes[16])<<8) | np.uint16(header_bytes[17]) )
+        data[1] = np.uint16( (np.uint16(header_bytes[18])<<8) | np.uint16(header_bytes[19]) )
+        data[2] = np.uint16( (np.uint16(header_bytes[20])<<8) | np.uint16(header_bytes[21]) )
+        data[3] = np.uint16( (np.uint16(header_bytes[22])<<8) | np.uint16(header_bytes[23]) )
         
-        type = np.uint8(0x00)
-        type |= ((header_bytes[0] >> 7) & np.uint8(0x01)) << 1
-        type |= ((header_bytes[1] >> 7) & np.uint8(0x01))
-        
-        count = np.uint16(0x0000)
-        count |= np.uint16(((header_bytes[2] >> 7) & np.uint16(0x0001))) << 9
-        count |= np.uint16(((header_bytes[3] >> 7) & np.uint16(0x0001))) << 8
-        count |= np.uint16(((header_bytes[4] >> 7) & np.uint16(0x0001))) << 7
-        count |= np.uint16(((header_bytes[5] >> 7) & np.uint16(0x0001))) << 6
-        count |= np.uint16(((header_bytes[6] >> 7) & np.uint16(0x0001))) << 5
-        count |= np.uint16(((header_bytes[7] >> 7) & np.uint16(0x0001))) << 4
-        count |= np.uint16(((header_bytes[8] >> 7) & np.uint16(0x0001))) << 3
-        count |= np.uint16(((header_bytes[9] >> 7) & np.uint16(0x0001))) << 2
-        count |= np.uint16(((header_bytes[10]>> 7) & np.uint16(0x0001))) << 1
-        count |= np.uint16(((header_bytes[11]>> 7) & np.uint16(0x0001)))
-        
-        src_id = header_bytes[12]           & np.uint8(0x0F)
-        dst_id = (header_bytes[12] >> 4)    & np.uint8(0x0F)
-        
-        return IL2P_Frame_Header(src_callsign=src_cs.tobytes().decode(),dst_callsign=dst_cs.tobytes().decode(),src_ssid=src_id,dst_ssid=dst_id,ui=ui,pid=pid,control=control,header_type=type,payload_byte_count=count)
-        
-
-
-
+        return IL2P_Frame_Header(src_callsign=src_cs.tobytes().decode(), dst_callsign=dst_cs.tobytes().decode(), \
+               hops_remaining=hops_remaining, hops=hops, is_text_msg=is_text_msg, is_beacon=is_beacon, \
+               stat1=stat1, stat2=stat2, acks=ack, \
+               request_ack=request_ack, request_double_ack=request_double_ack, \
+               payload_size=payload_size, data=data)
 
 
