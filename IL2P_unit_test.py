@@ -40,6 +40,7 @@ corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
 
 try:
     (header_received, decode_success, payload_received) = frame_engine.decode_frame(corrupted_frame)
+    header_received = frame_engine.decode_header(corrupted_frame[0:50])
 except exceptions.IL2PHeaderDecodeError:
     print('FAILURE: header could not be decoded')
 

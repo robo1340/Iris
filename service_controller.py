@@ -8,6 +8,7 @@ import time
 import sched
 import sys
 import functools
+import zmq
 from datetime import datetime
 
 from pythonosc.dispatcher import Dispatcher
@@ -20,8 +21,23 @@ from messages import *
 import common
 import IL2P_API
 from IL2P import IL2P_Frame_Header
+from view import view_controller as view_c
 
 from kivy.logger import Logger as log
+
+TXT_MSG_RX = "/txt_msg_rx"
+GPS_MSG = "/gps_msg"
+MY_GPS_MSG = '/my_gps_msg'
+ACK_MSG = '/ack_msg'
+STATUS_INDICATOR = '/status_indicator'
+TX_SUCCESS = '/tx_success'
+TX_FAILURE = '/tx_failure'
+RX_SUCCESS = '/rx_success'
+RX_FAILURE = '/rx_failure'
+GPS_LOCK_ACHIEVED = '/gps_lock_achieved'
+SIGNAL_STRENGTH = '/signal_strength'
+RETRY_MSG = '/retry_msg'
+HEADER_INFO = '/header_info'
 
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
@@ -42,6 +58,14 @@ class ServiceController():
         if (self.gps != None):
             self.gps.start(self)
         
+        self.context = zmq.Context()
+        self.pub = self.context.socket(zmq.PUB)
+        self.pub.bind("tcp://*:5555")
+        
+        self.sub = self.context.socket(zmq.SUB)
+        self.sub.subscribe('')
+        self.sub.connect("tcp://127.0.0.1:8000")
+        
         self.gps_beacon_enable = True if (ini_config['MAIN']['gps_beacon_enable'] == '1') else False
         period_str = ini_config['MAIN']['gps_beacon_period']
         self.gps_beacon_period = int(period_str) if period_str.isdigit() else 30
@@ -49,45 +73,53 @@ class ServiceController():
         self.gps_beacon_sched = sched.scheduler(time.time, time.sleep)
         self.carrier_length = int(ini_config['MAIN']['carrier_length'])
         
-        self.client = SimpleUDPClient('127.0.0.1',8000) #create the UDP client
-        
-        #create the UDP server and map callbacks to it
-        dispatcher = Dispatcher()
-        dispatcher.map("/txt_msg_tx", self.txt_msg_handler)
-        dispatcher.map("/my_callsign", self.my_callsign_handler)
-        dispatcher.map("/gps_beacon", self.gps_beacon_handler)
-        dispatcher.map('/gps_one_shot',self.gps_one_shot_handler)
-        dispatcher.map('/stop',self.stop_handler)
-        #dispatcher.set_default_handler(default_handler)
-        self.server = ThreadingOSCUDPServer(("127.0.0.2", 8000), dispatcher)
-        #self.server = BlockingOSCUDPServer(('127.0.0.2', 8000), dispatcher)
-
-        self.service_controller_func = lambda server : server.serve_forever() #the thread function
-    
-        self.thread = common.StoppableThread(target = self.service_controller_func, args=(self.server,))
+        self.thread = common.StoppableThread(target = self.service_controller_func, args=(self.sub,))
         self.thread.start()
         
     ###############################################################################
     ## Handlers for when the service receives a message from the View Controller ##
     ###############################################################################
     
+    def service_controller_func(self, sub):
+        while not self.stopped():
+            try:
+                header = sub.recv_string()
+                payload = sub.recv_pyobj()
+
+                if (header == view_c.TXT_MSG_TX):
+                    self.txt_msg_handler(payload)
+                elif (header == view_c.MY_CALLSIGN):
+                    self.my_callsign_handler(payload)
+                elif (header == view_c.GPS_BEACON_CMD):
+                    self.gps_beacon_handler(payload)
+                elif (header == view_c.GPS_ONE_SHOT):
+                    self.gps_one_shot_handler()
+                elif (header == view_c.STOP):
+                    self.stop_handler()
+                else:
+                    log.info('No handler found for topic %s' % (header))
+                
+            except BaseException:
+                log.error("Error in service controller zmq receiver thread")
+    
+    
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
     #@
-    def txt_msg_handler(self, address, *args):
+    def txt_msg_handler(self, txt_msg):
         log.info('text message received from the View Controller')
-        txt_msg = MessageObject.unmarshal(args[0])
+        #txt_msg = MessageObject.unmarshal(args[0])
         #log.info(txt_msg.carrier_len)
         self.il2p.msg_send_queue.put((10, txt_msg))
     
     ## @brief callback for when the View Controller sends a new callsign
     
-    def my_callsign_handler(self, address, *args):
+    def my_callsign_handler(self, my_callsign):
         log.info('my callsign received from View Controller')
-        self.il2p.setMyCallsign(args[0])
+        self.il2p.setMyCallsign(my_callsign)
     
     #
-    def gps_beacon_handler(self, address, *args):
-        log.info('gps beacon settings received from View Controller')
+    def gps_beacon_handler(self, args):
+        log.info('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]) )
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
         if (self.gps_beacon_enable == True):
@@ -96,16 +128,15 @@ class ServiceController():
             for event in self.gps_beacon_sched.queue:
                 self.gps_beacon_sched.cancel(event)
     
-    
-    def gps_one_shot_handler(self,address, *args):
+    def gps_one_shot_handler(self):
         log.info('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
         
     
-    def stop_handler(self, address, *args):
+    def stop_handler(self):
         log.info('stopping the service threads')
         self.isStopped = True
-        self.server.shutdown()
+        self.stop()
     
     ###############################################################################
     ## Handlers for when the service receives a GPS Message from the Transceiver ##
@@ -124,8 +155,8 @@ class ServiceController():
     def send_txt_message(self, msg):
         log.info('sending text message to the View Controller')
         msg.mark_time()
-        self.client.send_message('/txt_msg_rx', msg.marshal())
-    
+        self.pub.send_string(TXT_MSG_RX, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(msg.marshal())
     
     def send_gps_message(self, msg):
         log.debug('sending gps message to View Controller')
@@ -134,51 +165,51 @@ class ServiceController():
             log.warning('a non-gps message ended up in a gps message handler')
         else:
             gps_msg.mark_time() #record the current time into the gps message
-            self.client.send_message('/gps_msg', gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
+            self.pub.send_string(GPS_MSG, flags=zmq.SNDMORE)
+            self.pub.send_pyobj(gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
 
             if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
                 self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
     
     def send_header_info(self, info):
         log.info('updating header info')
-        self.client.send_message('/header_info', info.marshal())
+        self.pub.send_string(HEADER_INFO, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(info.marshal())
     
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
     def send_my_gps_message(self, gps_msg):
-        log.debug('sending my gps message to View Controller')
-        self.client.send_message('/my_gps_msg', gps_msg.marshal())
+        log.info('sending my gps message to View Controller')
+        self.pub.send_string(MY_GPS_MSG, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(gps_msg.marshal())
     
     
     def send_ack_message(self, ack_key):
-        log.debug('sending message acknowledgment to View Controller')
-        self.client.send_message('/ack_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]) ) )
-    
+        log.info('sending message acknowledgment to View Controller')
+        self.pub.send_string(ACK_MSG, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(ack_key)
     
     def send_status(self, status):
-        #log.info('service sending status to View Controller')
-        self.client.send_message('/status_indicator', status)
+        self.pub.send_string(STATUS_INDICATOR, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(status)
+        log.info('service sending status to View Controller')
     
-    
-    def send_statistic(self, type, value):
-        self.client.send_message('/' + type, value)
-    
-    
-    def send_test(self):
-        self.client.send_message('/test', ['hhfg', 'BAYWAX', 'WAYWAX', 1, 0])
-        
+    def send_statistic(self, type_str, value):
+        self.pub.send_string('/'+type_str, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(value) 
     
     def send_gps_lock_achieved(self, isLockAchieved):
-        self.client.send_message('/gps_lock_achieved', isLockAchieved)
-        
+        self.pub.send_string(GPS_LOCK_ACHIEVED, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(isLockAchieved)
     
     def send_signal_strength(self, signal_strength):
-        self.client.send_message('/signal_strength',signal_strength)
-    
+        self.pub.send_string(SIGNAL_STRENGTH, flags=zmq.SNDMORE)
+        self.pub.send_pyobj(signal_strength)
     
     def send_retry_message(self, ack_key, remaining_retries):
-        log.debug('sending retry message to View Controller')
-        self.client.send_message('/retry_msg', ( str(ack_key[0]), str(ack_key[1]), str(ack_key[2]), str(remaining_retries) ) )
+        log.info('sending retry message to View Controller')
+        self.pub.send_string(RETRY_MSG, flags=zmq.SNDMORE)
+        self.pub.send_pyobj((ack_key, remaining_retries))
     
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################
@@ -214,7 +245,7 @@ class ServiceController():
                                        acks=self.il2p.forward_acks.getAcksBool(), \
                                        request_ack=False, request_double_ack=False, \
                                        payload_size=len(loc_str), \
-                                       data=self.il2pforward_acks.getAcksData())
+                                       data=self.il2p.forward_acks.getAcksData())
             
             gps_msg = MessageObject(header=gps_hdr, payload_str=loc_str)
             

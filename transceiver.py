@@ -179,11 +179,11 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
 class ReceiverPipe():
     def __init__(self, il2p=None):
         self.recv_queue = queue.Queue(maxsize=IL2P_API.RAW_FRAME_MAXLEN) #queue containing received bytes in the order they were received
-        self._full_frame_received = False
-        self._squelchOpen = False
+        #self._full_frame_received = False
+        #self._squelchOpen = False
         
         self.il2p = il2p ##IL2P_API object
-        self.raw_header = np.zeros(IL2P_API.RAW_HEADER_LEN + IL2P_API.PREAMBLE_LEN, dtype=np.uint8) ##a header plus the preamble byte
+        self.raw_header = np.zeros(IL2P_API.RAW_HEADER_LEN, dtype=np.uint8) ##a header plus the preamble byte
         self.header = None ##will hold an IL2P_Frame_Header object
         self.recv_cnt = 0
         self.raw_payload_size = 0
@@ -210,14 +210,14 @@ class ReceiverPipe():
                 toReturn =(-1,-1)
             
         elif (self.header is not None):
-            if (self.recv_cnt == self.raw_payload_size + IL2P_API.RAW_HEADER_LEN + IL2P_API.PREAMBLE_LEN): #if the full frame has been received
+            if (self.recv_cnt == self.raw_payload_size + IL2P_API.RAW_HEADER_LEN): #if the full frame has been received
                 self.header = None
                 temp = self.recv_cnt
                 self.recv_cnt = 0
                 self.raw_header.fill(0)
                 toReturn = (temp, 0)
             elif (self.recv_cnt > len(self.raw_header)): #if the header has been received but payload has not been completely received
-                remaining = self.raw_payload_size - self.recv_cnt + IL2P_API.RAW_HEADER_LEN + IL2P_API.PREAMBLE_LEN
+                remaining = self.raw_payload_size - self.recv_cnt + IL2P_API.RAW_HEADER_LEN
                 toReturn = (self.recv_cnt, remaining)
         else: #the header has not been completely received
             toReturn = (self.recv_cnt, -1)
@@ -244,7 +244,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     master_timeout = float(ini_config['MAIN']['master_timeout'])
     tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
     rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
-    config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
+    #config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
     log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,rx_cooldown))
 
     fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')

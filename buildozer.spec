@@ -37,7 +37,7 @@ version = 0.84
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,plyer,kivy,numpy,func_timeout,jnius,python-osc,android,android-toast
+requirements = python3,plyer,pyzmq,kivy,numpy,func_timeout,jnius,python-osc,android,android-toast
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -161,9 +161,9 @@ android.add_src = OsmAndHelper.java, OsmAndAidlHelper.java
 # bootstrap)
 #android.gradle_dependencies = com.android.support:support-annotations:28.0.0
 #android.gradle_dependencies = androidx.annotation:annotation:1.1.0, com.github.osmandapp:Osmand:master-SNAPSHOT
+#android.gradle_dependencies = com.github.osmandapp:osmand:2.0.0
+#android.gradle_dependencies = com.github.osmandapp:osmand:2270d1c
 android.gradle_dependencies = com.github.osmandapp:Osmand:master-SNAPSHOT
-
-#android.gradle_dependencies = com.android.tools.build:gradle:4.1.1, org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version
 
 #, com.android.tools.build:gradle:3.4.2
 #, com.github.osmandapp:Osmand:master-SNAPSHOT
@@ -183,7 +183,12 @@ android.gradle_dependencies = com.github.osmandapp:Osmand:master-SNAPSHOT
 # (list) Gradle repositories to add {can be necessary for some android.gradle_dependencies}
 # please enclose in double quotes 
 # e.g. android.gradle_repositories = "maven { url 'https://kotlin.bintray.com/ktor' }"
-android.add_gradle_repositories = "mavenCentral()" ,  "maven {url 'https://jitpack.io'}" 
+
+#this is the one you want to uncomment!
+android.add_gradle_repositories = "google()", "jcenter()", "mavenCentral()" ,"maven {url 'https://jitpack.io'}" 
+#android.add_gradle_repositories = "mavenCentral()", "google()", "jcenter()" 
+
+#android.add_gradle_repositories =  "maven {url 'https://jitpack.io'}" 
 
 # (list) packaging options to add 
 # see https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.internal.dsl.PackagingOptions.html

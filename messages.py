@@ -12,7 +12,8 @@ class AckSequenceList():
         return pickle.loads(str)
     
     def __init__(self):
-        self.acks = [0,0,0,0]
+        self.acks = []
+        #self.acks = [0,0,0,0]
         
     def append(self, new_seq, force=False):
         for seq in self.acks:
@@ -27,8 +28,20 @@ class AckSequenceList():
     def getAcksBool(self):
         return len(self.acks)*[True] + (4-len(self.acks))*[False]
         
-    def getAcksData(self):
-        return np.array(self.acks,dtype=np.uint16)
+    def getAcksData(self, my_ack=None):
+        toReturn = np.zeros(4, dtype=np.uint16)
+        if (my_ack is None):
+            for ind, val in enumerate(self.acks):
+                toReturn[ind] = val
+            log.info(toReturn)
+        else:
+            toReturn[0] = my_ack
+            for ind, val in enumerate(self.acks):
+                if (ind == len(self.acks)-1):
+                    break
+                else:
+                    toReturn[ind+1] = val
+        return toReturn
     
     def marshal(self):
         return pickle.dumps(self)
@@ -46,6 +59,14 @@ class MessageObject():
         self.carrier_len = int(carrier_len)
         self.time_str = time_str
         
+        self.src_callsign = self.header.src_callsign
+        
+    def get_ack_seq(self):
+        if (self.header.request_double_ack or self.header.request_ack):
+            return self.header.data[0]
+        else:
+            return None
+    
     #set the time string
     def mark_time(self):
         self.time_str = datetime.now().strftime("%H:%M:%S")
@@ -66,7 +87,7 @@ class MessageObject():
                 return None 
     
     def get_dummy_beacon(self):
-        return GPSMessageObject(src_callsign=self.header.src_callsign, location='')
+        return GPSMessageObject(src_callsign=self.header.src_callsign, time_str=self.time_str)
     
     def marshal(self):
         return pickle.dumps(self) 

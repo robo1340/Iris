@@ -82,7 +82,7 @@ def exception_suppressor(func):
         
 class UI_Message():
     def __init__(self, msg, widget):
-        self.ack_key = (msg.header.src_callsign,msg.header.dst_callsign,msg.header.data[0]) if (msg.header.request_ack == True) else ('','',0)
+        self.ack_key = msg.get_ack_seq()
         self.widget = widget
 
 class TextMessage(BoxLayout):
@@ -188,9 +188,13 @@ class ui_mobileApp(App, UI_Interface):
     def sendMessage(self, text_input_widget): 
         #chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
         #messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
+        data = None
         if (self.ackChecked): #generate an ack sequence number
             seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
-            self.header_info.append(seq,force=True)
+            data = self.header_info.getAcksData(my_ack=seq)
+        else:
+            data = self.header_info.getAcksData()
+            
         
         header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=self.dstCallsign, \
                hops_remaining=0, hops=0, is_text_msg=True, is_beacon=False, \
@@ -198,7 +202,7 @@ class ui_mobileApp(App, UI_Interface):
                acks=self.header_info.getAcksBool(), \
                request_ack=self.ackChecked, request_double_ack=False, \
                payload_size=len(text_input_widget.text), \
-               data=self.header_info.getAcksData())
+               data=data)
     
         msg = MessageObject(header=header, payload_str=str(text_input_widget.text), carrier_len=self.carrier_length)
     
@@ -263,6 +267,7 @@ class ui_mobileApp(App, UI_Interface):
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
     def updateStatusIndicator(self, status, *largs):
+        log.info("updateStatusIndicator(%d)" % (status))
         def callback1(dt):
             self.main_window().squelch_color = self.main_window().indicator_inactive_color
             self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
@@ -347,10 +352,12 @@ class ui_mobileApp(App, UI_Interface):
             scroll_bar.scroll_to(txt_msg_widget)
         
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
-    ##@ack_key, a tuple of src, dst, and sequence number forming an ack of messages to update
+    ##@ack_key, the sequence number for the ack message
     def addAckToUI(self, ack_key, *largs):
         self.messagesLock.acquire()
         for msg in self.messages:
+            if (msg.ack_key is None):
+                continue
             if (msg.ack_key == ack_key):
                 ack_time_str = ('Acked at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.widget.time_text = ack_time_str
@@ -358,11 +365,14 @@ class ui_mobileApp(App, UI_Interface):
         self.messagesLock.release()
 
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
-    ##@ack_key, a tuple of src, dst, and sequence number forming the ack this message expects
+    ##@ack_key, a sequence number forming the ack this message expects
     ##@remaining_retries, the number of times this message will be re-transmitted if no ack is received
     def updateRetryCount(self, ack_key, remaining_retries, *largs):
+        
         self.messagesLock.acquire()
         for msg in self.messages:
+            if (msg.ack_key is None):
+                continue
             if (msg.ack_key == ack_key):
                 if (remaining_retries == -1): #mark this message as having received no acknowledgments before timeout
                     msg.widget.time_text = ' | No Ack Received'

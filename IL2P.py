@@ -32,10 +32,8 @@ class IL2P_Frame_Engine:
     def __apply_interleaving(self,header_bytes,frame_payload_bytes):
 
         frame_bytes = np.concatenate( (header_bytes,frame_payload_bytes) )
-        print('here2')
         self.interleaver.reset()
         interleaved_frame_bytes = self.interleaver.scramble_bits(frame_bytes)
-        print('here2')
         return (interleaved_frame_bytes[0:24], interleaved_frame_bytes[24:,])
     
     ##@brief method used to prepare frames for modulation
@@ -93,7 +91,6 @@ class IL2P_Frame_Engine:
 
         return header
         
-        
 ##A class representing an IL2P frame header and all its attributes
 class IL2P_Frame_Header:
 
@@ -129,12 +126,12 @@ class IL2P_Frame_Header:
     ##@brief calculate the raw payload length from the payload length given in the frame header's 10 bit field
     ##@param payload_len the payload length given in the frame header's 10 bit field.
     def getRawPayloadSize(self):
-        if (self.payload_byte_count <= 0):
+        if (self.payload_size <= 0):
             return 0
-        block_cnt = ceil(self.payload_byte_count/205) #the number of blocks (up to 255 bytes each) to break msg into
-        small_block_len = floor(self.payload_byte_count/block_cnt) #the length (in bytes) of a small block
+        block_cnt = ceil(self.payload_size/205) #the number of blocks (up to 255 bytes each) to break msg into
+        small_block_len = floor(self.payload_size/block_cnt) #the length (in bytes) of a small block
         large_block_len = small_block_len + 1 #the length (in bytes) of a large block
-        large_block_cnt = self.payload_byte_count - (block_cnt*small_block_len) #the number of large blocks that will be used
+        large_block_cnt = self.payload_size - (block_cnt*small_block_len) #the number of large blocks that will be used
         small_block_cnt = block_cnt - large_block_cnt #the number of small blocks that will be used
         ecc_sym_cnt = floor(small_block_len/5) + 10 #the number of error correction symbols that will be appended to each block
         return ((small_block_cnt*(small_block_len+ecc_sym_cnt)) + (large_block_cnt*(large_block_len+ecc_sym_cnt)))
@@ -219,10 +216,10 @@ class IL2P_Frame_Header:
         print(self.hops)
         print(self.hops_remaining)
         print(self.is_text_msg)
-        print(self.is_beacon)
-        print(self.stat1)
-        print(self.stat2)
-        print(self.acks)
+        print('is beacon ' + str(self.is_beacon))
+        print('stat1 ' + str(self.stat1))
+        print('stat2 ' + str(elf.stat2))
+        print('acks ' + str(self.acks))
         print(self.request_ack)
         print(self.request_double_ack)
         print(self.payload_size)
@@ -255,21 +252,21 @@ class IL2P_Frame_Header:
         toReturn = []
         ind = 0
         
-        if (self.requests_ack or self.request_double_ack): #if this message is requesting an ack ignore the first entry in the data list
-            ind += 1
+        if (self.request_ack or self.request_double_ack): #if this message is requesting an ack ignore the first entry in the data list
+            ind = ind + 1
         
         if (self.stat1): #if this message contains stats increment the indice by 2
-            ind += 2
+            ind = ind + 1
             
         if (self.stat2):
-            ind += 2
+            ind = ind + 2
         
         for ack in self.acks:
             if (ack == True):
                 if (ind >= 4):
                     return toReturn
                 else:
-                    toReturn.append(data[ind])
+                    toReturn.append(self.data[ind])
                     ind += 1
                 
         return toReturn

@@ -20,9 +20,9 @@ from kivy.logger import Logger as log
 
 #IL2P constants
 
-RAW_FRAME_MAXLEN = 1299 #the length in bytes of a raw IL2P header before removing error correction symbols and including the header and sync byte
-RAW_HEADER_LEN = 25 #the length of an IL2P header in bytes before removing its error correction symbols
-PREAMBLE_LEN = 1
+RAW_FRAME_MAXLEN = 3000 #the length in bytes of a raw IL2P payload, this valud is arbitrary at the moment
+RAW_HEADER_LEN = 50 #the length of an IL2P header in bytes before removing its error correction symbols
+#PREAMBLE_LEN = 1
 
 BROADCAST_CALLSIGN = 6*' '
 
@@ -76,7 +76,7 @@ class IL2P_API:
         self.service_controller = None #set this after the object is created
 
         self.msg_send_queue = PriorityQueue(50)
-        self.read_msg_send_queue = lambda : self.msg_send_queue.get()[1]
+        #self.read_msg_send_queue = lambda : self.msg_send_queue.get()[1]
         
         self.pending_acks_lock = threading.Lock()
         self.pending_acks = {} #dictionary where the keys are tuples representing messages I sent that are pending acknowledgments, tuples are of the form (callsign, seq_num)
@@ -100,13 +100,13 @@ class IL2P_API:
     def readFrame(self):
         (header, payload) = self.reader.readFrame()
         forward_msg = False #set to true if this message will be forwarded
-        
         if (header == None): #if the reader failed to decode the frame
             return False
         
         if (header.hops_remaining > 0): #if this message is to be forwarded
             header.hops_remaining = header.hops_remaining - 1
             if (header.dst_callsign != self.my_callsign):
+                log.info('forwarding message')
                 forward_msg = True
         
         #handle any stats contained in this message
@@ -117,21 +117,19 @@ class IL2P_API:
             pass
         
         #handle any acks contained in this message
+        self.pending_acks_lock.acquire()
         for seq in reversed(header.getForwardAckSequenceList()):
-            if (dst == self.my_callsign): #this is an acknowledgment for me
-                self.pending_acks_lock.acquire()
-                ack_key = self.ack_rx_key(src,dst,seq)
-                if (ack_key in self.pending_acks): #if I have been expecting this ack
-                    self.pending_acks.pop(ack_key) #remove the ack from the pending acks dictionary
-                    self.service_controller.send_ack_message(ack_key) #send the ack to the UI
-                self.pending_acks_lock.release()
+            if ((seq in self.pending_acks) and (header.src_callsign != self.my_callsign)): #this is an acknowledgment for me
+                self.pending_acks.pop(seq) #remove the ack from the pending acks dictionary
+                self.service_controller.send_ack_message(seq) #send the ack to the UI  
             else: #forward all received acknowledgements
                 self.forward_acks_lock.acquire()
                 self.forward_acks.append(seq)
                 self.service_controller.send_header_info(self.forward_acks)
                 self.forward_acks_lock.release()
+        self.pending_acks_lock.release()
         
-        if (header.request_double_ack or header.request_ack):
+        if ((header.request_double_ack or header.request_ack) and (header.src_callsign != self.my_callsign)):
             if (self.msg_send_queue.full() == True):
                 log.error('ERROR: frame send queue is full')
             else:
@@ -182,8 +180,8 @@ class IL2P_API:
     def msgToFrame(self, msg):
         if (msg.header.request_double_ack or msg.header.request_ack):
             self.pending_acks_lock.acquire()
-            ack = self.ack_tx_key(msg.header.src_callsign,msg.header.dst_callsign,msg.header.data[0])
-            self.pending_acks[ack] = AckRetryObject(msg,DEFAULT_RETRY_CNT) #create a new entry in the dictionary
+            if (msg.get_ack_seq() is not None):
+                self.pending_acks[msg.get_ack_seq()] = AckRetryObject(msg,DEFAULT_RETRY_CNT) #create a new entry in the dictionary
             self.pending_acks_lock.release()
           
         return self.writer.getFrameFromMessage(msg)
@@ -211,7 +209,7 @@ class IL2P_API:
     ## If there is nothing to transmit, returns (None,0)
     def getNextFrameToTransmit(self):
         if (self.msg_send_queue.empty() == False):
-            msg = self.read_msg_send_queue()
+            msg = self.msg_send_queue.get()[1]
             carrier_len = msg.carrier_len
             return (self.msgToFrame(msg),carrier_len)
         elif (len(self.pending_acks) == 0):
@@ -223,13 +221,17 @@ class IL2P_API:
             self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
+                    #log.info("key " + str(key))
                     if (retry.decrement() == 0): #if the remaining number of tries is zero, do not re-transmit
-                        self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), -1)
+                        
+                        #self.service_controller.send_retry_message(key, -1)
                         toPop = key
                         continue
-                    self.service_controller.send_retry_message(self.ack_tx_key(retry.msg.src_callsign,retry.msg.dst_callsign,retry.msg.seq_num), retry.retry_cnt-1)
-                    toReturn = self.writer.getFrameFromTextMessage(retry.msg)
+                    #self.service_controller.send_retry_message(key, retry.retry_cnt-1)
+                    #the problem is somewhere after here
+                    toReturn = self.writer.getFrameFromMessage(retry.msg)
                     carrier_len = retry.msg.carrier_len
+                    log.info(carrier_len) #the problem is somewhere before 
             if (toPop != None):
                 self.pending_acks.pop(toPop)
             self.pending_acks_lock.release()
