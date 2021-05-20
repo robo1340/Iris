@@ -23,7 +23,6 @@ import pkg_resources
 #import async_reader
 import audio
 import common
-from common import Status
 import send as _send
 import recv as _recv
 import stream
@@ -139,7 +138,7 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
         if (gain < 0): #if the program gets here, a carrier was detected but no barker code was found thereafter
             raise exceptions.NoBarkerCodeDetectedError
         
-        stat_update.update_status(Status.SQUELCH_OPEN)
+        stat_update.update_status(common.SQUELCH_OPEN)
             
         #service_controller.send_signal_strength(1.0/gain)
         
@@ -149,27 +148,21 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
 
     except exceptions.EndOfFrameDetected: #the full frame was received
         if (dst.il2p.readFrame()):
-            stat_update.update_status(Status.MESSAGE_RECEIVED)
+            stat_update.update_status(common.MESSAGE_RECEIVED)
             return 1
         else:
-            stat_update.update_status(Status.SQUELCH_CLOSED)
             return -1
     except exceptions.IL2PHeaderDecodeError:
         log.warning('WARNING: failed when pre-emptively decoding frame header')
-        stat_update.update_status(Status.SQUELCH_CLOSED)
         return -1
     except (exceptions.SquelchActive, exceptions.NoCarrierDetectedError): #exception is raised when the squelch is turned on
-        stat_update.update_status(Status.SQUELCH_CLOSED)
         return 0
     except (exceptions.NoBarkerCodeDetectedError): #exception is raised when carrier is detected but no susequent barker code is
-        stat_update.update_status(Status.SQUELCH_CONTESTED)
         return 0
     except FunctionTimedOut:
-        stat_update.update_status(Status.SQUELCH_CLOSED)
         log.error('\nERROR!:  receiver.run timed out\n')
         return -1
     except BaseException: 
-        stat_update.update_status(Status.SQUELCH_CLOSED)
         log.exception('Decoding failed')
         return -1
     return 0
@@ -321,7 +314,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                             frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
                             if (frame_to_send == None):
                                 continue
-                            stat_update.update_status(Status.TRANSMITTING)
+                            stat_update.update_status(common.TRANSMITTING)
                             args.sender_src = io.BytesIO(frame_to_send) #pipe the input string into the sender
 
                             #save to an intermediate file if this is android
@@ -343,7 +336,6 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                                 stats.txf += 1
                                 service_controller.send_statistic('tx_failure',stats.txf)  
                             most_recent_tx = time.time()
-                            stat_update.update_status(Status.SQUELCH_CLOSED)
                         else:
                             time.sleep(0)
                 except FunctionTimedOut:

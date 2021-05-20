@@ -62,6 +62,9 @@ class ServiceController():
         self.pub = self.context.socket(zmq.PUB)
         self.pub.bind("tcp://*:5555")
         
+        self.pub2 = self.context.socket(zmq.PUB)
+        self.pub2.bind("tcp://*:5556")
+        
         self.sub = self.context.socket(zmq.SUB)
         self.sub.subscribe('')
         self.sub.connect("tcp://127.0.0.1:8000")
@@ -156,7 +159,7 @@ class ServiceController():
         log.info('sending text message to the View Controller')
         msg.mark_time()
         self.pub.send_string(TXT_MSG_RX, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(msg.marshal())
+        self.pub.send_pyobj(msg)
     
     def send_gps_message(self, msg):
         log.debug('sending gps message to View Controller')
@@ -166,7 +169,7 @@ class ServiceController():
         else:
             gps_msg.mark_time() #record the current time into the gps message
             self.pub.send_string(GPS_MSG, flags=zmq.SNDMORE)
-            self.pub.send_pyobj(gps_msg.marshal()) #send the GPS message to the UI so it can be displayed
+            self.pub.send_pyobj(gps_msg) #send the GPS message to the UI so it can be displayed
 
             if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
                 self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
@@ -174,14 +177,14 @@ class ServiceController():
     def send_header_info(self, info):
         log.info('updating header info')
         self.pub.send_string(HEADER_INFO, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(info.marshal())
+        self.pub.send_pyobj(info)
     
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
     def send_my_gps_message(self, gps_msg):
         log.info('sending my gps message to View Controller')
         self.pub.send_string(MY_GPS_MSG, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(gps_msg.marshal())
+        self.pub.send_pyobj(gps_msg)
     
     
     def send_ack_message(self, ack_key):
@@ -203,8 +206,10 @@ class ServiceController():
         self.pub.send_pyobj(isLockAchieved)
     
     def send_signal_strength(self, signal_strength):
-        self.pub.send_string(SIGNAL_STRENGTH, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(signal_strength)
+        if (signal_strength < 0):
+            return
+        self.pub2.send_string(SIGNAL_STRENGTH, flags=zmq.SNDMORE)
+        self.pub2.send_pyobj(signal_strength)
     
     def send_retry_message(self, ack_key, remaining_retries):
         log.info('sending retry message to View Controller')

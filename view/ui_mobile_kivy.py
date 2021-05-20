@@ -47,7 +47,7 @@ from view.ui_interface import UI_Interface
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import *
-from common import Status
+import common
 from common import updateConfigFile
 import IL2P_API
 from IL2P import IL2P_Frame_Header
@@ -150,7 +150,16 @@ class ui_mobileApp(App, UI_Interface):
         self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
     
         super().__init__()
-        
+    
+    #gracefully shut everything down when the user exits
+    def on_request_close(self, *args):
+        log.info('on_request_close()')
+        from kivy.uix.popup import Popup
+        self.textpopup(title='Exit', text='Are you sure?')
+        self.viewController.service_stop_command() # send a message to stop the service threads
+        self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
+        return True
+    
     ############### Callback functions called from ui.kv ###############
     
     def goToSettingsScreen(self):
@@ -267,7 +276,7 @@ class ui_mobileApp(App, UI_Interface):
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
     def updateStatusIndicator(self, status, *largs):
-        log.info("updateStatusIndicator(%d)" % (status))
+        log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
             self.main_window().squelch_color = self.main_window().indicator_inactive_color
             self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
@@ -285,19 +294,19 @@ class ui_mobileApp(App, UI_Interface):
             self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         #with self.statusIndicatorLock:
-        if (status is Status.SQUELCH_OPEN):
+        if (status == common.SQUELCH_OPEN):
             self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
             self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
             Clock.schedule_once(callback1, self.status_update_dwell_time)
-        elif (status is Status.CARRIER_DETECTED):
+        elif (status == common.CARRIER_DETECTED):
             self.main_window().receiver_color = self.main_window().indicator_rx_color
             self.chat_window().receiver_color = self.chat_window().indicator_rx_color
             Clock.schedule_once(callback2, self.status_update_dwell_time)
-        elif (status is Status.MESSAGE_RECEIVED):
+        elif (status == common.MESSAGE_RECEIVED):
             self.main_window().success_color = self.main_window().indicator_success_color
             self.chat_window().success_color = self.chat_window().indicator_success_color
             Clock.schedule_once(callback3, self.status_update_dwell_time)
-        elif (status is Status.TRANSMITTING):
+        elif (status == common.TRANSMITTING):
             self.main_window().transmitter_color = self.main_window().indicator_tx_color
             self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
             Clock.schedule_once(callback4, self.status_update_dwell_time)

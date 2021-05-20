@@ -22,7 +22,6 @@ import pkg_resources
 import async_reader
 import audio
 import common
-from common import Status
 import send as _send
 import recv as _recv
 import stream

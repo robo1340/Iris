@@ -10,7 +10,6 @@ import numpy as np
 import dsp
 #import equalizer
 import common
-from common import Status
 import exceptions
 
 from kivy.logger import Logger as log
@@ -56,7 +55,7 @@ class Detector:
         #self.equalizer = equalizer.Equalizer(config)
         self.barker_detector = MooreMachine()
 
-    def _wait(self, samples, stat_update):
+    def _wait(self, samples):
         bufs = collections.deque([], maxlen=self.CARRIER_THRESHOLD)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
             #look for a signal that is coherent with the carrier wave
@@ -93,7 +92,7 @@ class Detector:
     ##@brief detects the carrier sine wave that is sent first
     ##@return if a carrier is detected, returns a gain factor to use, returns -1 otherwise
     def run(self, samples, stat_update):
-        buf = self._wait(samples, stat_update)
+        buf = self._wait(samples)
 
         amplitude = self.estimate(buf)
         gain = 1.0 / amplitude

@@ -67,16 +67,13 @@ class Stats():
         self.txf = 0 ##rx failure count
         self.rxs = 0 ##rx success count
         self.rxf = 0 ##rx failure count
-		
-##@brief status constants
-class Status():
-    #event message values
-    SQUELCH_CONTESTED = 6
-    SQUELCH_OPEN = 1
-    CARRIER_DETECTED = 2
-    SQUELCH_CLOSED = 3
-    MESSAGE_RECEIVED = 4
-    TRANSMITTING = 5
+
+SQUELCH_CONTESTED = "squelch_contested"
+SQUELCH_OPEN = "squelch_open"
+CARRIER_DETECTED = "carrier_detected"
+SQUELCH_CLOSED = "squelch_closed"
+MESSAGE_RECEIVED = "message_received"
+TRANSMITTING = "transmitting"
 
 def updateConfigFile(ini_config_parser):
     with open(CONFIG_FILE_NAME, 'w') as configfile:

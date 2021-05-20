@@ -58,64 +58,75 @@ class ViewController():
         self.context = zmq.Context()
         self.pub = self.context.socket(zmq.PUB)
         self.pub.bind("tcp://*:8000")
-        
-        self.sub = self.context.socket(zmq.SUB)
-        self.sub.subscribe('')
-        self.sub.connect("tcp://127.0.0.1:5555")
     
         self.ui = None
         #self.client = SimpleUDPClient('127.0.0.2',8000) #create the UDP client
         self.contacts_dict = {} #a dictionary describing the current gps contacts that have been placed
         #keys are the callsign string, values are a GPSMessaageObject
+        
+        self.stopped = False
     
         #self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
-        self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.sub,))
+        self.thread = common.StoppableThread(target = self.view_controller_func, args=(0,))
         self.thread.start()
-        
-        self.stop = lambda : self.server.shutdown()
+    
+    def stop(self):
+        self.stopped = True
     
     #the thread function
-    #def view_controller_func(server):
-    #    #while(True):
-    #    server.serve_forever()
-    def view_controller_func(self,sub):
-        while True:
+    def view_controller_func(self,arg):
+        sub = self.context.socket(zmq.SUB)
+        sub.subscribe('')
+        sub.connect("tcp://127.0.0.1:5555")
+        sub.connect("tcp://127.0.0.1:5556")
+        
+        poller = zmq.Poller()
+        poller.register(sub, zmq.POLLIN)
+        
+        while not self.stopped:
             try:
-                header = sub.recv_string()
-                payload = sub.recv_pyobj()
-                #log.info("header %s" % (header))
+                socks = dict(poller.poll(timeout=1000))
+                if sub in socks and socks[sub] == zmq.POLLIN:
+                    header = sub.recv_string()
+                    payload = sub.recv_pyobj()
+                    #log.info("header %s" % (header))
 
-                if (header == service.TXT_MSG_RX):
-                    self.txt_msg_handler(MessageObject.unmarshal(payload))
-                elif (header == service.MY_GPS_MSG):
-                    self.my_gps_msg_handler(GPSMessageObject.unmarshal(payload))
-                elif (header == service.GPS_MSG):
-                    self.gps_msg_handler(GPSMessageObject.unmarshal(payload))
-                elif (header == service.ACK_MSG):
-                    self.ack_msg_handler(payload)
-                elif (header == service.STATUS_INDICATOR):
-                    self.transceiver_status_handler(payload)
-                elif (header == service.TX_SUCCESS):
-                    self.tx_success_handler(payload)
-                elif (header == service.TX_FAILURE):
-                    self.tx_failure_handler(payload)
-                elif (header == service.RX_SUCCESS):
-                    self.rx_success_handler(payload)
-                elif (header == service.RX_FAILURE):
-                    self.rx_failure_handler(payload)
-                elif (header == service.GPS_LOCK_ACHIEVED):
-                    self.gps_lock_achieved_hander()
-                elif (header == service.SIGNAL_STRENGTH):
-                    self.signal_strength_handler(payload)
-                elif (header == service.RETRY_MSG):
-                    self.retry_msg_handler(payload)
-                elif (header == service.HEADER_INFO):
-                    self.header_info_handler(AckSequenceList.unmarshal(payload))
-                else:
-                    log.info('No handler found for topic %s' % (header))
-                
+                    if (header == service.TXT_MSG_RX):
+                        self.txt_msg_handler(payload)
+                    elif (header == service.MY_GPS_MSG):
+                        self.my_gps_msg_handler(payload)
+                    elif (header == service.GPS_MSG):
+                        self.gps_msg_handler(payload)
+                    elif (header == service.ACK_MSG):
+                        self.ack_msg_handler(payload)
+                    elif (header == service.STATUS_INDICATOR):
+                        self.transceiver_status_handler(payload)
+                    elif (header == service.TX_SUCCESS):
+                        self.tx_success_handler(payload)
+                    elif (header == service.TX_FAILURE):
+                        self.tx_failure_handler(payload)
+                    elif (header == service.RX_SUCCESS):
+                        self.rx_success_handler(payload)
+                    elif (header == service.RX_FAILURE):
+                        self.rx_failure_handler(payload)
+                    elif (header == service.GPS_LOCK_ACHIEVED):
+                        self.gps_lock_achieved_hander()
+                    elif (header == service.SIGNAL_STRENGTH):
+                        self.signal_strength_handler(payload)  
+
+                    elif (header == service.RETRY_MSG):
+                        self.retry_msg_handler(payload)
+                    elif (header == service.HEADER_INFO):
+                        self.header_info_handler(payload)
+                    else:
+                        log.info('No handler found for topic %s' % (header))                 
+                    
+            
+            except zmq.ZMQError:
+                log.error("A ZMQ specific error occurred in the view controller receiver thread")
             except BaseException:
                 log.error("Error in view controller zmq receiver thread")
+                log.info("header %s, payload %s" % (header, str(payload)))
         log.info('view controller receiver ended==========================')
 
     ###############################################################################
@@ -127,14 +138,11 @@ class ViewController():
         self.pub.send_string(TXT_MSG_TX, flags=zmq.SNDMORE)
         self.pub.send_pyobj(txt_msg)
         log.info('sending a text message to the service')
-        #log.info(txt_msg.carrier_len)
-        #self.client.send_message('/txt_msg_tx', txt_msg.marshal())
     
     ## @brief send a new callsign entered by the user to the service
     def send_my_callsign(self, my_callsign):
         self.pub.send_string(MY_CALLSIGN, flags=zmq.SNDMORE)
         self.pub.send_pyobj(my_callsign)
-        #self.client.send_message('/my_callsign',my_callsign)
     
     ##@brief send the service a new gps beacon state and gps beacon period
     ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
@@ -143,21 +151,18 @@ class ViewController():
         self.pub.send_string(GPS_BEACON_CMD, flags=zmq.SNDMORE)
         self.pub.send_pyobj((gps_beacon_enable, gps_beacon_period))
         log.info('sending a gps beacon command to the Service')
-        #self.client.send_message('/gps_beacon',(gps_beacon_enable, gps_beacon_period))
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     def gps_one_shot_command(self):
         self.pub.send_string(GPS_ONE_SHOT, flags=zmq.SNDMORE)
         self.pub.send_pyobj('')
         log.info('sending a gps one shot command to the service')
-        #self.client.send_message('/gps_one_shot',(True,))
         
     ##@brief send the service a command to shutdown
     def service_stop_command(self):
         self.pub.send_string(STOP, flags=zmq.SNDMORE)
         self.pub.send_pyobj('')
         log.info('view controller shutting down the service')
-        #self.client.send_message('/stop',(True,))
     
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
@@ -213,6 +218,7 @@ class ViewController():
         toast('Ack received from ' + args[1])
         vibrator.pattern(pattern=ack_vibe_pattern)
     
+    @exception_suppressor
     def transceiver_status_handler(self, status):
         log.info('received a status update from the service')
         Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, status), 0)
@@ -232,7 +238,8 @@ class ViewController():
     def gps_lock_achieved_hander(self):
         log.info('gps lock achieved')
         Clock.schedule_once(functools.partial(self.ui.notifyGPSLockAchieved), 0) #update the ui elements to show gps lock achieved
-        
+    
+    #@exception_suppressor
     def signal_strength_handler(self, signal_strength):
         #log.info('view controller received signal strength- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.update_signal_strength, signal_strength), 0)
