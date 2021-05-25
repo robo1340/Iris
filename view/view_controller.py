@@ -137,7 +137,7 @@ class ViewController():
     def send_txt_message(self, txt_msg):
         self.pub.send_string(TXT_MSG_TX, flags=zmq.SNDMORE)
         self.pub.send_pyobj(txt_msg)
-        log.info('sending a text message to the service')
+        log.debug('sending a text message to the service')
     
     ## @brief send a new callsign entered by the user to the service
     def send_my_callsign(self, my_callsign):
@@ -150,19 +150,19 @@ class ViewController():
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
         self.pub.send_string(GPS_BEACON_CMD, flags=zmq.SNDMORE)
         self.pub.send_pyobj((gps_beacon_enable, gps_beacon_period))
-        log.info('sending a gps beacon command to the Service')
+        log.debug('sending a gps beacon command to the Service')
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     def gps_one_shot_command(self):
         self.pub.send_string(GPS_ONE_SHOT, flags=zmq.SNDMORE)
         self.pub.send_pyobj('')
-        log.info('sending a gps one shot command to the service')
+        log.debug('sending a gps one shot command to the service')
         
     ##@brief send the service a command to shutdown
     def service_stop_command(self):
         self.pub.send_string(STOP, flags=zmq.SNDMORE)
         self.pub.send_pyobj('')
-        log.info('view controller shutting down the service')
+        log.debug('view controller shutting down the service')
     
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
@@ -170,7 +170,7 @@ class ViewController():
     
     ##@brief handler for when a TextMessage object is received from the service
     def txt_msg_handler(self, msg):
-        log.info('received text message from the service')
+        log.debug('received text message from the service')
         if (msg is not None):
             if (msg.header.src_callsign == self.ui.my_callsign): #this is my own message
                 return
@@ -220,7 +220,7 @@ class ViewController():
     
     @exception_suppressor
     def transceiver_status_handler(self, status):
-        log.info('received a status update from the service')
+        log.debug('received a status update from the service')
         Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, status), 0)
         
     def tx_success_handler(self, arg):
@@ -236,20 +236,20 @@ class ViewController():
         Clock.schedule_once(functools.partial(self.ui.update_rx_failure_cnt, arg), 0)
         
     def gps_lock_achieved_hander(self):
-        log.info('gps lock achieved')
+        log.debug('gps lock achieved')
         Clock.schedule_once(functools.partial(self.ui.notifyGPSLockAchieved), 0) #update the ui elements to show gps lock achieved
     
     #@exception_suppressor
     def signal_strength_handler(self, signal_strength):
-        #log.info('view controller received signal strength- ' + str(args[0]))
+        #log.debug('view controller received signal strength- ' + str(args[0]))
         Clock.schedule_once(functools.partial(self.ui.update_signal_strength, signal_strength), 0)
     
     #args[0]=ack_key
     #args[1] = remaining_retries
     def retry_msg_handler(self, args):
         Clock.schedule_once(functools.partial(self.ui.updateRetryCount, args[0], args[1]), 0)
-        log.info('received a retry message from the service controller')
+        log.debug('received a retry message from the service controller')
         #Clock.schedule_once(functools.partial(self.ui.updateRetryCount, int(args[0]), int(args[1]) ), 0) 
         
     def header_info_handler(self, header_info):
-        Clock.schedule_once(functools.partial(self.ui.updateStatusIndicator, header_info), 0)
+        Clock.schedule_once(functools.partial(self.ui.updateHeaderInfo, header_info), 0)

@@ -109,7 +109,7 @@ class ServiceController():
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
     #@
     def txt_msg_handler(self, txt_msg):
-        log.info('text message received from the View Controller')
+        log.debug('text message received from the View Controller')
         #txt_msg = MessageObject.unmarshal(args[0])
         #log.info(txt_msg.carrier_len)
         self.il2p.msg_send_queue.put((10, txt_msg))
@@ -117,12 +117,12 @@ class ServiceController():
     ## @brief callback for when the View Controller sends a new callsign
     
     def my_callsign_handler(self, my_callsign):
-        log.info('my callsign received from View Controller')
+        log.debug('my callsign received from View Controller')
         self.il2p.setMyCallsign(my_callsign)
     
     #
     def gps_beacon_handler(self, args):
-        log.info('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]) )
+        log.debug('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]) )
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
         if (self.gps_beacon_enable == True):
@@ -132,12 +132,12 @@ class ServiceController():
                 self.gps_beacon_sched.cancel(event)
     
     def gps_one_shot_handler(self):
-        log.info('gps one shot command received from View Controller')
+        log.debug('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
         
     
     def stop_handler(self):
-        log.info('stopping the service threads')
+        log.debug('stopping the service threads')
         self.isStopped = True
         self.stop()
     
@@ -156,7 +156,7 @@ class ServiceController():
     
     
     def send_txt_message(self, msg):
-        log.info('sending text message to the View Controller')
+        log.debug('sending text message to the View Controller')
         msg.mark_time()
         self.pub.send_string(TXT_MSG_RX, flags=zmq.SNDMORE)
         self.pub.send_pyobj(msg)
@@ -175,7 +175,7 @@ class ServiceController():
                 self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
     
     def send_header_info(self, info):
-        log.info('updating header info')
+        log.debug('updating header info')
         self.pub.send_string(HEADER_INFO, flags=zmq.SNDMORE)
         self.pub.send_pyobj(info)
     
@@ -188,14 +188,14 @@ class ServiceController():
     
     
     def send_ack_message(self, ack_key):
-        log.info('sending message acknowledgment to View Controller')
+        log.debug('sending message acknowledgment to View Controller')
         self.pub.send_string(ACK_MSG, flags=zmq.SNDMORE)
         self.pub.send_pyobj(ack_key)
     
     def send_status(self, status):
         self.pub.send_string(STATUS_INDICATOR, flags=zmq.SNDMORE)
         self.pub.send_pyobj(status)
-        log.info('service sending status to View Controller')
+        log.debug('service sending status to View Controller')
     
     def send_statistic(self, type_str, value):
         self.pub.send_string('/'+type_str, flags=zmq.SNDMORE)
@@ -212,7 +212,7 @@ class ServiceController():
         self.pub2.send_pyobj(signal_strength)
     
     def send_retry_message(self, ack_key, remaining_retries):
-        log.info('sending retry message to View Controller')
+        log.debug('sending retry message to View Controller')
         self.pub.send_string(RETRY_MSG, flags=zmq.SNDMORE)
         self.pub.send_pyobj((ack_key, remaining_retries))
     

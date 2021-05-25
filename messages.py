@@ -77,13 +77,14 @@ class MessageObject():
             return None
         else:
             try:
-                gps_dict = json.loads( self.payload_str )
+                #convert payload bytes to a dictionary while ignoring all non-ascii characters
+                gps_dict = json.loads(self.payload_str.tobytes().decode('ascii','ignore')) 
                 log.debug(gps_dict['lat'])
                 log.debug(gps_dict['lon'])
                 log.debug(gps_dict['altitude'])
                 return GPSMessageObject(src_callsign=self.header.src_callsign, location=gps_dict)  
             except BaseException:
-                log.warning('WARNING: failed to unmarshal a gps message')
+                log.warning('WARNING: failed to extract a gps location')
                 return None 
     
     def get_dummy_beacon(self):
@@ -101,6 +102,10 @@ class GPSMessageObject():
         self.src_callsign = src_callsign
         self.location = location
         self.time_str = time_str
+    
+    #extract location from the payload if this message is a gps beacon
+    def get_location(self):
+        return self.location
     
     def getInfoString(self):
         fmt = 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())

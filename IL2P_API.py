@@ -116,8 +116,10 @@ class IL2P_API:
         if (header.stat2 == True):
             pass
         
-        #handle any acks contained in this message
+        #handle any forwarded acks contained in this message
         self.pending_acks_lock.acquire()
+        log.info('header info: ')
+        log.info(header.getForwardAckSequenceList())
         for seq in reversed(header.getForwardAckSequenceList()):
             if ((seq in self.pending_acks) and (header.src_callsign != self.my_callsign)): #this is an acknowledgment for me
                 self.pending_acks.pop(seq) #remove the ack from the pending acks dictionary
@@ -130,21 +132,29 @@ class IL2P_API:
         self.pending_acks_lock.release()
         
         if ((header.request_double_ack or header.request_ack) and (header.src_callsign != self.my_callsign)):
-            if (self.msg_send_queue.full() == True):
-                log.error('ERROR: frame send queue is full')
-            else:
-                ack_header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=header.src_callsign, \
-                                               hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=False, \
-                                               stat1=False, stat2=False, \
-                                               acks=self.forward_acks.getAcksBool(),
-                                               request_ack=False, request_double_ack=False, \
-                                               payload_size=0, \
-                                               data=self.forward_acks.getAcksData())
-                ack_msg = MessageObject(header=ack_header, payload_str='')
-                self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
-                if (header.request_double_ack):
+            log.info('message requesting an ack from %s and I am %s')
+            self.forward_acks.append(header.getMyAckSequence())
+            self.service_controller.send_header_info(self.forward_acks)
+            if (header.dst_callsign == self.my_callsign): #this message requests an ack from me
+                forward_msg = False #don't forward the message since it reached its detination
+                log.info('message requesting ack from me')
+                if (self.msg_send_queue.full() == True):
+                    log.error('ERROR: frame send queue is full')
+                else:
+                    ack_header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=header.src_callsign, \
+                                                   hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=False, \
+                                                   stat1=False, stat2=False, \
+                                                   acks=self.forward_acks.getAcksBool(),
+                                                   request_ack=False, request_double_ack=False, \
+                                                   payload_size=0, \
+                                                   data=self.forward_acks.getAcksData())
+                    ack_msg = MessageObject(header=ack_header, payload_str='')
                     self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
-        
+                    if (header.request_double_ack):
+                        self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
+            else: #this message is requesting an ack from someone else
+                pass    
+                
         #forward the message if the conditions are met
         if (forward_msg == True):
             if (self.msg_send_queue.full() == True):
@@ -158,18 +168,13 @@ class IL2P_API:
             log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
             
             if (header.payload_size > 0): #send all messages with payloads to the output queue
-                msg = MessageObject(header=header, payload_str='')
+                msg = MessageObject(header=header, payload_str=payload)
                 self.service_controller.send_txt_message(msg) #send the message to the ui
             return True
             
         elif (header.is_beacon == True):
             try:
-                gps_dict = json.loads( payload.tobytes().decode('ascii','ignore') ) #convert payload bytes to a dictionary while ignoring all non-ascii characters
-                log.debug(gps_dict['lat'])
-                log.debug(gps_dict['lon'])
-                log.debug(gps_dict['altitude'])
-                received_gps_msg = GPSMessageObject(src_callsign=header.src_callsign, location=gps_dict)
-                self.service_controller.send_gps_message(received_gps_msg) #send the message to the UI
+                self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload))
                 return True   
             except BaseException:
                 log.warning('WARNING: failed to decode payload of a GPS message')
@@ -190,6 +195,7 @@ class IL2P_API:
     ##@return - Returns true when there is a frame to send, returns false otherwise
     def isTransmissionPending(self):
         if (self.msg_send_queue.empty() == False):
+            #log.info('Transmission Pending')
             return True
         elif (len(self.pending_acks) == 0):
             return False
