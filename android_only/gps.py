@@ -35,6 +35,7 @@ class GPS():
     ##@param service_controller a class of type ServiceController that will be sending gps coordinates to the UI
     def start(self, service_controller):
         self.service_controller = service_controller
+        self.service_controller.send_gps_lock_achieved(False)
         try:
             gps.configure(on_location=self.__on_location_update)
             gps.start(minTime=5000, minDistance=0)

@@ -198,8 +198,12 @@
     id : selector
     option1_text : ''
     option2_text : ''
+    option3_text : ''
+    option4_text : ''
     option1_name : ''
     option2_name : ''
+    option3_name : ''
+    option4_name : ''
     orientation: 'horizontal' 
     size_hint_y : None
     height : option1.height
@@ -215,6 +219,18 @@
         id : option2
         text: selector.option2_text
         name : selector.option2_name
+        on_press: app.selector_pressed(selector,self)
+    
+    SmallToggleButton:
+        id : option3
+        text: selector.option3_text
+        name : selector.option3_name
+        on_press: app.selector_pressed(selector,self)
+    
+    SmallToggleButton:
+        id : option4
+        text: selector.option4_text
+        name : selector.option4_name
         on_press: app.selector_pressed(selector,self)
 
 <TextMessage>: #extends box layout, is instantiated in ui_kivy.py
@@ -760,12 +776,6 @@ WindowManager:
             
         SetablePropertyDstCallsign:
             name : 'dst_callsign'
-
-        SmallToggleButton:
-            text: 'Request Receipt?'
-            id: ackChecked
-            name : 'ackChecked'
-            on_state: app.toggle_pressed(self)
             
         SmallToggleButton:
             text: 'Clear On Send?'
@@ -783,37 +793,40 @@ WindowManager:
         
         MediumLabel:
             name : ''
-            text: 'Audio Modem Settings'  
+            text: 'Network Settings'  
             halign : 'center'
 
+        SmallToggleButton:
+            text: 'Ack?'
+            id: ackChecked
+            name : 'ackChecked'
+            on_state: app.toggle_pressed(self)
+    
+        SmallToggleButton:
+            text: 'Double Ack?'
+            id: doubleAckChecked
+            name : 'doubleAckChecked'
+            on_state: app.toggle_pressed(self)
+    
         SetablePropertyCarrierLength:
             name : 'carrier_length'
         
         MediumLabel:
-            name : 'modulation_type_lbl'
-            text: 'Modulation Scheme'  
+            name : 'hops_lbl'
+            text: 'Number of Hops'  
             halign : 'center'
         
         DiscreteSelector:
-            disabled : True
-            option1_text : 'BPSK (slower)'
-            option2_text : 'QAM (faster)'
-            option1_name : '2'
-            option2_name : '4'
-            name : 'modulation_type'
-        
-        MediumLabel:
-            name : 'carrier_frequency_lbl'
-            text: 'Carrier Frequency'  
-            halign : 'center'
-
-        DiscreteSelector:
-            disabled : True
-            option1_text : '1000Hz'
-            option2_text : '2000Hz'
-            option1_name : '1000'
-            option2_name : '2000'
-            name : 'carrier_frequency'
+            disabled : False
+            option1_text : '0'
+            option2_text : '1'
+            option3_text : '2'
+            option4_text : '3'
+            option1_name : '0'
+            option2_name : '1'
+            option3_name : '2'
+            option4_name : '3'
+            name : 'num_hops'
 
 ###################################################################        
 ####################### Statistics Window #########################

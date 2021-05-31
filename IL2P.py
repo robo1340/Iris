@@ -256,7 +256,7 @@ class IL2P_Frame_Header:
             ind = ind + 1
         
         if (self.stat1): #if this message contains stats increment the indice by 2
-            ind = ind + 1
+            ind = ind + 2
             
         if (self.stat2):
             ind = ind + 2

@@ -34,12 +34,26 @@ import service_controller as service
 from kivy.logger import Logger as log
 from kivy.clock import Clock
 
+NUM_PUBS = 1
+BASE_PORT = 8000
+
+#VIEW_PUB_IND = 0
+#    service_stop_command
+#    send_my_callsign
+#    send_txt_message
+#    gps_one_shot_command
+#    send_gps_beacon_command
+
 #pub topics
 TXT_MSG_TX = "/txt_msg_tx"
 MY_CALLSIGN = "/my_callsign"
 GPS_BEACON_CMD = "/gps_beacon"
 GPS_ONE_SHOT = '/gps_one_shot'
 STOP = '/stop'
+HOPS = '/hops'
+
+#def generate_bind_addr(num, base_port):
+#def generate_connect_addr(num, base_port):
 
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
@@ -56,11 +70,15 @@ class ViewController():
         self.gps_tx_time = time.time()
         
         self.context = zmq.Context()
-        self.pub = self.context.socket(zmq.PUB)
-        self.pub.bind("tcp://*:8000")
+        self.pubs = []
+        self.bind_addrs = common.generate_bind_addr(NUM_PUBS, BASE_PORT)
+        
+        for addr in self.bind_addrs:
+            self.pubs.append(None)
+        
+        self.tx_queue = queue.Queue()
     
         self.ui = None
-        #self.client = SimpleUDPClient('127.0.0.2',8000) #create the UDP client
         self.contacts_dict = {} #a dictionary describing the current gps contacts that have been placed
         #keys are the callsign string, values are a GPSMessaageObject
         
@@ -69,6 +87,9 @@ class ViewController():
         #self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
         self.thread = common.StoppableThread(target = self.view_controller_func, args=(0,))
         self.thread.start()
+        
+        self.pub_thread = common.StoppableThread(target = self.view_pub_func, args=(0,))
+        self.pub_thread.start()
     
     def stop(self):
         self.stopped = True
@@ -77,8 +98,10 @@ class ViewController():
     def view_controller_func(self,arg):
         sub = self.context.socket(zmq.SUB)
         sub.subscribe('')
-        sub.connect("tcp://127.0.0.1:5555")
-        sub.connect("tcp://127.0.0.1:5556")
+        connect_addrs = common.generate_connect_addr(service.NUM_PUBS, service.BASE_PORT)
+        log.info(connect_addrs)
+        for addr in connect_addrs:
+            sub.connect(addr)
         
         poller = zmq.Poller()
         poller.register(sub, zmq.POLLIN)
@@ -110,7 +133,7 @@ class ViewController():
                     elif (header == service.RX_FAILURE):
                         self.rx_failure_handler(payload)
                     elif (header == service.GPS_LOCK_ACHIEVED):
-                        self.gps_lock_achieved_hander()
+                        self.gps_lock_achieved_hander(payload)
                     elif (header == service.SIGNAL_STRENGTH):
                         self.signal_strength_handler(payload)  
 
@@ -129,40 +152,72 @@ class ViewController():
                 log.info("header %s, payload %s" % (header, str(payload)))
         log.info('view controller receiver ended==========================')
 
+    def view_pub_func(self, arg):
+        self.pubs[0] = self.context.socket(zmq.PUB)
+        self.pubs[0].bind(self.bind_addrs[0])
+        
+        while not self.stopped:
+            try:
+                (pub_ind, env, payload) = self.tx_queue.get(block=True, timeout=1)
+                self.pubs[pub_ind].send_string(env, flags=zmq.SNDMORE)
+                self.pubs[pub_ind].send_pyobj(payload)
+            except queue.Empty:
+                pass
+            except BaseException:
+                log.error("Error in view controller zmq publisher thread")
+        log.info('view controller publisher ended==========================')
+        
     ###############################################################################
     ############### Methods for sending messages to the Service ###################
     ###############################################################################
     
     ## @brief send a text message to the service to be transmitted
     def send_txt_message(self, txt_msg):
-        self.pub.send_string(TXT_MSG_TX, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(txt_msg)
-        log.debug('sending a text message to the service')
+        try:
+            self.tx_queue.put((0,TXT_MSG_TX,txt_msg), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+        log.info('view ctrl send_txt_message()')
     
     ## @brief send a new callsign entered by the user to the service
     def send_my_callsign(self, my_callsign):
-        self.pub.send_string(MY_CALLSIGN, flags=zmq.SNDMORE)
-        self.pub.send_pyobj(my_callsign)
+        try:
+            self.tx_queue.put((0,MY_CALLSIGN,my_callsign), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
     
     ##@brief send the service a new gps beacon state and gps beacon period
     ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
-        self.pub.send_string(GPS_BEACON_CMD, flags=zmq.SNDMORE)
-        self.pub.send_pyobj((gps_beacon_enable, gps_beacon_period))
-        log.debug('sending a gps beacon command to the Service')
+        try:
+            self.tx_queue.put((0,GPS_BEACON_CMD,(gps_beacon_enable, gps_beacon_period)), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+        log.info('sending a gps beacon command to the Service')
         
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     def gps_one_shot_command(self):
-        self.pub.send_string(GPS_ONE_SHOT, flags=zmq.SNDMORE)
-        self.pub.send_pyobj('')
         log.debug('sending a gps one shot command to the service')
+        try:
+            self.tx_queue.put((0,GPS_ONE_SHOT,''), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
         
     ##@brief send the service a command to shutdown
     def service_stop_command(self):
-        self.pub.send_string(STOP, flags=zmq.SNDMORE)
-        self.pub.send_pyobj('')
+        try:
+            self.tx_queue.put((0,STOP,''), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
         log.debug('view controller shutting down the service')
+    
+    def update_hops(self, hops):
+        try:
+            self.tx_queue.put((0,HOPS,hops), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+    
     
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
@@ -211,13 +266,13 @@ class ViewController():
         if (gps_msg is not None):
             Clock.schedule_once(functools.partial(self.ui.update_my_displayed_location, gps_msg.location), 0)
     
-    def ack_msg_handler(self, ack_key):
-        log.debug('received an acknoweledgement message from the service: '+ str(ack_key))
-        
-        Clock.schedule_once(functools.partial(self.ui.addAckToUI, ack_key), 0)  
-        toast('Ack received from ' + args[1])
+    def ack_msg_handler(self, args):
+        ack_callsign = args[0]
+        ack_key = args[1]
+        toast('Ack received from ' + str(ack_callsign))
         vibrator.pattern(pattern=ack_vibe_pattern)
-    
+        Clock.schedule_once(functools.partial(self.ui.addAckToUI, ack_key), 0)  
+        
     @exception_suppressor
     def transceiver_status_handler(self, status):
         log.debug('received a status update from the service')
@@ -235,7 +290,9 @@ class ViewController():
     def rx_failure_handler(self, arg):
         Clock.schedule_once(functools.partial(self.ui.update_rx_failure_cnt, arg), 0)
         
-    def gps_lock_achieved_hander(self):
+    def gps_lock_achieved_hander(self, lock_achieved):
+        if (not lock_achieved):
+            return
         log.debug('gps lock achieved')
         Clock.schedule_once(functools.partial(self.ui.notifyGPSLockAchieved), 0) #update the ui elements to show gps lock achieved
     

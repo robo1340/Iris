@@ -65,7 +65,7 @@ class Args():
 ################################################################### 
 if __name__ == "__main__":
     #while True:
-    time.sleep(0.25) #put a slight delay in when the service starts, so that the UI will be started before the service
+    time.sleep(0.2) #put a slight delay in when the service starts, so that the UI will be started before the service
 
     log.info('start of service')
 

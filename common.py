@@ -68,6 +68,20 @@ class Stats():
         self.rxs = 0 ##rx success count
         self.rxf = 0 ##rx failure count
 
+def generate_bind_addr(num, base_port):
+    addrs = []
+    for i in range(0,num):
+        addr = "tcp://*:" + str(base_port+i)
+        addrs.append(addr)
+    return addrs
+
+def generate_connect_addr(num, base_port):
+    addrs = []
+    for i in range(0,num):
+        addr = "tcp://127.0.0.1:" + str(base_port+i)
+        addrs.append(addr)
+    return addrs
+        
 SQUELCH_CONTESTED = "squelch_contested"
 SQUELCH_OPEN = "squelch_open"
 CARRIER_DETECTED = "carrier_detected"

@@ -123,6 +123,7 @@ class ui_mobileApp(App, UI_Interface):
         self.my_callsign = ''
         self.dstCallsign = ''
         self.ackChecked = False
+        self.doubleAckChecked = False
         self.clearOnSend = False
         self.autoScroll = False
         self.modulation_type = 2
@@ -131,6 +132,8 @@ class ui_mobileApp(App, UI_Interface):
         
         self.gps_beacon_enable = False
         self.gps_beacon_period = 0
+        
+        self.hops = 0
         
         self.messagesLock = threading.Lock()
         self.messages = []
@@ -161,7 +164,7 @@ class ui_mobileApp(App, UI_Interface):
         return True
     
     ############### Callback functions called from ui.kv ###############
-    
+
     def goToSettingsScreen(self):
         log.debug('transitioning to settings screen')
     
@@ -198,23 +201,22 @@ class ui_mobileApp(App, UI_Interface):
         #chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
         #messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
         data = None
-        if (self.ackChecked): #generate an ack sequence number
+        if (self.ackChecked or self.doubleAckChecked): #generate an ack sequence number
             seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
             data = self.header_info.getAcksData(my_ack=seq)
         else:
             data = self.header_info.getAcksData()
-            
         
         header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=self.dstCallsign, \
-               hops_remaining=0, hops=0, is_text_msg=True, is_beacon=False, \
+               hops_remaining=self.hops, hops=self.hops, is_text_msg=True, is_beacon=False, \
                stat1=False, stat2=False, \
                acks=self.header_info.getAcksBool(), \
-               request_ack=self.ackChecked, request_double_ack=False, \
+               request_ack=self.ackChecked, request_double_ack=self.doubleAckChecked, \
                payload_size=len(text_input_widget.text), \
                data=data)
     
         msg = MessageObject(header=header, payload_str=str(text_input_widget.text), carrier_len=self.carrier_length)
-    
+
         self.viewController.send_txt_message(msg)
         self.addMessageToUI(msg, my_message=True)
 
@@ -224,6 +226,7 @@ class ui_mobileApp(App, UI_Interface):
             
     def sendGPSBeacon(self):
         log.info('at sendGPSBeacon()')
+
         self.viewController.gps_one_shot_command()
     
     def selector_pressed(self, selector, pressed_button):
@@ -235,24 +238,28 @@ class ui_mobileApp(App, UI_Interface):
             if (child.name != pressed_button.name):
                 child.state = 'normal'
         
-        if (selector.name == 'modulation_type'):
-            self.ini_config['MAIN']['Npoints'] = pressed_button.name
-            lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'modulation_type_lbl')
-            lbl.text = 'Modulation Scheme (restart required to apply change)'
-        elif (selector.name == 'carrier_frequency'):
-            self.ini_config['MAIN']['carrier_frequency'] = pressed_button.name
-            lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'carrier_frequency_lbl')
-            lbl.text = 'Carrier Frequency (restart required to apply change)'
+        if (selector.name == 'num_hops'):
+            #self.ini_config['MAIN']['Npoints'] = pressed_button.name
+            lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'num_hops')
+            hops = int(pressed_button.name)
+            hops = min(3,max(hops,0))
+            self.hops = hops
+            self.viewController.update_hops(hops)
         else:
             return
-
-        updateConfigFile(self.ini_config)
+        #updateConfigFile(self.ini_config)
     
     def toggle_pressed(self, toggle_button):
         #print(toggle_button.name)
         #print(toggle_button.state)
         if (toggle_button.name == 'ackChecked'):
             self.ackChecked = True if (toggle_button.state == 'down') else False
+        if (toggle_button.name == 'doubleAckChecked'):
+            self.doubleAckChecked = True if (toggle_button.state == 'down') else False
+            self.ackChecked = True if (toggle_button.state == 'down') else False
+            settings = self.__get_child(self.settings_window(), 'settings_root')
+            ack_button = self.__get_child(settings, 'ackChecked')
+            ack_button.state = toggle_button.state 
         elif (toggle_button.name == 'clearOnSend'):
             self.clearOnSend = True if (toggle_button.state == 'down') else False
         elif (toggle_button.name == 'autoScroll'):
@@ -278,38 +285,42 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            self.main_window().squelch_color = self.main_window().indicator_inactive_color
-            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().squelch_color = self.main_window().indicator_inactive_color
+                self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            self.main_window().receiver_color = self.main_window().indicator_inactive_color
-            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().receiver_color = self.main_window().indicator_inactive_color
+                self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            self.main_window().success_color = self.main_window().indicator_inactive_color
-            self.chat_window().success_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().success_color = self.main_window().indicator_inactive_color
+                self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
-            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().transmitter_color = self.main_window().indicator_inactive_color
+                self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
-        #with self.statusIndicatorLock:
-        if (status == common.SQUELCH_OPEN):
-            self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
-            self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
-            Clock.schedule_once(callback1, self.status_update_dwell_time)
-        elif (status == common.CARRIER_DETECTED):
-            self.main_window().receiver_color = self.main_window().indicator_rx_color
-            self.chat_window().receiver_color = self.chat_window().indicator_rx_color
-            Clock.schedule_once(callback2, self.status_update_dwell_time)
-        elif (status == common.MESSAGE_RECEIVED):
-            self.main_window().success_color = self.main_window().indicator_success_color
-            self.chat_window().success_color = self.chat_window().indicator_success_color
-            Clock.schedule_once(callback3, self.status_update_dwell_time)
-        elif (status == common.TRANSMITTING):
-            self.main_window().transmitter_color = self.main_window().indicator_tx_color
-            self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
-            Clock.schedule_once(callback4, self.status_update_dwell_time)
+        with self.statusIndicatorLock:
+            if (status == common.SQUELCH_OPEN):
+                self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
+                self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
+                Clock.schedule_once(callback1, self.status_update_dwell_time)
+            elif (status == common.CARRIER_DETECTED):
+                self.main_window().receiver_color = self.main_window().indicator_rx_color
+                self.chat_window().receiver_color = self.chat_window().indicator_rx_color
+                Clock.schedule_once(callback2, self.status_update_dwell_time)
+            elif (status == common.MESSAGE_RECEIVED):
+                self.main_window().success_color = self.main_window().indicator_success_color
+                self.chat_window().success_color = self.chat_window().indicator_success_color
+                Clock.schedule_once(callback3, self.status_update_dwell_time)
+            elif (status == common.TRANSMITTING):
+                self.main_window().transmitter_color = self.main_window().indicator_tx_color
+                self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
+                Clock.schedule_once(callback4, self.status_update_dwell_time)
  
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param msg A TextMessageObject containing the received message
@@ -545,13 +556,11 @@ class ui_mobileApp(App, UI_Interface):
         carrier_length_widget.text = ini_config['MAIN']['carrier_length']
         self.carrier_length = ini_config['MAIN']['carrier_length']
         
-        modulation_selector = self.__get_child(settings, 'modulation_type')
         self.modulation_type = int(ini_config['MAIN']['npoints'])
-        self.__get_child(modulation_selector, ini_config['MAIN']['npoints']).state = 'down'
-        
-        carrier_selector = self.__get_child(settings, 'carrier_frequency')
         self.carrier_frequency = int(ini_config['MAIN']['carrier_frequency'])
-        self.__get_child(carrier_selector, ini_config['MAIN']['carrier_frequency']).state = 'down'
+        
+        hops_selector = self.__get_child(settings, 'num_hops')
+        self.__get_child(hops_selector, '0').state = 'down'
         
         gps = self.__get_child(self.gps_window(), 'root_gps')
         

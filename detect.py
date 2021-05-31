@@ -4,6 +4,7 @@ import collections
 import itertools
 import logging
 import time
+import random
 
 import numpy as np
 
@@ -51,11 +52,12 @@ class Detector:
         self.Tsym = config.Tsym
         self.maxlen = config.baud  # 1 second of symbols
         self.max_offset = config.timeout * self.samp_freq
-        
+        self.avg_timeout = 0.5
         #self.equalizer = equalizer.Equalizer(config)
         self.barker_detector = MooreMachine()
 
     def _wait(self, samples):
+        timeout_sec = self.avg_timeout + 0.5*random.uniform(-self.avg_timeout,self.avg_timeout)
         bufs = collections.deque([], maxlen=self.CARRIER_THRESHOLD)
         for offset, buf in common.iterate(samples, self.Nsym, index=True):
             #look for a signal that is coherent with the carrier wave

@@ -105,25 +105,25 @@ class IL2P_API:
         
         if (header.hops_remaining > 0): #if this message is to be forwarded
             header.hops_remaining = header.hops_remaining - 1
-            if (header.dst_callsign != self.my_callsign):
-                log.info('forwarding message')
+            if (header.src_callsign != self.my_callsign): #make sure I'm not the one who sent this
+                #log.info('forwarding message')
                 forward_msg = True
         
         #handle any stats contained in this message
-        if (header.stat1 == True):
-            pass
-        
-        if (header.stat2 == True):
-            pass
+        #if (header.stat1 == True):
+        #    pass
+        #if (header.stat2 == True):
+        #    pass
         
         #handle any forwarded acks contained in this message
         self.pending_acks_lock.acquire()
-        log.info('header info: ')
         log.info(header.getForwardAckSequenceList())
+        #for seq in header.getForwardAckSequenceList():
         for seq in reversed(header.getForwardAckSequenceList()):
             if ((seq in self.pending_acks) and (header.src_callsign != self.my_callsign)): #this is an acknowledgment for me
+                #log.info('received a forwarded ack')
                 self.pending_acks.pop(seq) #remove the ack from the pending acks dictionary
-                self.service_controller.send_ack_message(seq) #send the ack to the UI  
+                self.service_controller.send_ack_message(header.src_callsign, seq) #send the ack to the UI  
             else: #forward all received acknowledgements
                 self.forward_acks_lock.acquire()
                 self.forward_acks.append(seq)
@@ -131,10 +131,13 @@ class IL2P_API:
                 self.forward_acks_lock.release()
         self.pending_acks_lock.release()
         
+        
         if ((header.request_double_ack or header.request_ack) and (header.src_callsign != self.my_callsign)):
             log.info('message requesting an ack from %s and I am %s')
+            self.forward_acks_lock.acquire()
             self.forward_acks.append(header.getMyAckSequence())
             self.service_controller.send_header_info(self.forward_acks)
+            self.forward_acks_lock.release()
             if (header.dst_callsign == self.my_callsign): #this message requests an ack from me
                 forward_msg = False #don't forward the message since it reached its detination
                 log.info('message requesting ack from me')
@@ -160,7 +163,7 @@ class IL2P_API:
             if (self.msg_send_queue.full() == True):
                 log.error('ERROR: frame send queue full while forwarding')
             else:
-                forward_msg = MessageObject(header=header, payload_str=payload)
+                forward_msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
                 priority = TEXT_PRIORITY if (header.is_text_msg) else GPS_PRIORITY
                 self.msg_send_queue.put((priority, forward_msg))               
         
@@ -168,13 +171,13 @@ class IL2P_API:
             log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
             
             if (header.payload_size > 0): #send all messages with payloads to the output queue
-                msg = MessageObject(header=header, payload_str=payload)
+                msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
                 self.service_controller.send_txt_message(msg) #send the message to the ui
             return True
             
         elif (header.is_beacon == True):
             try:
-                self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload))
+                self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
                 return True   
             except BaseException:
                 log.warning('WARNING: failed to decode payload of a GPS message')
@@ -228,16 +231,14 @@ class IL2P_API:
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     #log.info("key " + str(key))
-                    if (retry.decrement() == 0): #if the remaining number of tries is zero, do not re-transmit
-                        
-                        #self.service_controller.send_retry_message(key, -1)
+                    if (retry.decrement() == 0): #if the remaining number of tries is zero, do not re-transmit 
+                        self.service_controller.send_retry_message(key, -1)
                         toPop = key
                         continue
-                    #self.service_controller.send_retry_message(key, retry.retry_cnt-1)
-                    #the problem is somewhere after here
+                    self.service_controller.send_retry_message(key, retry.retry_cnt-1)
                     toReturn = self.writer.getFrameFromMessage(retry.msg)
                     carrier_len = retry.msg.carrier_len
-                    log.info(carrier_len) #the problem is somewhere before 
+                    #log.info(carrier_len)
             if (toPop != None):
                 self.pending_acks.pop(toPop)
             self.pending_acks_lock.release()

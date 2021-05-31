@@ -17,7 +17,7 @@ class AckSequenceList():
         
     def append(self, new_seq, force=False):
         for seq in self.acks:
-            if (seq == new_seq) and (forced == False):
+            if (seq == new_seq) and (force == False):
                 return False
         if (len(self.acks) >= 4):
             self.acks.pop()
@@ -78,7 +78,8 @@ class MessageObject():
         else:
             try:
                 #convert payload bytes to a dictionary while ignoring all non-ascii characters
-                gps_dict = json.loads(self.payload_str.tobytes().decode('ascii','ignore')) 
+                gps_dict = json.loads(self.payload_str) 
+                #gps_dict = json.loads(self.payload_str.tobytes().decode('ascii','ignore')) 
                 log.debug(gps_dict['lat'])
                 log.debug(gps_dict['lon'])
                 log.debug(gps_dict['altitude'])
