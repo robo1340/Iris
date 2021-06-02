@@ -96,20 +96,23 @@ class ViewController():
     
     #the thread function
     def view_controller_func(self,arg):
-        sub = self.context.socket(zmq.SUB)
-        sub.subscribe('')
-        connect_addrs = common.generate_connect_addr(service.NUM_PUBS, service.BASE_PORT)
-        log.info(connect_addrs)
-        for addr in connect_addrs:
-            sub.connect(addr)
-        
+        #sub = self.context.socket(zmq.SUB)
+        #sub.subscribe('')
         poller = zmq.Poller()
-        poller.register(sub, zmq.POLLIN)
+        connect_addrs = common.generate_connect_addr(service.NUM_PUBS, service.BASE_PORT)
+        for addr in connect_addrs:
+            sub = self.context.socket(zmq.SUB)
+            sub.subscribe('')
+            sub.connect(addr)
+            poller.register(sub, zmq.POLLIN)
         
         while not self.stopped:
             try:
                 socks = dict(poller.poll(timeout=1000))
-                if sub in socks and socks[sub] == zmq.POLLIN:
+                for sub in socks:
+                    if socks[sub] != zmq.POLLIN:
+                        continue
+                #if sub in socks and socks[sub] == zmq.POLLIN:
                     header = sub.recv_string()
                     payload = sub.recv_pyobj()
                     #log.info("header %s" % (header))
@@ -136,7 +139,6 @@ class ViewController():
                         self.gps_lock_achieved_hander(payload)
                     elif (header == service.SIGNAL_STRENGTH):
                         self.signal_strength_handler(payload)  
-
                     elif (header == service.RETRY_MSG):
                         self.retry_msg_handler(payload)
                     elif (header == service.HEADER_INFO):

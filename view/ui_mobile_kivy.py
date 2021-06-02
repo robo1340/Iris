@@ -160,6 +160,7 @@ class ui_mobileApp(App, UI_Interface):
         from kivy.uix.popup import Popup
         self.textpopup(title='Exit', text='Are you sure?')
         self.viewController.service_stop_command() # send a message to stop the service threads
+        time.sleep(0.5)
         self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
         return True
     
