@@ -126,6 +126,10 @@ class ServiceController():
                         self.stop_handler()
                     elif (header == view_c.HOPS):
                         self.hops_update_handler(payload)
+                    elif (header == view_c.FORCE_SYNC_OSMAND):
+                        threading.Timer(0, self.force_sync_osmand_handler).start()
+                    elif (header == view_c.CLEAR_OSMAND_CONTACTS):
+                        threading.Timer(0, self.clear_osmand_contacts_handler).start()   
                     else:
                         log.info('No handler found for topic %s' % (header))
                 
@@ -193,6 +197,11 @@ class ServiceController():
     def hops_update_handler(self, hops):
         self.hops = hops
     
+    def force_sync_osmand_handler(self):
+        self.osm.refreshContacts()
+        
+    def clear_osmand_contacts_handler(self):
+        self.osm.eraseContacts()
     
     ###############################################################################
     ## Handlers for when the service receives a GPS Message from the Transceiver ##
@@ -229,7 +238,8 @@ class ServiceController():
             except queue.Full:
                     log.warning('service controller tx queue is full')
 
-            if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
+            if (self.osm.isStarted() and (gps_msg.src_callsign != self.il2p.my_callsign)):
+            #if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
                 self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
     
     def send_header_info(self, info):

@@ -1,17 +1,20 @@
-import logging
-
 from jnius import cast
 from jnius import autoclass
 #from jnius import PythonJavaClass, java_method
 
 import time
+import os
 from datetime import datetime
+import threading
+import pickle
 
 from kivy.logger import Logger as log
 
 CONTACT_CATEGORY = 'NoBoB Contacts'
 
 OSM_COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
+
+CONTACTS_FILE_NAME = 'contacts.pickle'
 
 class ContactPoint():
     def __init__(self,callsign,lat,lon,time,index):
@@ -33,9 +36,22 @@ class ContactPoint():
 class OsmAndInterface():
 
     def __init__(self):
-        self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
+        if os.path.isfile('./' + CONTACTS_FILE_NAME):
+            with open(CONTACTS_FILE_NAME, 'rb') as f:
+                self.contact_points_dict = pickle.load(f)
+        else:
+            self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
+        
+        #log.info(self.contact_points_dict)
+        
         #keys are the callsign string, values are a tuple are objects of type ContactPoint
-
+        self.started = False
+        self.start()
+            
+    def isStarted(self):
+        return self.started
+    
+    def start(self):
         try:
             OsmAPI = autoclass('main.java.net.osmand.osmandapidemo.OsmAndAidlHelper')
 
@@ -53,12 +69,16 @@ class OsmAndInterface():
             self.api = OsmAPI(application) #,None)
 
             time.sleep(1)
-            self.clearContacts() 
+            self.refreshContacts()
+            #self.clearContacts() 
 
             log.info('OsmAnd API Init Success')
+            self.started = True
+            return True
         except BaseException:
             log.error('OsmAnd was not detected on this device')
-            return None
+            threading.Timer(30, self.start).start()
+            return False       
     
     ##@brief place a favorite marker in osmand representing the location of a radio contact
     ## that sent GPS coordinates. If the contact has been made previously, update the location of the
@@ -71,28 +91,49 @@ class OsmAndInterface():
     def placeContact(self, lat, lon, callsign='', description=''):
         log.info('Placing contact')
         try:
+            self.clearContacts()
             if callsign in self.contact_points_dict:
                 pt = self.contact_points_dict[callsign]
-                print(pt.getCurrentName())
-                self.api.updateFavorite( pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY,
-                                         lat, lon, pt.getNewName(), description, CONTACT_CATEGORY,
-                                         OSM_COLORS[ (pt.index % len(OSM_COLORS)) ], True
-                                        )
-
+                pt.getNewName()
                 pt.lat = lat
                 pt.lon = lon
             else:
                 pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(OSM_COLORS)) )
                 self.contact_points_dict[callsign] = pt
 
-                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True)     
+            self.populateContacts()
+            self.saveContacts()
         except BaseException:
             log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
 
+    def refreshContacts(self):
+        self.clearContacts()
+        self.populateContacts()
+    
+    def populateContacts(self):
+        try:
+            for callsign, pt in self.contact_points_dict.items():
+                self.api.addFavorite(pt.lat, pt.lon, pt.getCurrentName(), '', '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True) 
+                #self.api.addFavorite(pt.lat, pt.lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True)  
+        except BaseException:
+            log.error('An exception occurred while populating contacts in OsmAnd')        
+    
+    
+    def saveContacts(self):
+        with open(CONTACTS_FILE_NAME, 'wb') as f:
+            pickle.dump(self.contact_points_dict, f)
+    
+    def eraseContacts(self):
+        self.clearContacts()
+        self.contact_points_dict.clear()
+        self.saveContacts()
+    
     ##@brief remove all contact markers that are in OsmAnd
     def clearContacts(self):
         try:
-            self.api.removeFavoriteGroup(CONTACT_CATEGORY)
+            for callsign, pt in self.contact_points_dict.items():
+                self.api.removeFavorite(pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY)
+            #self.api.removeFavoriteGroup(CONTACT_CATEGORY)
         except BaseException:
             log.error('An exception occurred while deleting a favorites marker in OsmAnd')
 
@@ -110,10 +151,39 @@ osm.placeContact(35.0168, -97.0929, '000010', str(time.time()))
 osm.placeContact(35.0178, -97.0929, '000011', str(time.time()))
 '''
 #osm.clearContacts()
+'''
+    ##@brief remove all contact markers that are in OsmAnd
+    def clearContacts(self):
+        try:
+            self.api.removeFavoriteGroup(CONTACT_CATEGORY)
+        except BaseException:
+            log.error('An exception occurred while deleting a favorites marker in OsmAnd')
 
+    def placeContact(self, lat, lon, callsign='', description=''):
+        log.info('Placing contact')
+        try:
+            if callsign in self.contact_points_dict:
+                pt = self.contact_points_dict[callsign]
+                print(pt.getCurrentName())
+                self.api.updateFavorite( pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY,
+                                         lat, lon, pt.getNewName(), description, CONTACT_CATEGORY,
+                                         OSM_COLORS[ (pt.index % len(OSM_COLORS)) ], True
+                                        )
 
+                pt.lat = lat
+                pt.lon = lon
+            else:
+                pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(OSM_COLORS)) )
+                self.contact_points_dict[callsign] = pt
 
+                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True)  
+                
+            with open(CONTACTS_FILE_NAME, 'wb') as f:
+                pickle.dump(self.contact_points_dict, f)
+        except BaseException:
+            log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
 
+'''
 
 
 

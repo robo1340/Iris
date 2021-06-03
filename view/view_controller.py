@@ -51,6 +51,8 @@ GPS_BEACON_CMD = "/gps_beacon"
 GPS_ONE_SHOT = '/gps_one_shot'
 STOP = '/stop'
 HOPS = '/hops'
+FORCE_SYNC_OSMAND = '/force_sync_osmand'
+CLEAR_OSMAND_CONTACTS = '/clear_osmand_contacts'
 
 #def generate_bind_addr(num, base_port):
 #def generate_connect_addr(num, base_port):
@@ -217,6 +219,18 @@ class ViewController():
     def update_hops(self, hops):
         try:
             self.tx_queue.put((0,HOPS,hops), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+    
+    def force_sync_osmand(self):
+        try:
+            self.tx_queue.put((0,FORCE_SYNC_OSMAND,''), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+        
+    def clear_osmand_contacts(self):
+        try:
+            self.tx_queue.put((0,CLEAR_OSMAND_CONTACTS,''), block=False)
         except queue.Full:
                 log.warning('view controller tx queue is full')
     

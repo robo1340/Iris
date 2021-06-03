@@ -790,6 +790,23 @@ WindowManager:
             on_state: app.toggle_pressed(self)
 
         Spacer:
+    
+        MediumLabel:
+            name : ''
+            text: 'Osmand Settings' 
+            halign : 'center'
+    
+        SmallButton:
+            text: 'Force Sync Osmand'
+            name : 'force_sync_osmand'
+            on_release: app.button_pressed(self)
+    
+        SmallButton:
+            text: 'Clear Osmand Contacts'
+            name : 'clear_osmand_contacts'
+            on_release: app.button_pressed(self)
+
+        Spacer:
         
         MediumLabel:
             name : ''

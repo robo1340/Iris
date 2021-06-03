@@ -17,6 +17,9 @@ from kivy.graphics import Color
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.stacklayout import StackLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.popup import Popup
 from kivy.core.window import Window
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -156,12 +159,14 @@ class ui_mobileApp(App, UI_Interface):
     
     #gracefully shut everything down when the user exits
     def on_request_close(self, *args):
-        log.info('on_request_close()')
-        from kivy.uix.popup import Popup
-        self.textpopup(title='Exit', text='Are you sure?')
-        self.viewController.service_stop_command() # send a message to stop the service threads
-        time.sleep(0.5)
-        self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
+        #import android
+        #android.stop_service(title='NoBoB Service')
+        #log.info('on_request_close()')
+        #from kivy.uix.popup import Popup
+        #self.textpopup(title='Exit', text='Are you sure?')
+        #self.viewController.service_stop_command() # send a message to stop the service threads
+        #time.sleep(0.5)
+        #self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
         return True
     
     ############### Callback functions called from ui.kv ###############
@@ -269,6 +274,13 @@ class ui_mobileApp(App, UI_Interface):
             self.gps_beacon_enable = True if (toggle_button.state == 'down') else False
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
 
+    def button_pressed(self, button):
+        if (button.name == 'force_sync_osmand'):
+            self.viewController.force_sync_osmand()
+        elif (button.name == 'clear_osmand_contacts'):
+            self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
+            #self.viewController.clear_osmand_contacts()
+            
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
             #update the property containing current beacon period
@@ -277,6 +289,15 @@ class ui_mobileApp(App, UI_Interface):
             self.gps_beacon_period = int(spinner.text)
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
 
+    def spawn_confirm_popup(self, message, yes_func):
+        self.box_popup = BoxLayout(orientation = 'vertical')
+        self.box_popup.add_widget(Label(text = message))
+        self.box_popup.add_widget(Button(text = "Yes", on_press = yes_func() )) #size_hint = (0.215, 0.075)
+        self.box_popup.add_widget(Button(text = "No")) #size_hint=(0.215, 0.075)
+
+        self.popup_exit = Popup(title = 'Are you sure?',content = self.box_popup,size_hint = (0.5, 0.5),auto_dismiss = True)
+        self.popup_exit.open()
+            
     
     ############## input functions implementing UI_Interface #################
     

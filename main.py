@@ -55,8 +55,14 @@ if __name__ == "__main__":
         
         import android
         android.start_service(title='NoBoB Service',description='NoBoB Radio Service',arg='arg')
+        
+        #from inspect import getmembers, isfunction
+        #log.info('------------------------------------')
+        #help(android)
+        #log.info(getmembers(android, isfunction))
 
         ui.run() #blocking call until user exits the app
+        #android.stop_service(title='NoBoB Service')
         log.info('UI has exited!')
 
     
