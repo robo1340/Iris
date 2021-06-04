@@ -289,13 +289,20 @@ class ui_mobileApp(App, UI_Interface):
             self.gps_beacon_period = int(spinner.text)
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
 
+
+    
     def spawn_confirm_popup(self, message, yes_func):
         self.box_popup = BoxLayout(orientation = 'vertical')
-        self.box_popup.add_widget(Label(text = message))
-        self.box_popup.add_widget(Button(text = "Yes", on_press = yes_func() )) #size_hint = (0.215, 0.075)
-        self.box_popup.add_widget(Button(text = "No")) #size_hint=(0.215, 0.075)
-
         self.popup_exit = Popup(title = 'Are you sure?',content = self.box_popup,size_hint = (0.5, 0.5),auto_dismiss = True)
+        
+        def yes_callback(*args):
+            yes_func()
+            self.popup_exit.dismiss()
+        
+        self.box_popup.add_widget(Label(text = message))
+        self.box_popup.add_widget(Button(text = "Yes", on_press = yes_callback ))
+        self.box_popup.add_widget(Button(text = "No", on_press = self.popup_exit.dismiss)) #size_hint=(0.215, 0.075)
+
         self.popup_exit.open()
             
     

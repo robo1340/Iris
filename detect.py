@@ -20,6 +20,8 @@ class MooreMachine:
     def __init__(self):
         self.state_transition_array = [True, True, True, True, True, False, False, True, True, False, True, False, True] 
         self.current_state = 0
+        self.MAX_MISTAKES = 2
+        self.mistakes = 0
     
     ##@brief feed a boolean input into the Moore Machine
     ##@param bool_in the boolean input into the Moore Machine
@@ -28,7 +30,12 @@ class MooreMachine:
         if (bool_in == self.state_transition_array[self.current_state]): #transition to the next state if the input was correct
             self.current_state += 1
         else: #reset the machine if the input was not correct
-            self.current_state = 0
+            if (self.mistakes == self.MAX_MISTAKES):
+                self.mistakes = 0
+                self.current_state = 0
+            else:
+                self.mistakes += 1
+            
         
         #compute the output of the Moore Machine
         if (self.current_state == len(self.state_transition_array)):
