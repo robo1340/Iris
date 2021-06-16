@@ -26,12 +26,13 @@ RAW_HEADER_LEN = 50 #the length of an IL2P header in bytes before removing its e
 
 BROADCAST_CALLSIGN = 6*' '
 
-DEFAULT_RETRY_CNT = 5 #the number of times to re-transmit a frame that expects an ack
-RETRANSMIT_TIME = 15 #the time in seconds to wait before re-transmitting a frame that expects an ack
+DEFAULT_RETRY_CNT = 3 #the number of times to re-transmit a frame that expects an ack
+RETRANSMIT_TIME = 20 #the time in seconds to wait before re-transmitting a frame that expects an ack
 
 TEXT_PID = 0
 GPS_PID = 1
 
+FORWARD_PRIORITY = 20 #the priority of a forwarded message
 GPS_PRIORITY = 15 #the priority of a GPS message
 TEXT_PRIORITY = 10 #the priority of a text message
 ACK_PRIORITY = 5 #the priority of an acknowledgment
@@ -99,14 +100,18 @@ class IL2P_API:
     
     def readFrame(self):
         (header, payload) = self.reader.readFrame()
-        forward_msg = False #set to true if this message will be forwarded
         if (header == None): #if the reader failed to decode the frame
             return False
+        else:
+            return self.processFrame(header, payload)
+          
+    def processFrame(self, header, payload, test=False):
+        #log.info('processFrame()')
+        forward_msg = False #set to true if this message will be forwarded
         
         if (header.hops_remaining > 0): #if this message is to be forwarded
             header.hops_remaining = header.hops_remaining - 1
             if (header.src_callsign != self.my_callsign): #make sure I'm not the one who sent this
-                #log.info('forwarding message')
                 forward_msg = True
         
         #handle any stats contained in this message
@@ -117,30 +122,34 @@ class IL2P_API:
         
         #handle any forwarded acks contained in this message
         self.pending_acks_lock.acquire()
-        log.info(header.getForwardAckSequenceList())
-        #for seq in header.getForwardAckSequenceList():
-        for seq in reversed(header.getForwardAckSequenceList()):
+        for seq in header.getForwardAckSequenceList():
             if ((seq in self.pending_acks) and (header.src_callsign != self.my_callsign)): #this is an acknowledgment for me
                 #log.info('received a forwarded ack')
                 self.pending_acks.pop(seq) #remove the ack from the pending acks dictionary
-                self.service_controller.send_ack_message(header.src_callsign, seq) #send the ack to the UI  
+                forward_msg = False
+                if not test:
+                    self.service_controller.send_ack_message(header.src_callsign, seq) #send the ack to the UI  
             else: #forward all received acknowledgements
                 self.forward_acks_lock.acquire()
                 self.forward_acks.append(seq)
-                self.service_controller.send_header_info(self.forward_acks)
+                if not test:
+                    self.service_controller.send_header_info(self.forward_acks)
                 self.forward_acks_lock.release()
         self.pending_acks_lock.release()
         
         
         if ((header.request_double_ack or header.request_ack) and (header.src_callsign != self.my_callsign)):
-            log.info('message requesting an ack from %s and I am %s')
-            self.forward_acks_lock.acquire()
-            self.forward_acks.append(header.getMyAckSequence())
-            self.service_controller.send_header_info(self.forward_acks)
-            self.forward_acks_lock.release()
+            log.info('message requesting an ack from %s and I am %s' % (header.dst_callsign, self.my_callsign))
+            
             if (header.dst_callsign == self.my_callsign): #this message requests an ack from me
                 forward_msg = False #don't forward the message since it reached its detination
-                log.info('message requesting ack from me')
+                
+                self.forward_acks_lock.acquire()
+                self.forward_acks.append(header.getMyAckSequence())
+                self.service_controller.send_header_info(self.forward_acks)
+                self.forward_acks_lock.release()
+                
+                #log.info('message requesting ack from me')
                 if (self.msg_send_queue.full() == True):
                     log.error('ERROR: frame send queue is full')
                 else:
@@ -152,6 +161,8 @@ class IL2P_API:
                                                    payload_size=0, \
                                                    data=self.forward_acks.getAcksData())
                     ack_msg = MessageObject(header=ack_header, payload_str='')
+                    if test:
+                        ack_header.print_header()
                     self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
                     if (header.request_double_ack):
                         self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
@@ -160,24 +171,28 @@ class IL2P_API:
                 
         #forward the message if the conditions are met
         if (forward_msg == True):
+            log.info('forwarding message')
             if (self.msg_send_queue.full() == True):
                 log.error('ERROR: frame send queue full while forwarding')
             else:
                 forward_msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
-                priority = TEXT_PRIORITY if (header.is_text_msg) else GPS_PRIORITY
-                self.msg_send_queue.put((priority, forward_msg))               
+                if test:
+                    header.print_header()
+                self.msg_send_queue.put((FORWARD_PRIORITY, forward_msg))               
         
         if (header.is_text_msg == True):
-            log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
+            #log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
             
             if (header.payload_size > 0): #send all messages with payloads to the output queue
-                msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
-                self.service_controller.send_txt_message(msg) #send the message to the ui
+                if not test:
+                    msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
+                    self.service_controller.send_txt_message(msg) #send the message to the ui
             return True
             
         elif (header.is_beacon == True):
             try:
-                self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
+                if not test:
+                    self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
                 return True   
             except BaseException:
                 log.warning('WARNING: failed to decode payload of a GPS message')

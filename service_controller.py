@@ -54,7 +54,7 @@ def exception_suppressor(func):
 class ServiceController():
 
     def __init__(self, il2p, ini_config, gps=None, osm=None):
-        log.info('service controller constructor')
+        #log.info('service controller constructor')
         self.il2p = il2p
         self.osm = osm
         self.isStopped = False
@@ -143,7 +143,9 @@ class ServiceController():
         self.pubs[0].bind(self.bind_addrs[0])
         
         self.pubs[1] = self.context.socket(zmq.PUB)
+        self.pubs[1].set(zmq.SNDHWM, 5)
         self.pubs[1].bind(self.bind_addrs[1])
+        
         
         while not self.stopped():
             try:
@@ -161,9 +163,7 @@ class ServiceController():
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
     #@
     def txt_msg_handler(self, txt_msg):
-        log.info('service ctrl txt_msg_handler()')
-        #txt_msg = MessageObject.unmarshal(args[0])
-        #log.info(txt_msg.carrier_len)
+        log.debug('service ctrl txt_msg_handler()')
         self.il2p.msg_send_queue.put((10, txt_msg))
     
     ## @brief callback for when the View Controller sends a new callsign
@@ -173,7 +173,7 @@ class ServiceController():
     
     #
     def gps_beacon_handler(self, args):
-        log.info('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
+        log.debug('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
         
@@ -181,6 +181,7 @@ class ServiceController():
             self.timer = threading.Timer(0.0, self.schedule_gps_beacon)
             self.timer.start()
         else: #logic to cancel the beacon if self.gps_beacon_enable is False
+            self.timer.cancel()
             for event in self.gps_beacon_sched.queue:
                 self.gps_beacon_sched.cancel(event)
     
@@ -252,7 +253,7 @@ class ServiceController():
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
     def send_my_gps_message(self, gps_msg):
-        log.info('sending my gps message to View Controller')
+        log.debug('sending my gps message to View Controller')
         try:
             self.tx_queue.put((0,MY_GPS_MSG,gps_msg), block=False)
         except queue.Full:
@@ -307,18 +308,19 @@ class ServiceController():
         return self.isStopped
     
     def schedule_gps_beacon(self):
-        #log.info('schedule_gps_beacon()')
+        log.debug('schedule_gps_beacon()')
         T = self.gps_beacon_period
         self.gps_beacon_sched.enter(T + 0.25*random.uniform(-T,T), 1, self.meta_transmit_gps_beacon, ())
-        self.gps_beacon_sched.run()
+        self.gps_beacon_sched.run(blocking=True)
         
     def meta_transmit_gps_beacon(self):
         self.transmit_gps_beacon()
         if (self.gps_beacon_enable):
-            #log.info('reschedule the beacon')
-            T = self.gps_beacon_period
-            self.gps_beacon_sched.enter(T + 0.25*random.uniform(-T,T), 1, self.meta_transmit_gps_beacon, ())
-            #self.schedule_gps_beacon()
+            log.debug('reschedule the beacon')
+            #T = self.gps_beacon_period
+            #self.gps_beacon_sched.enter(T + 0.25*random.uniform(-T,T), 1, self.meta_transmit_gps_beacon, ())
+            #self.gps_beacon_sched.run(blocking=True)
+            self.schedule_gps_beacon()
     
     def transmit_gps_beacon(self):
         if (self.gps is None):

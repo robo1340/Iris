@@ -95,10 +95,10 @@ def send(config, src, dst, carrier_length):
     data = itertools.chain.from_iterable(reader)
     sender.modulate(data)
 
-    log.info('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
+    log.debug('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
 
     sender.write(np.zeros(int(Fs * config.silence_stop))) # post-padding audio with silence
-    log.info('sender complete')
+    #log.info('sender complete')
     return True 
     #except BaseException:
     #    log.warning('WARNING: the sender failed, message may have not been fully sent')
@@ -142,7 +142,7 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
             
         #service_controller.send_signal_strength(1.0/gain)
         
-        log.info('Gain correction: %.3f', gain)
+        log.debug('Gain correction: %.3f', gain)
 
         receiver.run(signal, gain=gain, output=dst) #this method will keep running until an exception occurs
 

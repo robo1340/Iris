@@ -935,6 +935,12 @@ WindowManager:
             #id: enableGPS
             name : 'enableGPS'
             on_state: app.toggle_pressed(self)
+    
+        SmallToggleButton:
+            text: 'Include GPS in Acks?'
+            #id: enableGPS
+            name : 'gpsAck'
+            on_state: app.toggle_pressed(self)
             
         MediumLabel:
             name : ''

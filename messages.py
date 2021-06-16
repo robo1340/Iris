@@ -26,22 +26,25 @@ class AckSequenceList():
         
     
     def getAcksBool(self):
-        return len(self.acks)*[True] + (4-len(self.acks))*[False]
+        to_return = len(self.acks)*[True] + (4-len(self.acks))*[False]
+        log.info(to_return)
+        return to_return
         
     def getAcksData(self, my_ack=None):
-        toReturn = np.zeros(4, dtype=np.uint16)
+        to_return = np.zeros(4, dtype=np.uint16)
         if (my_ack is None):
             for ind, val in enumerate(self.acks):
-                toReturn[ind] = val
-            log.info(toReturn)
+                to_return[ind] = val
+            log.info(to_return)
         else:
-            toReturn[0] = my_ack
+            to_return[0] = my_ack
             for ind, val in enumerate(self.acks):
                 if (ind == len(self.acks)-1):
                     break
                 else:
-                    toReturn[ind+1] = val
-        return toReturn
+                    to_return[ind+1] = val
+        log.info(to_return)
+        return to_return
     
     def marshal(self):
         return pickle.dumps(self)

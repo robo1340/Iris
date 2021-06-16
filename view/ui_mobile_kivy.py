@@ -136,6 +136,8 @@ class ui_mobileApp(App, UI_Interface):
         self.gps_beacon_enable = False
         self.gps_beacon_period = 0
         
+        self.include_gps_in_ack = False
+        
         self.hops = 0
         
         self.messagesLock = threading.Lock()
@@ -209,11 +211,15 @@ class ui_mobileApp(App, UI_Interface):
         data = None
         if (self.ackChecked or self.doubleAckChecked): #generate an ack sequence number
             seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
+            log.info('creating message with seq number %d' % (seq,))
+            #self.header_info.append(new_seq=seq, force=True)
             data = self.header_info.getAcksData(my_ack=seq)
         else:
             data = self.header_info.getAcksData()
         
-        header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=self.dstCallsign, \
+        dst = self.dstCallsign if (self.ackChecked or self.doubleAckChecked) else 6*' '
+        
+        header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=dst, \
                hops_remaining=self.hops, hops=self.hops, is_text_msg=True, is_beacon=False, \
                stat1=False, stat2=False, \
                acks=self.header_info.getAcksBool(), \
@@ -273,6 +279,9 @@ class ui_mobileApp(App, UI_Interface):
         elif (toggle_button.name == 'enableGPS'):
             self.gps_beacon_enable = True if (toggle_button.state == 'down') else False
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+        elif (toggle_button.name == 'gpsAck'):
+            self.include_gps_in_ack = True if (toggle_button.state == 'down') else False
+            #self.viewController.send_include_gps_in_ack(self.include_gps_in_ack)
 
     def button_pressed(self, button):
         if (button.name == 'force_sync_osmand'):
@@ -289,8 +298,6 @@ class ui_mobileApp(App, UI_Interface):
             self.gps_beacon_period = int(spinner.text)
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
 
-
-    
     def spawn_confirm_popup(self, message, yes_func):
         self.box_popup = BoxLayout(orientation = 'vertical')
         self.popup_exit = Popup(title = 'Are you sure?',content = self.box_popup,size_hint = (0.5, 0.5),auto_dismiss = True)
@@ -312,26 +319,26 @@ class ui_mobileApp(App, UI_Interface):
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
     def updateStatusIndicator(self, status, *largs):
-        log.info("updateStatusIndicator(%s)" % (str(status)))
+        #log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            with self.statusIndicatorLock:
-                self.main_window().squelch_color = self.main_window().indicator_inactive_color
-                self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
+            #with self.statusIndicatorLock:
+            self.main_window().squelch_color = self.main_window().indicator_inactive_color
+            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            with self.statusIndicatorLock:
-                self.main_window().receiver_color = self.main_window().indicator_inactive_color
-                self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
+            #with self.statusIndicatorLock:
+            self.main_window().receiver_color = self.main_window().indicator_inactive_color
+            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            with self.statusIndicatorLock:
-                self.main_window().success_color = self.main_window().indicator_inactive_color
-                self.chat_window().success_color = self.chat_window().indicator_inactive_color
+            #with self.statusIndicatorLock:
+            self.main_window().success_color = self.main_window().indicator_inactive_color
+            self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            with self.statusIndicatorLock:
-                self.main_window().transmitter_color = self.main_window().indicator_inactive_color
-                self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
+            #with self.statusIndicatorLock:
+            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
+            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         with self.statusIndicatorLock:
             if (status == common.SQUELCH_OPEN):
@@ -365,7 +372,10 @@ class ui_mobileApp(App, UI_Interface):
         txt_msg_widget = TextMessage() #create the new widget
         
         #get the strings the widget will be filled with
-        header_text = ('{0:s} to {1:s}').format(msg.header.src_callsign, msg.header.dst_callsign)
+        if (msg.header.dst_callsign == 6*' '):
+            header_text = msg.header.src_callsign
+        else:
+            header_text = ('{0:s} to {1:s}').format(msg.header.src_callsign, msg.header.dst_callsign)
         
         time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = msg.payload_str.rstrip('\n')

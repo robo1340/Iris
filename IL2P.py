@@ -211,19 +211,13 @@ class IL2P_Frame_Header:
     #    print(self.getInfoString())
         
     def print_header(self):
-        print(self.src_callsign)
-        print(self.dst_callsign)
-        print(self.hops)
-        print(self.hops_remaining)
-        print(self.is_text_msg)
-        print('is beacon ' + str(self.is_beacon))
-        print('stat1 ' + str(self.stat1))
-        print('stat2 ' + str(elf.stat2))
-        print('acks ' + str(self.acks))
-        print(self.request_ack)
-        print(self.request_double_ack)
-        print(self.payload_size)
-        print(self.data)
+        log.info("src %s dst %s hops %d hopsr %d" % (self.src_callsign, self.dst_callsign, self.hops, self.hops_remaining))
+        log.info("is text %s is beacon %s" % (str(self.is_text_msg), str(self.is_beacon)))
+        #print('stat1 ' + str(self.stat1))
+        #print('stat2 ' + str(self.stat2))
+        log.info("acks bool %s acks data %s" % (str(self.acks), str(self.data)))
+        log.info("requests ack %s requests double ack %s" % (str(self.request_ack), str(self.request_double_ack)))
+        log.info("payload size %d" % (self.payload_size))
         print('-------------------')
     
     ##@brief compares the contents of two headers and returns true when they are the same
