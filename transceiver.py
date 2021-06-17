@@ -43,6 +43,16 @@ master_timeout = 30 #sets the timeout for the last line of defense when the prog
 
 from kivy.logger import Logger as log
 
+class Cooldown():
+    def __init__(self, base_cooldown, vary):
+        self.base_cooldown = base_cooldown
+        self.vary = vary
+        self.cooldown = self.base_cooldown
+        
+    def get(self):
+        self.cooldown = self.base_cooldown + np.random.uniform(-self.vary,self.vary)*self.base_cooldown
+        return self.cooldown
+
 ##@brief a class to cache the most recent status update so that the service does
 ## not needlessly transmit the same status update to the main application over
 ## and over again
@@ -236,9 +246,11 @@ def setAudioOutputSpeaker(manager, AudioManager):
 def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     master_timeout = float(ini_config['MAIN']['master_timeout'])
     tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
-    rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
+    base_rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
     #config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
-    log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,rx_cooldown))
+    log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,base_rx_cooldown))
+    rx_cooldown_randomizer = Cooldown(base_rx_cooldown, 0.25)
+    rx_cooldown = rx_cooldown_randomizer.get()
 
     fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')
     description = fmt.format(config.modem_bps / 1e3, len(config.symbols), config.Nfreq, config.Fs / 1e3)
@@ -311,6 +323,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
                         most_recent_rx = time.time()
                     else:
                         if ((il2p.isTransmissionPending() == True) and has_ellapsed(most_recent_tx,tx_cooldown) and has_ellapsed(most_recent_rx,rx_cooldown)): #get the next frame from the send queue
+                            rx_cooldown = rx_cooldown_randomizer.get()
                             frame_to_send, carrier_length = il2p.getNextFrameToTransmit()
                             if (frame_to_send == None):
                                 continue

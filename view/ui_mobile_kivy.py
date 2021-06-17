@@ -154,8 +154,12 @@ class ui_mobileApp(App, UI_Interface):
         
         self.gps_msg_widgets = deque(maxlen=5)
         
-        self.status_update_dwell_time = 1.0 #the dwell time of status updates in seconds
+        self.status_update_dwell_time = 2.0 #the dwell time of status updates in seconds
         self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
+        self.status_lock_1 = threading.Lock() #lock used to protect the status indicator ui elements
+        self.status_lock_2 = threading.Lock() #lock used to protect the status indicator ui elements
+        self.status_lock_3 = threading.Lock() #lock used to protect the status indicator ui elements
+        self.status_lock_4 = threading.Lock() #lock used to protect the status indicator ui elements
     
         super().__init__()
     
@@ -283,7 +287,7 @@ class ui_mobileApp(App, UI_Interface):
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
         elif (toggle_button.name == 'gpsAck'):
             self.include_gps_in_ack = True if (toggle_button.state == 'down') else False
-            #self.viewController.send_include_gps_in_ack(self.include_gps_in_ack)
+            self.viewController.send_include_gps_in_ack(self.include_gps_in_ack)
 
     def button_pressed(self, button):
         if (button.name == 'force_sync_osmand'):
@@ -323,39 +327,42 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         #log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            with self.statusIndicatorLock:
+            with self.status_lock_1:
                 self.main_window().squelch_color = self.main_window().indicator_inactive_color
                 self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            with self.statusIndicatorLock:
+            with self.status_lock_2:
                 self.main_window().receiver_color = self.main_window().indicator_inactive_color
                 self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            with self.statusIndicatorLock:
+            with self.status_lock_3:
                 self.main_window().success_color = self.main_window().indicator_inactive_color
                 self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            with self.statusIndicatorLock:
+            with self.status_lock_4:
                 self.main_window().transmitter_color = self.main_window().indicator_inactive_color
                 self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
-        with self.statusIndicatorLock:
-            if (status == common.SQUELCH_OPEN):
+        if (status == common.SQUELCH_OPEN):
+            with self.status_lock_1:
                 self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
                 self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
                 Clock.schedule_once(callback1, self.status_update_dwell_time)
-            elif (status == common.CARRIER_DETECTED):
+        elif (status == common.CARRIER_DETECTED):
+            with self.status_lock_2:
                 self.main_window().receiver_color = self.main_window().indicator_rx_color
                 self.chat_window().receiver_color = self.chat_window().indicator_rx_color
                 Clock.schedule_once(callback2, self.status_update_dwell_time)
-            elif (status == common.MESSAGE_RECEIVED):
+        elif (status == common.MESSAGE_RECEIVED):
+            with self.status_lock_3:
                 self.main_window().success_color = self.main_window().indicator_success_color
                 self.chat_window().success_color = self.chat_window().indicator_success_color
                 Clock.schedule_once(callback3, self.status_update_dwell_time)
-            elif (status == common.TRANSMITTING):
+        elif (status == common.TRANSMITTING):
+            with self.status_lock_4:
                 self.main_window().transmitter_color = self.main_window().indicator_tx_color
                 self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
                 Clock.schedule_once(callback4, self.status_update_dwell_time)

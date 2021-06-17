@@ -88,6 +88,8 @@ class IL2P_API:
         self.reader = IL2P_API.IL2P_Frame_Reader(verbose=verbose, frame_engine=self.engine)
         self.writer = IL2P_API.IL2P_Frame_Writer(verbose=verbose, frame_engine=self.engine)
         
+        self.include_gps_in_ack = False
+        
         #pending acknowledgments are stored in a dictionary where the key is a tuple containing the following elements in order:
         #   -the callsign of the station requesting an ack
         #   -the callsign of the station an ack is being requested from
@@ -149,14 +151,21 @@ class IL2P_API:
                 if (self.msg_send_queue.full() == True):
                     log.error('ERROR: frame send queue is full')
                 else:
+                    
+                    payload_str = ''
+                    if (self.include_gps_in_ack == True):
+                        loc = self.service_controller.gps.getLocation()
+                        loc_str = str(loc).replace('\'','\"') if (loc is not None) else ''
+                        payload_str = loc_str
+                    
                     ack_header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=header.src_callsign, \
-                                                   hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=False, \
-                                                   stat1=False, stat2=False, \
-                                                   acks=self.forward_acks.getAcksBool(),
-                                                   request_ack=False, request_double_ack=False, \
-                                                   payload_size=0, \
-                                                   data=self.forward_acks.getAcksData())
-                    ack_msg = MessageObject(header=ack_header, payload_str='')
+                                   hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=self.include_gps_in_ack, \
+                                   stat1=False, stat2=False, \
+                                   acks=self.forward_acks.getAcksBool(),
+                                   request_ack=False, request_double_ack=False, \
+                                   payload_size=0, \
+                                   data=self.forward_acks.getAcksData())
+                    ack_msg = MessageObject(header=ack_header, payload_str=payload_str)
                     self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
                     if (header.request_double_ack):
                         self.msg_send_queue.put((ACK_PRIORITY, ack_msg))

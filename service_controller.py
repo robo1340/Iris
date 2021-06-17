@@ -130,6 +130,8 @@ class ServiceController():
                         threading.Timer(0, self.force_sync_osmand_handler).start()
                     elif (header == view_c.CLEAR_OSMAND_CONTACTS):
                         threading.Timer(0, self.clear_osmand_contacts_handler).start()   
+                    elif (header == view_c.INCLUDE_GPS_IN_ACK):
+                        self.include_gps_in_ack_handler(payload)
                     else:
                         log.info('No handler found for topic %s' % (header))
                 
@@ -203,6 +205,9 @@ class ServiceController():
         
     def clear_osmand_contacts_handler(self):
         self.osm.eraseContacts()
+    
+    def include_gps_in_ack_handler(self, include_gps):
+        self.il2p.include_gps_in_ack = include_gps
     
     ###############################################################################
     ## Handlers for when the service receives a GPS Message from the Transceiver ##
