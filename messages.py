@@ -13,36 +13,51 @@ class AckSequenceList():
     
     def __init__(self):
         self.acks = []
-        #self.acks = [0,0,0,0]
+        self.length = 3
         
+        self.my_ack = 0 #
+        self.my_ack_time = 0
+        self.my_ack_dwell_time = 360 #tiem my_ack is valid in seconds
+        
+        #self.acks = [0,0,0,0]
+    
+    #set my acknowledgement to someone requesting an ack from me
+    def setMyAck(self, ack): 
+        self.my_ack = ack
+        self.my_ack_time = time.time()
+        
+    def __myAckValid(self):
+        return ((time.time() - self.my_ack_time) < self.my_ack_dwell_time)
+    
     def append(self, new_seq, force=False):
         for seq in self.acks:
             if (seq == new_seq) and (force == False):
                 return False
-        if (len(self.acks) >= 4):
+        if (len(self.acks) >= self.length):
             self.acks.pop()
         self.acks.insert(0,new_seq)
         return True
         
-    
-    def getAcksBool(self):
-        to_return = len(self.acks)*[True] + (4-len(self.acks))*[False]
+    def getAcksBool(self, my_ack=None):
+        ack = False if (my_ack is not None) else self.__myAckValid()
+        to_return = 1*[ack] + len(self.acks)*[True] + (self.length-len(self.acks))*[False]
         log.info(to_return)
         return to_return
-        
+    
+    #my_ack here is an ack I am requesting from someone else
     def getAcksData(self, my_ack=None):
         to_return = np.zeros(4, dtype=np.uint16)
         if (my_ack is None):
-            for ind, val in enumerate(self.acks):
-                to_return[ind] = val
-            log.info(to_return)
+            if (self.__myAckValid()):
+                to_return[0] = self.my_ack #ack I am sending to someone else
+            else:
+                to_return[0] = 0
         else:
-            to_return[0] = my_ack
-            for ind, val in enumerate(self.acks):
-                if (ind == len(self.acks)-1):
-                    break
-                else:
-                    to_return[ind+1] = val
+            to_return[0] = my_ack #ack I am requesting from someone
+            
+        for ind, val in enumerate(self.acks):
+                to_return[ind+1] = val
+        
         log.info(to_return)
         return to_return
     

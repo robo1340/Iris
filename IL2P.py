@@ -246,15 +246,6 @@ class IL2P_Frame_Header:
         toReturn = []
         ind = 0
         
-        if (self.request_ack or self.request_double_ack): #if this message is requesting an ack ignore the first entry in the data list
-            ind = ind + 1
-        
-        if (self.stat1): #if this message contains stats increment the indice by 2
-            ind = ind + 2
-            
-        if (self.stat2):
-            ind = ind + 2
-        
         for ack in self.acks:
             if (ack == True):
                 if (ind >= 4):

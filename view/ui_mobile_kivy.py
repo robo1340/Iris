@@ -213,8 +213,10 @@ class ui_mobileApp(App, UI_Interface):
             seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
             log.info('creating message with seq number %d' % (seq,))
             #self.header_info.append(new_seq=seq, force=True)
+            acks = self.header_info.getAcksBool(my_ack=True)
             data = self.header_info.getAcksData(my_ack=seq)
         else:
+            acks = self.header_info.getAcksBool()
             data = self.header_info.getAcksData()
         
         dst = self.dstCallsign if (self.ackChecked or self.doubleAckChecked) else 6*' '
@@ -222,7 +224,7 @@ class ui_mobileApp(App, UI_Interface):
         header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=dst, \
                hops_remaining=self.hops, hops=self.hops, is_text_msg=True, is_beacon=False, \
                stat1=False, stat2=False, \
-               acks=self.header_info.getAcksBool(), \
+               acks=acks, \
                request_ack=self.ackChecked, request_double_ack=self.doubleAckChecked, \
                payload_size=len(text_input_widget.text), \
                data=data)
@@ -321,24 +323,24 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         #log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            #with self.statusIndicatorLock:
-            self.main_window().squelch_color = self.main_window().indicator_inactive_color
-            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().squelch_color = self.main_window().indicator_inactive_color
+                self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            #with self.statusIndicatorLock:
-            self.main_window().receiver_color = self.main_window().indicator_inactive_color
-            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().receiver_color = self.main_window().indicator_inactive_color
+                self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            #with self.statusIndicatorLock:
-            self.main_window().success_color = self.main_window().indicator_inactive_color
-            self.chat_window().success_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().success_color = self.main_window().indicator_inactive_color
+                self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            #with self.statusIndicatorLock:
-            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
-            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
+            with self.statusIndicatorLock:
+                self.main_window().transmitter_color = self.main_window().indicator_inactive_color
+                self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         with self.statusIndicatorLock:
             if (status == common.SQUELCH_OPEN):
