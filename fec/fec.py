@@ -9,24 +9,24 @@ from kivy.logger import Logger as log
 class FrameHeaderCodec:
     
     def __init__(self):
-        self.rsc = RSCodec(26) #the Reed Solomon encoder/decoder object
+        self.rsc = RSCodec(32) #the Reed Solomon encoder/decoder object
 
-    ##@brief Perform Reed Solomon encoding to form a 50 byte IL2P header
-    ##@param A numpy 1d array of bytes holding the header_msg the 24 byte header data message after interleaving, but before RS encoding
-    ##@return A numpy 1d array of bytes holding the 50 byte IL2P header with ecc symbols appended
+    ##@brief Perform Reed Solomon encoding to form a 64 byte IL2P header
+    ##@param A numpy 1d array of bytes holding the header_msg the 32 byte header data message after interleaving, but before RS encoding
+    ##@return A numpy 1d array of bytes holding the 64 byte IL2P header with ecc symbols appended
     def encode(self,header_msg):
-        assert (header_msg.size == 24)
+        assert (header_msg.size == 32)
     
         toReturn = np.frombuffer(self.rsc.encode(header_msg), dtype=np.uint8)
         return toReturn
     
-    ##@brief Perform Reed Solomon decoding to extract a 24 byte IL2P header
-    ##@param header A numpy 1d array of bytes holding the 50 byte received header
-    ##@return A tuple. The first element is true when decoding was successful. The second element is a numpy 1d array of bytes holding the 24 byte IL2P header
+    ##@brief Perform Reed Solomon decoding to extract a 32 byte IL2P header
+    ##@param header A numpy 1d array of bytes holding the 64 byte received header
+    ##@return A tuple. The first element is true when decoding was successful. The second element is a numpy 1d array of bytes holding the 32 byte IL2P header
     def decode(self,header,verbose=True):
-        assert (header.size == 50)
+        assert (header.size == 64)
         
-        toReturn = np.zeros((24), dtype=np.uint8)
+        toReturn = np.zeros((32), dtype=np.uint8)
         decodeSuccess = True
         
         try:

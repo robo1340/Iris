@@ -13,22 +13,25 @@ class AckSequenceList():
     
     def __init__(self):
         self.acks = []
-        self.length = 3
+        self.length = 4
         
         self.my_ack = 0 #
-        self.my_ack_time = 0
-        self.my_ack_dwell_time = 360 #tiem my_ack is valid in seconds
         
         #self.acks = [0,0,0,0]
     
     #set my acknowledgement to someone requesting an ack from me
     def setMyAck(self, ack): 
         self.my_ack = ack
-        self.my_ack_time = time.time()
-        
-    def __myAckValid(self):
-        return ((time.time() - self.my_ack_time) < self.my_ack_dwell_time)
     
+    def append(self, new_seq):
+        for seq in self.acks:
+            if (seq == new_seq):
+                return False
+        if (len(self.acks) >= self.length):
+            self.acks.pop()
+        self.acks.insert(0,new_seq)
+        return True
+    '''
     def append(self, new_seq, force=False):
         for seq in self.acks:
             if (seq == new_seq) and (force == False):
@@ -37,26 +40,19 @@ class AckSequenceList():
             self.acks.pop()
         self.acks.insert(0,new_seq)
         return True
+    '''
         
-    def getAcksBool(self, my_ack=None):
-        ack = False if (my_ack is not None) else self.__myAckValid()
-        to_return = 1*[ack] + len(self.acks)*[True] + (self.length-len(self.acks))*[False]
+    def getAcksBool(self):
+        to_return = len(self.acks)*[True] + (self.length-len(self.acks))*[False]
         log.info(to_return)
         return to_return
     
     #my_ack here is an ack I am requesting from someone else
-    def getAcksData(self, my_ack=None):
+    def getAcksData(self):
         to_return = np.zeros(4, dtype=np.uint16)
-        if (my_ack is None):
-            if (self.__myAckValid()):
-                to_return[0] = self.my_ack #ack I am sending to someone else
-            else:
-                to_return[0] = 0
-        else:
-            to_return[0] = my_ack #ack I am requesting from someone
             
         for ind, val in enumerate(self.acks):
-                to_return[ind+1] = val
+                to_return[ind] = val
         
         log.info(to_return)
         return to_return
@@ -70,18 +66,20 @@ class MessageObject():
     def unmarshal(tup):
         return pickle.loads(tup)
     
-    def __init__(self, header=None, payload_str='', attempt_index=0, carrier_len=750, time_str=''):
+    def __init__(self, header=None, payload_str='', forwarded=False, attempt_index=0, carrier_len=750, time_str=''):
         self.header = header
         self.payload_str = payload_str
         self.attempt_index = int(attempt_index)
         self.carrier_len = int(carrier_len)
         self.time_str = time_str
+        self.forwarded = forwarded
+        self.priority = 0
         
         self.src_callsign = self.header.src_callsign
         
     def get_ack_seq(self):
         if (self.header.request_double_ack or self.header.request_ack):
-            return self.header.data[0]
+            return self.header.getMyAckSequence()
         else:
             return None
     
@@ -111,7 +109,22 @@ class MessageObject():
     
     def marshal(self):
         return pickle.dumps(self) 
+    
+    def __lt__(self, other):
+        return self.priority < other.priority
 
+    def __le__(self, other):
+        return self.priority <= other.priority
+        
+    def __gt__(self, other):
+        return self.priority > other.priority
+        
+    def __ge__(self, other):
+        return self.priority >= other.priority
+        
+    def __eq__(self, other):
+        return self.priority == other.priority
+    
 class GPSMessageObject():
     @staticmethod
     def unmarshal(tup):

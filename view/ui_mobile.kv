@@ -86,7 +86,6 @@
     text_size: self.size
 
 <MenuButton@Button>:
-    name : ''
     size_hint_x : None
     width : self.height
     border : (1,1,1,1)
@@ -406,6 +405,7 @@ WindowManager:
             
             
             MenuButton: 
+                name : 'settings_menu_button'
                 background_color : root.background_color
                 background_normal: './resources/icons/settings.png'
                 background_down: './resources/icons/settings_pressed.png'
@@ -414,14 +414,17 @@ WindowManager:
                     root.manager.transition.direction = "right"
                     
             MenuButton: 
+                name : 'chat_menu_button'
                 background_color : root.background_color
                 background_normal: './resources/icons/chat.png'
                 background_down: './resources/icons/chat_pressed.png'
                 on_release: 
+                    app.chat_viewed()
                     app.root.current = "chat"
                     root.manager.transition.direction = "right"
             
             MenuButton: 
+                name : 'stats_menu_button'
                 background_color : root.background_color
                 background_normal: './resources/icons/stats.png'
                 background_down: './resources/icons/stats_pressed.png'
@@ -430,6 +433,7 @@ WindowManager:
                     root.manager.transition.direction = "right"
                     
             MenuButton: 
+                name : 'gps_menu_button'
                 background_color : root.background_color
                 background_normal: './resources/icons/gps.png'
                 background_down: './resources/icons/gps_pressed.png'

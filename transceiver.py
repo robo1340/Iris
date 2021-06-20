@@ -50,7 +50,7 @@ class Cooldown():
         self.cooldown = self.base_cooldown
         
     def get(self):
-        self.cooldown = self.base_cooldown + np.random.uniform(-self.vary,self.vary)*self.base_cooldown
+        self.cooldown = self.base_cooldown + np.random.uniform(0,self.vary)*self.base_cooldown
         return self.cooldown
 
 ##@brief a class to cache the most recent status update so that the service does
@@ -249,7 +249,7 @@ def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
     base_rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
     #config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
     log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,base_rx_cooldown))
-    rx_cooldown_randomizer = Cooldown(base_rx_cooldown, 0.25)
+    rx_cooldown_randomizer = Cooldown(base_rx_cooldown, 0.3)
     rx_cooldown = rx_cooldown_randomizer.get()
 
     fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')

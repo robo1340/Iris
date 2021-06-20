@@ -21,7 +21,7 @@ from kivy.logger import Logger as log
 #IL2P constants
 
 RAW_FRAME_MAXLEN = 3000 #the length in bytes of a raw IL2P payload, this valud is arbitrary at the moment
-RAW_HEADER_LEN = 50 #the length of an IL2P header in bytes before removing its error correction symbols
+RAW_HEADER_LEN = 64 #the length of an IL2P header in bytes before removing its error correction symbols
 #PREAMBLE_LEN = 1
 
 BROADCAST_CALLSIGN = 6*' '
@@ -114,38 +114,33 @@ class IL2P_API:
         #log.info('processFrame()')
         forward_msg = False #set to true if this message will be forwarded
         
+        if (self.is_me(header.link_src_callsign)): #make sure I'm not the one who sent this
+            #log.info('received my own message')
+            return True
+        
         if (header.hops_remaining > 0): #if this message is to be forwarded
-            header.hops_remaining = header.hops_remaining - 1
-            if (not self.is_me(header.src_callsign)): #make sure I'm not the one who sent this
-                forward_msg = True
+            forward_msg = True
         
         #handle any forwarded acks contained in this message
-        self.pending_acks_lock.acquire()
         for seq in header.getForwardAckSequenceList():
-            if ((seq in self.pending_acks) and (not self.is_me(header.src_callsign))): #this is an acknowledgment for me
+            if (seq in self.pending_acks): #this is an acknowledgment for me
                 #log.info('received a forwarded ack')
                 self.pending_acks.pop(seq) #remove the ack from the pending acks dictionary
                 forward_msg = False
                 self.service_controller.send_ack_message(header.src_callsign, seq) #send the ack to the UI  
             else: #forward all received acknowledgements
-                self.forward_acks_lock.acquire()
                 self.forward_acks.append(seq)
-                self.service_controller.send_header_info(self.forward_acks)
-                self.forward_acks_lock.release()
-        self.pending_acks_lock.release()
+                self.service_controller.send_header_info(self.forward_acks)     
         
-        
-        if ((header.request_double_ack or header.request_ack) and (not self.is_me(header.src_callsign))):
+        if (header.request_double_ack or header.request_ack):
             log.info('message requesting an ack from %s and I am %s' % (header.dst_callsign, self.my_callsign))
             
             if (self.is_me(header.dst_callsign)): #this message requests an ack from me
                 forward_msg = False #don't forward the message since it reached its detination
                 
-                #need to come up with a better way to keep ack sequences in circulation
-                self.forward_acks_lock.acquire()
+                #place the ack in circulation
                 self.forward_acks.setMyAck(header.getMyAckSequence())
                 self.service_controller.send_header_info(self.forward_acks)
-                self.forward_acks_lock.release()
                 
                 #log.info('message requesting ack from me')
                 if (self.msg_send_queue.full() == True):
@@ -158,12 +153,13 @@ class IL2P_API:
                         loc_str = str(loc).replace('\'','\"') if (loc is not None) else ''
                         payload_str = loc_str
                     
+                    log.info('creating ack')
                     ack_header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=header.src_callsign, \
                                    hops_remaining = header.hops, hops=header.hops, is_text_msg=False, is_beacon=self.include_gps_in_ack, \
-                                   stat1=False, stat2=False, \
-                                   acks=self.forward_acks.getAcksBool(),
+                                   my_seq=header.getMyAckSequence(),\
+                                   acks=self.forward_acks.getAcksBool(),\
                                    request_ack=False, request_double_ack=False, \
-                                   payload_size=0, \
+                                   payload_size=len(payload_str), \
                                    data=self.forward_acks.getAcksData())
                     ack_msg = MessageObject(header=ack_header, payload_str=payload_str)
                     self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
@@ -174,11 +170,20 @@ class IL2P_API:
                 
         #forward the message if the conditions are met
         if (forward_msg == True):
-            log.info('forwarding message')
             if (self.msg_send_queue.full() == True):
                 log.error('ERROR: frame send queue full while forwarding')
             else:
-                forward_msg = MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore'))
+                log.info('forwarding message')
+                new_hdr = IL2P_Frame_Header(src_callsign=header.src_callsign,\
+                                            link_src_callsign=self.my_callsign,\
+                                            dst_callsign=header.dst_callsign,\
+                                            hops_remaining = header.hops_remaining-1, hops=header.hops,\
+                                            is_text_msg=header.is_text_msg, is_beacon=header.is_beacon, \
+                                            my_seq=header.my_seq, acks=header.acks,\
+                                            request_ack=header.request_ack, request_double_ack=header.request_double_ack, \
+                                            payload_size=header.payload_size, data=header.data)
+                forward_msg = MessageObject(header=new_hdr, payload_str='', forwarded=True)
+                #forward_msg = MessageObject(header=new_hdr, payload_str=payload.tobytes().decode('ascii','ignore'), forwarded=True)
                 self.msg_send_queue.put((FORWARD_PRIORITY, forward_msg))               
         
         if (header.is_text_msg == True):
@@ -201,12 +206,10 @@ class IL2P_API:
     ## @brief convert a MessageObject to a Frame and return the raw frame to be transmitted
     ## @param msg - The MessageObject
     def msgToFrame(self, msg):
-        if (msg.header.request_double_ack or msg.header.request_ack):
-            self.pending_acks_lock.acquire()
-            if (msg.get_ack_seq() is not None):
-                self.pending_acks[msg.get_ack_seq()] = AckRetryObject(msg,DEFAULT_RETRY_CNT) #create a new entry in the dictionary
-            self.pending_acks_lock.release()
-          
+        if (msg.forwarded == False):
+            if (msg.header.request_double_ack or msg.header.request_ack):
+                if (msg.get_ack_seq() is not None):
+                    self.pending_acks[msg.get_ack_seq()] = AckRetryObject(msg,DEFAULT_RETRY_CNT) #create a new entry in the dictionary 
         return self.writer.getFrameFromMessage(msg)
     
     ##@brief check to see if there is a frame to transmit right now
@@ -219,12 +222,12 @@ class IL2P_API:
             return False
         else:
             toReturn = False
-            self.pending_acks_lock.acquire()
+            #self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     toReturn = True
                     break
-            self.pending_acks_lock.release()
+            #self.pending_acks_lock.release()
             return toReturn
             
     ##@brief return the next Frame to be transmitted
@@ -242,7 +245,7 @@ class IL2P_API:
             toPop = None
             toReturn = None
             carrier_len = 0
-            self.pending_acks_lock.acquire()
+            #self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     #log.info("key " + str(key))
@@ -256,7 +259,7 @@ class IL2P_API:
                     #log.info(carrier_len)
             if (toPop != None):
                 self.pending_acks.pop(toPop)
-            self.pending_acks_lock.release()
+            #self.pending_acks_lock.release()
             return (toReturn,carrier_len)
 
     ##class used to read bytes from the phy layer and detect when a valid Frame is being received

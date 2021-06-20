@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import IL2P
 from IL2P import IL2P_Frame_Header, IL2P_Frame_Engine
 import exceptions
 from fec.fec import inject_symbol_errors
@@ -9,7 +10,6 @@ frame_engine = IL2P_Frame_Engine()
 ########header packing/unpacking unit test ##################
 header_obj = IL2P_Frame_Header(src_callsign='BAYWAX', dst_callsign='WAYWAX',\
                                hops=2, is_text_msg=False, is_beacon=True, \
-                               stat1=False, stat2=False, \
                                acks=[True,True,True,True], \
                                request_ack=True, request_double_ack=False, \
                                payload_size=1000, data=np.array([10,11,12,13],dtype=np.uint16))
@@ -30,7 +30,6 @@ else:
 msg_str = 'What the fuck did you just fucking say about me, you little bitch? Ill have you know I graduated top of my class in the Navy Seals, and Ive been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.'
 header = IL2P_Frame_Header(src_callsign='BAY   ', dst_callsign='WAY  !',\
                                hops=2, is_text_msg=True, is_beacon=True, \
-                               stat1=True, stat2=True, \
                                acks=[True,False,False,True], \
                                request_ack=True, request_double_ack=True, \
                                payload_size=len(msg_str), data=np.array([10,0,12,600],dtype=np.uint16))
@@ -40,7 +39,7 @@ corrupted_frame = inject_symbol_errors(frame_to_send, 0.99)
 
 try:
     (header_received, decode_success, payload_received) = frame_engine.decode_frame(corrupted_frame)
-    header_received = frame_engine.decode_header(corrupted_frame[0:50])
+    header_received = frame_engine.decode_header(corrupted_frame[0:IL2P.IL2P_HDR_LEN_ENC])
 except exceptions.IL2PHeaderDecodeError:
     print('FAILURE: header could not be decoded')
 

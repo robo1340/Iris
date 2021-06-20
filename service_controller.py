@@ -339,9 +339,9 @@ class ServiceController():
 
             loc_str = str(loc).replace('\'','\"')
             gps_hdr = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \
-                                       #hops_remaining=self.hops, hops=self.hops, is_text_msg=False, is_beacon=True, \
-                                       hops_remaining=0, hops=0, is_text_msg=False, is_beacon=True, \
-                                       stat1=False, stat2=False, \
+                                       hops_remaining=self.hops, hops=self.hops, is_text_msg=False, is_beacon=True, \
+                                       #hops_remaining=0, hops=0, is_text_msg=False, is_beacon=True, \
+                                       my_seq = self.il2p.forward_acks.my_ack,\
                                        acks=self.il2p.forward_acks.getAcksBool(), \
                                        request_ack=False, request_double_ack=False, \
                                        payload_size=len(loc_str), \

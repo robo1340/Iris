@@ -141,7 +141,8 @@ class ui_mobileApp(App, UI_Interface):
         self.hops = 0
         
         self.messagesLock = threading.Lock()
-        self.messages = []
+        self.messages = [] # a list of message widgets
+        self.messages_dict = {} #a dictionary of message widgets where keys are (src_callsign, dst_callsign, ack_seq, hour received) and values are TextMessage objects
         
         self.contact_widgets = {}
         
@@ -154,7 +155,7 @@ class ui_mobileApp(App, UI_Interface):
         
         self.gps_msg_widgets = deque(maxlen=5)
         
-        self.status_update_dwell_time = 2.0 #the dwell time of status updates in seconds
+        self.status_update_dwell_time = 1.0 #the dwell time of status updates in seconds
         self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
         self.status_lock_1 = threading.Lock() #lock used to protect the status indicator ui elements
         self.status_lock_2 = threading.Lock() #lock used to protect the status indicator ui elements
@@ -209,29 +210,31 @@ class ui_mobileApp(App, UI_Interface):
         self.ini_config['MAIN']['carrier_length'] = str(self.carrier_length)
         updateConfigFile(self.ini_config)
     
+    def chat_viewed(self):
+        menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
+        menu_button.background_normal = './resources/icons/chat.png'
+        
+    
     def sendMessage(self, text_input_widget): 
         #chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
         #messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
         data = None
         if (self.ackChecked or self.doubleAckChecked): #generate an ack sequence number
-            seq = np.random.randint(low=0, high=2**16, dtype=np.uint16)
+            seq = np.random.randint(low=1, high=2**16-1, dtype=np.uint16)
             log.info('creating message with seq number %d' % (seq,))
             #self.header_info.append(new_seq=seq, force=True)
-            acks = self.header_info.getAcksBool(my_ack=True)
-            data = self.header_info.getAcksData(my_ack=seq)
         else:
-            acks = self.header_info.getAcksBool()
-            data = self.header_info.getAcksData()
+            seq = np.uint16(0)
         
         dst = self.dstCallsign if (self.ackChecked or self.doubleAckChecked) else 6*' '
         
         header = IL2P_Frame_Header(src_callsign=self.my_callsign, dst_callsign=dst, \
                hops_remaining=self.hops, hops=self.hops, is_text_msg=True, is_beacon=False, \
-               stat1=False, stat2=False, \
-               acks=acks, \
+               my_seq = seq,\
+               acks=self.header_info.getAcksBool(), \
                request_ack=self.ackChecked, request_double_ack=self.doubleAckChecked, \
                payload_size=len(text_input_widget.text), \
-               data=data)
+               data=self.header_info.getAcksData())
     
         msg = MessageObject(header=header, payload_str=str(text_input_widget.text), carrier_len=self.carrier_length)
 
@@ -327,45 +330,45 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         #log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            with self.status_lock_1:
-                self.main_window().squelch_color = self.main_window().indicator_inactive_color
-                self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
+            #with self.status_lock_1:
+            self.main_window().squelch_color = self.main_window().indicator_inactive_color
+            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            with self.status_lock_2:
-                self.main_window().receiver_color = self.main_window().indicator_inactive_color
-                self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
+            #with self.status_lock_2:
+            self.main_window().receiver_color = self.main_window().indicator_inactive_color
+            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            with self.status_lock_3:
-                self.main_window().success_color = self.main_window().indicator_inactive_color
-                self.chat_window().success_color = self.chat_window().indicator_inactive_color
+            #with self.status_lock_3:
+            self.main_window().success_color = self.main_window().indicator_inactive_color
+            self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            with self.status_lock_4:
-                self.main_window().transmitter_color = self.main_window().indicator_inactive_color
-                self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
+            #with self.status_lock_4:
+            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
+            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         if (status == common.SQUELCH_OPEN):
-            with self.status_lock_1:
-                self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
-                self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
-                Clock.schedule_once(callback1, self.status_update_dwell_time)
+            #with self.status_lock_1:
+            self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
+            self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
+            Clock.schedule_once(callback1, self.status_update_dwell_time)
         elif (status == common.CARRIER_DETECTED):
-            with self.status_lock_2:
-                self.main_window().receiver_color = self.main_window().indicator_rx_color
-                self.chat_window().receiver_color = self.chat_window().indicator_rx_color
-                Clock.schedule_once(callback2, self.status_update_dwell_time)
+            #with self.status_lock_2:
+            self.main_window().receiver_color = self.main_window().indicator_rx_color
+            self.chat_window().receiver_color = self.chat_window().indicator_rx_color
+            Clock.schedule_once(callback2, self.status_update_dwell_time)
         elif (status == common.MESSAGE_RECEIVED):
-            with self.status_lock_3:
-                self.main_window().success_color = self.main_window().indicator_success_color
-                self.chat_window().success_color = self.chat_window().indicator_success_color
-                Clock.schedule_once(callback3, self.status_update_dwell_time)
+            #with self.status_lock_3:
+            self.main_window().success_color = self.main_window().indicator_success_color
+            self.chat_window().success_color = self.chat_window().indicator_success_color
+            Clock.schedule_once(callback3, self.status_update_dwell_time)
         elif (status == common.TRANSMITTING):
-            with self.status_lock_4:
-                self.main_window().transmitter_color = self.main_window().indicator_tx_color
-                self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
-                Clock.schedule_once(callback4, self.status_update_dwell_time)
+            #with self.status_lock_4:
+            self.main_window().transmitter_color = self.main_window().indicator_tx_color
+            self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
+            Clock.schedule_once(callback4, self.status_update_dwell_time)
  
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param msg A TextMessageObject containing the received message
@@ -375,8 +378,19 @@ class ui_mobileApp(App, UI_Interface):
         message_container = self.__get_child_from_base(chat_window,('root_chat','second_row','scroll_bar'), 'message_container')
         scroll_bar = self.__get_child_from_base(chat_window, ('root_chat','second_row'), 'scroll_bar')
         
-        if ((my_message==False) and (msg.header.src_callsign == self.my_callsign)): #don't display message received from the audio loopback
+        if ((not my_message) and (msg.header.src_callsign == self.my_callsign)): #don't display message received from the audio loopback
             return
+        
+        if (self.root.current != "chat") and (not my_message):
+            menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
+            menu_button.background_normal = './resources/icons/chat_pending.png'
+        
+        #if (msg.header.request_ack or msg.header.request_double_ack):
+        #    id_tuple = (msg.header.src_callsign,msg.header.dst_callsign,msg.header.getMyAckSequence(),datetime.now().hour)
+        #    if id_tuple in self.messages_dict.keys(): # we already received this, do not display it again
+        #        return
+        #    else:
+        #        self.messages_dict[id_tuple] = 1                
         
         txt_msg_widget = TextMessage() #create the new widget
         
