@@ -182,8 +182,8 @@ class IL2P_API:
                                             my_seq=header.my_seq, acks=header.acks,\
                                             request_ack=header.request_ack, request_double_ack=header.request_double_ack, \
                                             payload_size=header.payload_size, data=header.data)
-                forward_msg = MessageObject(header=new_hdr, payload_str='', forwarded=True)
-                #forward_msg = MessageObject(header=new_hdr, payload_str=payload.tobytes().decode('ascii','ignore'), forwarded=True)
+                #forward_msg = MessageObject(header=new_hdr, payload_str='', forwarded=True)
+                forward_msg = MessageObject(header=new_hdr, payload_str=payload.tobytes().decode('ascii','ignore'), forwarded=True)
                 self.msg_send_queue.put((FORWARD_PRIORITY, forward_msg))               
         
         if (header.is_text_msg == True):
