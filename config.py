@@ -2,10 +2,10 @@ import numpy as np
     
 ##@brief configuration class
 class Configuration:
-    Fs = 32000.0  # sampling frequency [Hz]
+    Fs = 8000.0  # sampling frequency [Hz]
     Tsym = 0.001  # symbol duration [seconds]
-    Npoints = 64
-    frequencies = [1e3, 8e3]  # use 1..8 kHz carriers
+    Npoints = 2
+    frequencies = [2000]  # use 1..8 kHz carriers
 
     # audio config
     bits_per_sample = 16
@@ -19,7 +19,26 @@ class Configuration:
     # receiver config
     skip_start = 0.1
     timeout = 2.0 #timeout when looking for prefix symbols
+    
+     #   properties = ['my_callsign', 'dst_callsign', 'ack_retries', 'ack_timeout', 'tx_cooldown', 
+     #             'rx_cooldown', 'rx_timeout', 'ack', 'clear', 'scroll', 'master_timeout', 
+     #             'Fs', 'Npoints', 'carrier_frequency', 'min_wait', 'max_wait']
 
+    my_callsign = 'BAYWAX'
+    dst_callsign = 'WAYWAX'
+    
+    gps_beacon_enable = False
+    gps_beacon_period = 60
+    carrier_length = 750
+    
+    master_timeout = 20
+    tx_cooldown = 1
+    rx_cooldown = 5
+    
+    ackChecked = False
+    clearOnSend = True
+    autoScroll = True
+        
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
 

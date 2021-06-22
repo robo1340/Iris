@@ -66,14 +66,14 @@ class MessageObject():
     def unmarshal(tup):
         return pickle.loads(tup)
     
-    def __init__(self, header=None, payload_str='', forwarded=False, attempt_index=0, carrier_len=750, time_str=''):
+    def __init__(self, header=None, payload_str='', forwarded=False, attempt_index=0, carrier_len=750, time_str='', priority=100):
         self.header = header
         self.payload_str = payload_str
         self.attempt_index = int(attempt_index)
         self.carrier_len = int(carrier_len)
         self.time_str = time_str
         self.forwarded = forwarded
-        self.priority = 0
+        self.priority = priority
         
         self.src_callsign = self.header.src_callsign
         

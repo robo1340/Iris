@@ -8,36 +8,18 @@ import logging
 import async_reader
 import threading
 import sys
-import configparser
+import os
+import pickle
 
 import numpy as np
 
 import kivy.utils
 
-CONFIG_FILE_NAME = 'config.ini'
+CONFIG_FILE = 'config.pickle'
 
 from kivy.logger import Logger as log
 
 scaling = 32000.0  # out of 2**15
-
-def parseConfigFile(config_file_path):
-    config = configparser.RawConfigParser()
-    config.read(config_file_path)
-    return config
-	
-def verify_ini_config(ini_config):
-    toReturn = True #assume the ini file will be ok
-    
-    properties = ['my_callsign', 'dst_callsign', 'ack_retries', 'ack_timeout', 'tx_cooldown', 
-                  'rx_cooldown', 'rx_timeout', 'ack', 'clear', 'scroll', 'master_timeout', 
-                  'Fs', 'Npoints', 'carrier_frequency', 'min_wait', 'max_wait']
-    
-    for p in properties:
-        if not (p in ini_config['MAIN']):
-            toReturn = False
-            log.error('ERROR- %s property not found in .ini config file!' % (p))
-            
-    return toReturn
 
 ##@brief platform type constants
 class Platform():
@@ -89,9 +71,9 @@ SQUELCH_CLOSED = "squelch_closed"
 MESSAGE_RECEIVED = "message_received"
 TRANSMITTING = "transmitting"
 
-def updateConfigFile(ini_config_parser):
-    with open(CONFIG_FILE_NAME, 'w') as configfile:
-        ini_config_parser.write(configfile)
+def updateConfigFile(new_config):
+    with open(CONFIG_FILE, 'wb') as f:
+        pickle.dump(new_config, f)
 
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check

@@ -39,9 +39,6 @@ import sys
 import logging
 from collections import deque
 
-#Config.set('graphics', 'resizable', False)
-#Config.set('graphics', 'width', '1024')
-#Config.set('graphics', 'height', '650')
 Config.set('graphics', 'maxfps', '1')
 
 from kivy.logger import Logger as log
@@ -72,8 +69,6 @@ class ChatWindow(Screen):
 
 class WindowManager(ScreenManager):
     pass
-    
-#kv = Builder.load_file('./view/ui_mobile.kv')
 
 def exception_suppressor(func):
     def meta_function(*args, **kwargs):
@@ -113,13 +108,11 @@ class ui_mobileApp(App, UI_Interface):
     #    return kv
     
     ##@brief instantiate the UI
-    ##@param ini_config a dictinary object containing the parsed config.ini file
-    def __init__(self, viewController, ini_config):
-        Window.bind(on_key_down=self._on_keyboard_down)
-        Window.bind(on_key_up=self._on_keyboard_up)
+    ##@param config a dictinary object containing the parsed config file
+    def __init__(self, viewController, config_file):
         
         self.viewController = viewController
-        self.ini_config = ini_config
+        self.config_file = config_file
         
         self.header_info = AckSequenceList()
         
@@ -128,7 +121,7 @@ class ui_mobileApp(App, UI_Interface):
         self.ackChecked = False
         self.doubleAckChecked = False
         self.clearOnSend = False
-        self.autoScroll = False
+        self.autoScroll = True
         self.modulation_type = 2
         self.carrier_frequency = 1000
         self.carrier_length = 750
@@ -156,25 +149,8 @@ class ui_mobileApp(App, UI_Interface):
         self.gps_msg_widgets = deque(maxlen=5)
         
         self.status_update_dwell_time = 1.0 #the dwell time of status updates in seconds
-        self.statusIndicatorLock = threading.Lock() #lock used to protect the status indicator ui elements
-        self.status_lock_1 = threading.Lock() #lock used to protect the status indicator ui elements
-        self.status_lock_2 = threading.Lock() #lock used to protect the status indicator ui elements
-        self.status_lock_3 = threading.Lock() #lock used to protect the status indicator ui elements
-        self.status_lock_4 = threading.Lock() #lock used to protect the status indicator ui elements
     
         super().__init__()
-    
-    #gracefully shut everything down when the user exits
-    def on_request_close(self, *args):
-        #import android
-        #android.stop_service(title='NoBoB Service')
-        #log.info('on_request_close()')
-        #from kivy.uix.popup import Popup
-        #self.textpopup(title='Exit', text='Are you sure?')
-        #self.viewController.service_stop_command() # send a message to stop the service threads
-        #time.sleep(0.5)
-        #self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
-        return True
     
     ############### Callback functions called from ui.kv ###############
 
@@ -186,15 +162,15 @@ class ui_mobileApp(App, UI_Interface):
         text_input_widget.text = self.my_callsign
         self.viewController.send_my_callsign(self.my_callsign)
         
-        self.ini_config['MAIN']['my_callsign'] = self.my_callsign
-        updateConfigFile(self.ini_config)
+        self.config_file.my_callsign = self.my_callsign
+        updateConfigFile(self.config_file)
         
     def uiSetDstCallsign(self, text_input_widget):
         self.dstCallsign = text_input_widget.text.upper().ljust(6,' ')[0:6] #the callsign after being massaged
         text_input_widget.text = self.dstCallsign
         
-        self.ini_config['MAIN']['dst_callsign'] = self.dstCallsign
-        updateConfigFile(self.ini_config)
+        self.config_file.dst_callsign = self.dstCallsign
+        updateConfigFile(self.config_file)
 
     def uiSetCarrierLength(self, text_input_widget):
         newString = ''
@@ -207,8 +183,9 @@ class ui_mobileApp(App, UI_Interface):
             self.carrier_length = 750 #default to this value if anything goes wrong
         #text_input_widget.text = str(self.carrier_length)
         #log.info(self.carrier_length)
-        self.ini_config['MAIN']['carrier_length'] = str(self.carrier_length)
-        updateConfigFile(self.ini_config)
+        
+        self.config_file.carrier_length = self.carrier_length
+        updateConfigFile(self.config_file)
     
     def chat_viewed(self):
         menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
@@ -222,7 +199,6 @@ class ui_mobileApp(App, UI_Interface):
         if (self.ackChecked or self.doubleAckChecked): #generate an ack sequence number
             seq = np.random.randint(low=1, high=2**16-1, dtype=np.uint16)
             log.info('creating message with seq number %d' % (seq,))
-            #self.header_info.append(new_seq=seq, force=True)
         else:
             seq = np.uint16(0)
         
@@ -236,7 +212,8 @@ class ui_mobileApp(App, UI_Interface):
                payload_size=len(text_input_widget.text), \
                data=self.header_info.getAcksData())
     
-        msg = MessageObject(header=header, payload_str=str(text_input_widget.text), carrier_len=self.carrier_length)
+        msg = MessageObject(header=header, payload_str=str(text_input_widget.text),\
+                            carrier_len=self.carrier_length, priority=IL2P_API.TEXT_PRIORITY)
 
         self.viewController.send_txt_message(msg)
         self.addMessageToUI(msg, my_message=True)
@@ -260,7 +237,6 @@ class ui_mobileApp(App, UI_Interface):
                 child.state = 'normal'
         
         if (selector.name == 'num_hops'):
-            #self.ini_config['MAIN']['Npoints'] = pressed_button.name
             lbl = self.__get_child_from_base(self.settings_window(), ('settings_root',), 'num_hops')
             hops = int(pressed_button.name)
             hops = min(3,max(hops,0))
@@ -330,42 +306,34 @@ class ui_mobileApp(App, UI_Interface):
     def updateStatusIndicator(self, status, *largs):
         #log.info("updateStatusIndicator(%s)" % (str(status)))
         def callback1(dt):
-            #with self.status_lock_1:
             self.main_window().squelch_color = self.main_window().indicator_inactive_color
             self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
 
         def callback2(dt):
-            #with self.status_lock_2:
             self.main_window().receiver_color = self.main_window().indicator_inactive_color
             self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
 
         def callback3(dt):
-            #with self.status_lock_3:
             self.main_window().success_color = self.main_window().indicator_inactive_color
             self.chat_window().success_color = self.chat_window().indicator_inactive_color
 
         def callback4(dt):
-            #with self.status_lock_4:
             self.main_window().transmitter_color = self.main_window().indicator_inactive_color
             self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
         
         if (status == common.SQUELCH_OPEN):
-            #with self.status_lock_1:
             self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
             self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
             Clock.schedule_once(callback1, self.status_update_dwell_time)
         elif (status == common.CARRIER_DETECTED):
-            #with self.status_lock_2:
             self.main_window().receiver_color = self.main_window().indicator_rx_color
             self.chat_window().receiver_color = self.chat_window().indicator_rx_color
             Clock.schedule_once(callback2, self.status_update_dwell_time)
         elif (status == common.MESSAGE_RECEIVED):
-            #with self.status_lock_3:
             self.main_window().success_color = self.main_window().indicator_success_color
             self.chat_window().success_color = self.chat_window().indicator_success_color
             Clock.schedule_once(callback3, self.status_update_dwell_time)
         elif (status == common.TRANSMITTING):
-            #with self.status_lock_4:
             self.main_window().transmitter_color = self.main_window().indicator_tx_color
             self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
             Clock.schedule_once(callback4, self.status_update_dwell_time)
@@ -427,9 +395,7 @@ class ui_mobileApp(App, UI_Interface):
         self.messagesLock.acquire()
         self.messages.append(UI_Message(msg, txt_msg_widget))
         self.messagesLock.release()
-        
-        #plyer.notification.notify(title="NoBoB Message Received", message=text_msg.src_callsign, app_name="NoBoB",timeout=10) #send a notification to Android OS
-        
+
         if (self.autoScroll == True):
             scroll_bar.scroll_to(txt_msg_widget)
         
@@ -507,10 +473,7 @@ class ui_mobileApp(App, UI_Interface):
     def update_my_displayed_location(self, gps_dict, *largs):
         self.__update_gps_property('latitude' ,str(gps_dict['lat']))
         self.__update_gps_property('longitude',str(gps_dict['lon']))
-        #self.__update_gps_property('speed'    ,str(round(gps_dict['speed'],2)))
-        #self.__update_gps_property('bearing'  ,str(round(gps_dict['bearing'],2)))
         self.__update_gps_property('altitude' ,str(round(gps_dict['altitude'],2)))
-        #self.__update_gps_property('accuracy' ,str(round(gps_dict['accuracy'],2)))
             
     def __update_gps_property(self,property_name,new_val):
         property = self.__get_child_from_base(self.gps_window(), ('root_gps',), property_name)
@@ -526,7 +489,6 @@ class ui_mobileApp(App, UI_Interface):
         #get the strings the widget will be filled with
         header_text = ('{0:s}').format(gps_msg.src_callsign)
         time_text = ('{0:s}').format(gps_msg.time_str)
-        #time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         message_text = gps_msg.getInfoString()
         
         gps_msg_widget.background_color = self.chat_window().text_msg_color
@@ -554,7 +516,6 @@ class ui_mobileApp(App, UI_Interface):
         
         contact_widget.callsign_text = gps_msg.src_callsign
         contact_widget.time_text     = ('{0:s}').format(gps_msg.time_str)
-        #contact_widget.time_text     = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
         
         contact_widget.background_color = OSM_COLORS[ (len(self.contact_widgets) % len(OSM_COLORS)) ]
         
@@ -565,7 +526,6 @@ class ui_mobileApp(App, UI_Interface):
         if gps_msg.src_callsign in self.contact_widgets:
             widget = self.contact_widgets[gps_msg.src_callsign]
             widget.time_text = ('{0:s}').format(gps_msg.time_str)
-            #widget.time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
             
     def notifyGPSLockAchieved(self, *largs):
         gps_lock_label = self.__get_child_from_base(self.gps_window(),('root_gps',), 'gps_lock_label')
@@ -584,42 +544,40 @@ class ui_mobileApp(App, UI_Interface):
         radius = signal_indicator.height/2
         main_window.guage_x = -int(radius * np.cos(np.pi/180 * angle_deg))
         main_window.guage_y = int(radius * np.sin(np.pi/180 * angle_deg))
-        #main_window.signal_strength_color = [signal_strength/(9*np.log10(2**15))+0.1, 0, 0, 1] 
         
-        #s = "%2.0f" % (signal_strength)
         main_window.signal_strength = ''
         
     ################### private functions ##############################
     
-    def __apply_ini_config(self, ini_config):
+    def __apply_config(self, config):
         settings = self.__get_child(self.settings_window(), 'settings_root')
-
+        
         ack_widget = self.__get_child(settings, 'ackChecked')
-        self.ackChecked = True if (ini_config['MAIN']['ack'] == '1') else False
+        self.ackChecked = config.ackChecked
         ack_widget.state = 'down' if self.ackChecked else 'normal'
         
         clear_widget = self.__get_child(settings, 'clearOnSend')
-        self.clearOnSend = True if (ini_config['MAIN']['clear'] == '1') else False
+        self.clearOnSend = config.clearOnSend
         clear_widget.state = 'down' if self.clearOnSend else 'normal'
                 
         scroll_widget = self.__get_child(settings, 'autoScroll')
-        self.autoScroll = True if (ini_config['MAIN']['scroll'] == '1') else False
+        self.autoScroll = config.autoScroll
         scroll_widget.state = 'down' if self.autoScroll else 'normal'
 
         dst_callsign_widget = self.__get_child(settings, 'dst_callsign')
-        dst_callsign_widget.text = ini_config['MAIN']['dst_callsign']
-        self.dstCallsign = ini_config['MAIN']['dst_callsign']
+        dst_callsign_widget.text = config.dst_callsign
+        self.dstCallsign = config.dst_callsign
         
         my_callsign_widget = self.__get_child(settings,'my_callsign')
-        my_callsign_widget.text = ini_config['MAIN']['my_callsign']
-        self.my_callsign = ini_config['MAIN']['my_callsign']  
+        my_callsign_widget.text = config.my_callsign
+        self.my_callsign = config.my_callsign 
         
         carrier_length_widget = self.__get_child(settings,'carrier_length')
-        carrier_length_widget.text = ini_config['MAIN']['carrier_length']
-        self.carrier_length = ini_config['MAIN']['carrier_length']
+        carrier_length_widget.text = str(config.carrier_length)
+        self.carrier_length = config.carrier_length
         
-        self.modulation_type = int(ini_config['MAIN']['npoints'])
-        self.carrier_frequency = int(ini_config['MAIN']['carrier_frequency'])
+        self.modulation_type = config.Npoints
+        self.carrier_frequency = config.frequencies[0]
         
         hops_selector = self.__get_child(settings, 'num_hops')
         self.__get_child(hops_selector, '0').state = 'down'
@@ -627,12 +585,11 @@ class ui_mobileApp(App, UI_Interface):
         gps = self.__get_child(self.gps_window(), 'root_gps')
         
         gps_enable = self.__get_child(gps, 'enableGPS')
-        self.gps_beacon_enable = True if (ini_config['MAIN']['gps_beacon_enable'] == '1') else False
+        self.gps_beacon_enable = config.gps_beacon_enable
         gps_enable.state = 'down' if self.gps_beacon_enable else 'normal'
         
         gps_period = self.__get_child(gps,'gps_beacon_period')
-        period_str = ini_config['MAIN']['gps_beacon_period']
-        self.gps_beacon_period = int(period_str) if period_str.isdigit() else 30
+        self.gps_beacon_period = config.gps_beacon_period
         gps_period.text = str(self.gps_beacon_period)
 
     def __get_child(self, widget, name):
@@ -661,31 +618,23 @@ class ui_mobileApp(App, UI_Interface):
         except BaseException:
             log.error('ERROR!: a widget could not be found')
             return None
-        return widget
-    
-    def _on_keyboard_down(self, instance, keyboard, keycode, text, modifiers):
-        if len(modifiers) > 0 and modifiers[0] == 'ctrl' and keycode==40:  # Ctrl+enter
-            #print("\nThe key", keycode, "have been pressed")
-            #print(" - text is %r" % text)
-            #print(" - modifiers are %r" % modifiers)
-            
-            text_input = self.__get_child_from_base(self.main_window(), ('root_main','third_row'), 'text_input')
-            self.sendMessage(text_input)
-            
-    def _on_keyboard_up(self, instance, keyboard, keycode, text=None, modifiers=None):
-        #print(keycode)
-        if (keycode == 224): #right control key
-            text_input = self.__get_child_from_base(self.main_window(), ('root_main','third_row'), 'text_input')
-            text_input.cursor = (0,0)
-            
-        #if len(modifiers) > 0 and modifiers[0] == 'ctrl' and text=='a':  # Ctrl+a
-        #    #self.updateStatusIndicator(5)
-        #    text_msg = TextMessageObject(msg_str='message1', src_callsign='BAYWAX', dst_callsign='AAYWAX', expectAck=True, seq_num=None)
-        #    self.addMessageToUI(text_msg)
-        #    #self.menu.add_menu()          
+        return widget        
 
     ################# override functions #########################
     
     #callback is called when application is started
     def on_start(self, **kwargs):
-        self.__apply_ini_config(self.ini_config)
+        self.__apply_config(self.config_file)
+   
+    #gracefully shut everything down when the user exits
+    #def on_stop(self, **kwargs):
+    #def on_request_close(self, *args):
+        #import android
+       #android.stop_service(title='NoBoB Service')
+        #log.info('on_request_close()')
+       # from kivy.uix.popup import Popup
+       # self.textpopup(title='Exit', text='Are you sure?')
+       # self.viewController.service_stop_command() # send a message to stop the service threads
+       # time.sleep(0.5)
+       # self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
+       # return True

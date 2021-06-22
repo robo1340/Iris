@@ -7,6 +7,7 @@ import itertools
 import logging
 import functools
 import os
+import pickle
 import io
 import numpy as np
 import threading
@@ -78,35 +79,24 @@ if __name__ == "__main__":
     ctypes.CDLL(os.path.join(cwd, 'libgnustl_shared.so'))
     ctypes.CDLL(os.path.join(cwd, 'libportaudio.so'))
     log.debug('libportaudio loaded')
-
-    #args = parseCommandLineArguments()
-    ini_config = common.parseConfigFile(common.CONFIG_FILE_NAME)
-    if not common.verify_ini_config(ini_config):
-        raise Exception('Error: Not all needed values were found in the .ini configuration file')
-
-    #create a config object from the ini_config settings
-    Fs = int(ini_config['MAIN']['Fs'])
-    Npoints = int(ini_config['MAIN']['Npoints'])
-    cf = int(ini_config['MAIN']['carrier_frequency'])
-    config = config.Configuration(Fs=Fs, Npoints=Npoints, frequencies=[cf])
+    
+    if os.path.isfile('./' + common.CONFIG_FILE):
+        with open(common.CONFIG_FILE, 'rb') as f:
+            config = pickle.load(f)
+    else:
+        raise Exception('Error: No config file found')
+    
 
     args = Args(interface=audio.Interface(config).load(os.path.join(cwd, 'libportaudio.so')))
     stats = common.Stats()
-    #msg_send_queue = PriorityQueue()
-    #msg_send_queue = queue.Queue(50)
-    #ack_output_queue = queue.Queue(25)
-    #msg_output_queue = queue.Queue(25)
 
-    il2p = IL2P_API.IL2P_API(ini_config=ini_config, verbose=False)#, msg_send_queue=msg_send_queue)
+    il2p = IL2P_API.IL2P_API(config=config, verbose=False)
     args.platform = common.Platform.ANDROID
     from android_only.gps import GPS
     from android_only.OsmAndInterface import OsmAndInterface
 
-    service_controller = ServiceController(il2p, ini_config, GPS(), OsmAndInterface())
+    service_controller = ServiceController(il2p, config, GPS(), OsmAndInterface())
     il2p.service_controller = service_controller
 
-    #transceiver_thread = common.StoppableThread(target=transceiver_func, args=(args, service_controller, stats, il2p, ini_config, config))
-    #transceiver_thread.start()
-
     #call the main transceiver loop
-    transceiver_func(args, service_controller, stats, il2p, ini_config, config)
+    transceiver_func(args, service_controller, stats, il2p, config)

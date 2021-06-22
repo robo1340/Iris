@@ -5,7 +5,8 @@ import logging
 import sys
 import time
 import argparse
-import configparser
+import os
+import pickle
 
 import common
 from view.view_controller import ViewController
@@ -20,14 +21,6 @@ my_callsign = ''
 dst_callsign = ''
 ack_checked_initial = 0
 
-def parseCommandLineArguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", help="pass in the configuration file")
-    parser.add_argument('-t','--tkinter', action="store_true", help='set this flag when you want to use the old tkinter UI')
-    commandline_args = parser.parse_args()
-    #print (commandline_args.config)
-    return commandline_args
-
 if __name__ == "__main__":
     log.info('Start of Main Application')
 
@@ -38,14 +31,17 @@ if __name__ == "__main__":
         from kivy.utils import platform
         request_permissions([Permission.ACCESS_FINE_LOCATION, Permission.RECORD_AUDIO, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE, Permission.INTERNET, Permission.VIBRATE, Permission.MODIFY_AUDIO_SETTINGS, Permission.FOREGROUND_SERVICE])
 
-        ini_config = common.parseConfigFile(common.CONFIG_FILE_NAME)
-        #print(ini_config.sections())
-        if not common.verify_ini_config(ini_config):
-            raise Exception('Error: Not all needed values were found in the .ini configuration file')
+        if os.path.isfile('./' + common.CONFIG_FILE):
+            with open(common.CONFIG_FILE, 'rb') as f:
+                config = pickle.load(f)
+        else:
+            config = config.Configuration(Fs=8000, Npoints=2, frequencies=[2000])
+            common.updateConfigFile(config)
+            time.sleep(1.0) #wait a bit
 
         viewController = ViewController()
         import view.ui_mobile_kivy
-        ui = view.ui_mobile_kivy.ui_mobileApp(viewController, ini_config)
+        ui = view.ui_mobile_kivy.ui_mobileApp(viewController, config)
         viewController.ui = ui
 
         #from jnius import autoclass

@@ -66,11 +66,8 @@ class AckRetryObject():
 ##the main class that the rest of the program uses to interact with the IL2P link layer
 class IL2P_API:
 
-    def __init__(self, ini_config, verbose=False):
-        DEFAULT_RETRY_CNT = ini_config['MAIN']['ack_retries']
-        RETRANSMIT_TIME = ini_config['MAIN']['ack_timeout']
-    
-        self.my_callsign = ini_config['MAIN']['my_callsign']
+    def __init__(self, config, verbose=False):
+        self.my_callsign = config.my_callsign
         
         self.engine = IL2P_Frame_Engine()
         
@@ -110,7 +107,7 @@ class IL2P_API:
     def is_me(self, callsign):
         return (callsign == self.my_callsign)
     
-    def processFrame(self, header, payload, test=False):
+    def processFrame(self, header, payload):
         #log.info('processFrame()')
         forward_msg = False #set to true if this message will be forwarded
         
@@ -161,10 +158,10 @@ class IL2P_API:
                                    request_ack=False, request_double_ack=False, \
                                    payload_size=len(payload_str), \
                                    data=self.forward_acks.getAcksData())
-                    ack_msg = MessageObject(header=ack_header, payload_str=payload_str)
-                    self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
+                    ack_msg = MessageObject(header=ack_header, payload_str=payload_str, priority=ACK_PRIORITY)
+                    self.msg_send_queue.put(ack_msg)
                     if (header.request_double_ack):
-                        self.msg_send_queue.put((ACK_PRIORITY, ack_msg))
+                        self.msg_send_queue.put(ack_msg)
             else: #this message is requesting an ack from someone else
                 pass    
                 
@@ -182,9 +179,8 @@ class IL2P_API:
                                             my_seq=header.my_seq, acks=header.acks,\
                                             request_ack=header.request_ack, request_double_ack=header.request_double_ack, \
                                             payload_size=header.payload_size, data=header.data)
-                #forward_msg = MessageObject(header=new_hdr, payload_str='', forwarded=True)
-                forward_msg = MessageObject(header=new_hdr, payload_str=payload.tobytes().decode('ascii','ignore'), forwarded=True)
-                self.msg_send_queue.put((FORWARD_PRIORITY, forward_msg))               
+                forward_msg = MessageObject(header=new_hdr, payload_str=payload.tobytes().decode('ascii','ignore'), priority=FORWARD_PRIORITY, forwarded=True)
+                self.msg_send_queue.put(forward_msg)             
         
         if (header.is_text_msg == True):
             #log.info('Text Message Received, src=%s, dst=%s, msg=%s' % (header.src_callsign, header.dst_callsign, payload))
@@ -196,8 +192,7 @@ class IL2P_API:
             
         elif (header.is_beacon == True):
             try:
-                if not test:
-                    self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
+                self.service_controller.send_gps_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
                 return True   
             except BaseException:
                 log.warning('WARNING: failed to decode payload of a GPS message')
@@ -222,12 +217,10 @@ class IL2P_API:
             return False
         else:
             toReturn = False
-            #self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     toReturn = True
                     break
-            #self.pending_acks_lock.release()
             return toReturn
             
     ##@brief return the next Frame to be transmitted
@@ -236,7 +229,7 @@ class IL2P_API:
     ## If there is nothing to transmit, returns (None,0)
     def getNextFrameToTransmit(self):
         if (self.msg_send_queue.empty() == False):
-            msg = self.msg_send_queue.get()[1]
+            msg = self.msg_send_queue.get()#[1]
             carrier_len = msg.carrier_len
             return (self.msgToFrame(msg),carrier_len)
         elif (len(self.pending_acks) == 0):
@@ -245,13 +238,11 @@ class IL2P_API:
             toPop = None
             toReturn = None
             carrier_len = 0
-            #self.pending_acks_lock.acquire()
             for key, retry in self.pending_acks.items():
                 if (retry.ready() == True):
                     #log.info("key " + str(key))
                     if (retry.decrement() == 0): #if the remaining number of tries is zero, do not re-transmit 
                         self.service_controller.send_retry_message(key, -1)
-                        #toPop = key
                         continue
                     self.service_controller.send_retry_message(key, retry.retry_cnt-1)
                     toReturn = self.writer.getFrameFromMessage(retry.msg)
@@ -259,7 +250,6 @@ class IL2P_API:
                     #log.info(carrier_len)
             if (toPop != None):
                 self.pending_acks.pop(toPop)
-            #self.pending_acks_lock.release()
             return (toReturn,carrier_len)
 
     ##class used to read bytes from the phy layer and detect when a valid Frame is being received
@@ -292,7 +282,7 @@ class IL2P_API:
                         raw_frame[ind] = ele
                         ind+=1  
                 else: #decode the frame
-                    log.info('raw frame received: 0x%s', raw_frame[0:ind].tobytes().hex())
+                    log.debug('raw frame received: 0x%s', raw_frame[0:ind].tobytes().hex())
                     try:
                         (header, payload_decode_success, payload_bytes) = self.frame_engine.decode_frame(raw_frame)
                         #log.info(header.getInfoString())
@@ -324,7 +314,7 @@ class IL2P_API:
              #frame_engine.encode_frame(header,     np.frombuffer( msg_str.encode(),dtype=np.uint8))
             frame = self.frame_engine.encode_frame(msg.header, np.frombuffer(msg.payload_str.encode(),dtype=np.uint8))
             toReturn = frame.tobytes()
-            log.info('raw frame to be sent: 0x%s',toReturn.hex())
+            log.debug('raw frame to be sent: 0x%s',toReturn.hex())
             return toReturn                   
 
 

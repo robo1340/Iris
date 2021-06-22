@@ -34,12 +34,6 @@ import config
 import IL2P_API
 
 master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
-#tx_cooldown = 0.5 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
-#rx_cooldown = 0#0.25 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
-
-# Python 3 has `buffer` attribute for byte-based I/O
-#_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
-#_stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
 from kivy.logger import Logger as log
 
@@ -243,11 +237,11 @@ def setAudioOutputSpeaker(manager, AudioManager):
     manager.setSpeakerphoneOn(True)
     manager.setMicrophoneMute(True)
         
-def transceiver_func(args, service_controller, stats, il2p, ini_config, config):
-    master_timeout = float(ini_config['MAIN']['master_timeout'])
-    tx_cooldown = float(ini_config['MAIN']['tx_cooldown'])
-    base_rx_cooldown = float(ini_config['MAIN']['rx_cooldown'])
-    #config.rx_timeout = int(ini_config['MAIN']['rx_timeout'])
+def transceiver_func(args, service_controller, stats, il2p, config):
+    master_timeout = config.master_timeout
+    tx_cooldown = config.tx_cooldown
+    base_rx_cooldown = config.rx_cooldown
+    
     log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,base_rx_cooldown))
     rx_cooldown_randomizer = Cooldown(base_rx_cooldown, 0.3)
     rx_cooldown = rx_cooldown_randomizer.get()

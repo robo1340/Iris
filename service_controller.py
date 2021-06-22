@@ -53,7 +53,7 @@ def exception_suppressor(func):
 
 class ServiceController():
 
-    def __init__(self, il2p, ini_config, gps=None, osm=None):
+    def __init__(self, il2p, config, gps=None, osm=None):
         #log.info('service controller constructor')
         self.il2p = il2p
         self.osm = osm
@@ -73,13 +73,12 @@ class ServiceController():
         
         self.tx_queue = queue.Queue()
         
-        self.gps_beacon_enable = True if (ini_config['MAIN']['gps_beacon_enable'] == '1') else False
-        period_str = ini_config['MAIN']['gps_beacon_period']
-        self.gps_beacon_period = int(period_str) if period_str.isdigit() else 30
+        self.gps_beacon_enable = config.gps_beacon_enable
+        self.gps_beacon_period = config.gps_beacon_period
         
         self.timer = threading.Timer(0.0, self.schedule_gps_beacon)
         self.gps_beacon_sched = sched.scheduler(time.time, time.sleep)
-        self.carrier_length = int(ini_config['MAIN']['carrier_length'])
+        self.carrier_length = config.carrier_length
         
         self.hops = 0
         
@@ -148,7 +147,6 @@ class ServiceController():
         self.pubs[1].set(zmq.SNDHWM, 5)
         self.pubs[1].bind(self.bind_addrs[1])
         
-        
         while not self.stopped():
             try:
                 (pub_ind, env, payload) = self.tx_queue.get(block=True, timeout=1)
@@ -160,13 +158,11 @@ class ServiceController():
             except BaseException:
                 log.error("Error in service controller zmq publisher thread")
         
-    
-    
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
     #@
     def txt_msg_handler(self, txt_msg):
         log.debug('service ctrl txt_msg_handler()')
-        self.il2p.msg_send_queue.put((10, txt_msg))
+        self.il2p.msg_send_queue.put(txt_msg)
     
     ## @brief callback for when the View Controller sends a new callsign
     def my_callsign_handler(self, my_callsign):
@@ -191,7 +187,6 @@ class ServiceController():
         log.debug('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
         
-    
     def stop_handler(self):
         log.debug('stopping the service threads')
         self.isStopped = True
@@ -322,9 +317,6 @@ class ServiceController():
         self.transmit_gps_beacon()
         if (self.gps_beacon_enable):
             log.debug('reschedule the beacon')
-            #T = self.gps_beacon_period
-            #self.gps_beacon_sched.enter(T + 0.25*random.uniform(-T,T), 1, self.meta_transmit_gps_beacon, ())
-            #self.gps_beacon_sched.run(blocking=True)
             self.schedule_gps_beacon()
     
     def transmit_gps_beacon(self):
@@ -347,10 +339,10 @@ class ServiceController():
                                        payload_size=len(loc_str), \
                                        data=self.il2p.forward_acks.getAcksData())
             
-            gps_msg = MessageObject(header=gps_hdr, payload_str=loc_str)
+            gps_msg = MessageObject(header=gps_hdr, payload_str=loc_str, priority=IL2P_API.GPS_PRIORITY)
             
             self.send_my_gps_message(GPSMessageObject(src_callsign=self.il2p.my_callsign, location=loc)) #send my gps location to the View Controller so it can be displayed
             
-            self.il2p.msg_send_queue.put((15, gps_msg)) #send my gps location to the il2p transceiver so that it can be transmitted
+            self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted
        
 
