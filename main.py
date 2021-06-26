@@ -37,12 +37,13 @@ if __name__ == "__main__":
         else:
             config = config.Configuration(Fs=8000, Npoints=2, frequencies=[2000])
             common.updateConfigFile(config)
-            time.sleep(1.0) #wait a bit
 
         viewController = ViewController()
         import view.ui_mobile_kivy
         ui = view.ui_mobile_kivy.ui_mobileApp(viewController, config)
         viewController.ui = ui
+        
+        time.sleep(1.0) #wait a bit
 
         #from jnius import autoclass
         #service = autoclass('com.projectx.nobob.ServiceService')

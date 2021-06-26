@@ -19,10 +19,6 @@ class Configuration:
     # receiver config
     skip_start = 0.1
     timeout = 2.0 #timeout when looking for prefix symbols
-    
-     #   properties = ['my_callsign', 'dst_callsign', 'ack_retries', 'ack_timeout', 'tx_cooldown', 
-     #             'rx_cooldown', 'rx_timeout', 'ack', 'clear', 'scroll', 'master_timeout', 
-     #             'Fs', 'Npoints', 'carrier_frequency', 'min_wait', 'max_wait']
 
     my_callsign = 'BAYWAX'
     dst_callsign = 'WAYWAX'

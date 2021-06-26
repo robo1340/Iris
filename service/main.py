@@ -37,7 +37,6 @@ from transceiver import transceiver_func
 from service_controller import ServiceController
 
 from kivy.logger import Logger as log
-#log = logging.getLogger('__name__')
 
 master_timeout = 20 #sets the timeout for the last line of defense when the program is stuck
 tx_cooldown = 1 #cooldown period after the sending in seconds, the program may not transmit for this period of time after transmitting a frame
@@ -65,9 +64,6 @@ class Args():
 #################### Android Device Service########################
 ################################################################### 
 if __name__ == "__main__":
-    #while True:
-    time.sleep(0.2) #put a slight delay in when the service starts, so that the UI will be started before the service
-
     log.info('start of service')
 
     #from jnius import autoclass

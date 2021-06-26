@@ -151,39 +151,6 @@ osm.placeContact(35.0168, -97.0929, '000010', str(time.time()))
 osm.placeContact(35.0178, -97.0929, '000011', str(time.time()))
 '''
 #osm.clearContacts()
-'''
-    ##@brief remove all contact markers that are in OsmAnd
-    def clearContacts(self):
-        try:
-            self.api.removeFavoriteGroup(CONTACT_CATEGORY)
-        except BaseException:
-            log.error('An exception occurred while deleting a favorites marker in OsmAnd')
-
-    def placeContact(self, lat, lon, callsign='', description=''):
-        log.info('Placing contact')
-        try:
-            if callsign in self.contact_points_dict:
-                pt = self.contact_points_dict[callsign]
-                print(pt.getCurrentName())
-                self.api.updateFavorite( pt.lat, pt.lon, pt.getCurrentName(), CONTACT_CATEGORY,
-                                         lat, lon, pt.getNewName(), description, CONTACT_CATEGORY,
-                                         OSM_COLORS[ (pt.index % len(OSM_COLORS)) ], True
-                                        )
-
-                pt.lat = lat
-                pt.lon = lon
-            else:
-                pt = ContactPoint(callsign, lat, lon, time.time(), (len(self.contact_points_dict) % len(OSM_COLORS)) )
-                self.contact_points_dict[callsign] = pt
-
-                self.api.addFavorite(lat, lon, pt.getCurrentName(), description, '', CONTACT_CATEGORY, OSM_COLORS[pt.index], True)  
-                
-            with open(CONTACTS_FILE_NAME, 'wb') as f:
-                pickle.dump(self.contact_points_dict, f)
-        except BaseException:
-            log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
-
-'''
 
 
 

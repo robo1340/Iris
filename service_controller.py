@@ -190,7 +190,7 @@ class ServiceController():
     def stop_handler(self):
         log.debug('stopping the service threads')
         self.isStopped = True
-        self.stop()
+        #self.stop()
     
     def hops_update_handler(self, hops):
         self.hops = hops

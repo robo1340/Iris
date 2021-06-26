@@ -542,7 +542,7 @@ WindowManager:
             
             MediumLabel:
                 name : ''
-                text : 'GPS Contacts'   
+                text : 'NoBoB Contacts'   
     
             Spacer:
     
@@ -769,12 +769,12 @@ WindowManager:
                 on_release:
                     app.root.current = "main"
                     root.manager.transition.direction = "left" 
-              
+        
         MediumLabel:
             name : ''
-            text: 'General Settings' 
+            text: 'Version: 0.94' 
             halign : 'center'
-        
+    
         SetablePropertyMyCallsign:
             name : 'my_callsign'
             
@@ -786,12 +786,17 @@ WindowManager:
             id: clearOnSend
             name : 'clearOnSend'
             on_state: app.toggle_pressed(self)
-            
-        SmallToggleButton:
-            text: 'Auto Scroll to Latest?'
-            id: autoScroll
-            name : 'autoScroll'
-            on_state: app.toggle_pressed(self)
+         
+        SmallButton:
+            text: 'Close App'
+            name : 'close_nobob'
+            on_release: app.button_pressed(self)
+    
+        #SmallToggleButton:
+        #    text: 'Auto Scroll to Latest?'
+        #    id: autoScroll
+        #    name : 'autoScroll'
+        #    on_state: app.toggle_pressed(self)
 
         Spacer:
     
@@ -832,6 +837,8 @@ WindowManager:
         SetablePropertyCarrierLength:
             name : 'carrier_length'
         
+        Spacer:
+    
         MediumLabel:
             name : 'hops_lbl'
             text: 'Number of Hops'  
@@ -848,7 +855,7 @@ WindowManager:
             option3_name : '2'
             option4_name : '3'
             name : 'num_hops'
-
+    
 ###################################################################        
 ####################### Statistics Window #########################
 ###################################################################

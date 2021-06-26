@@ -274,6 +274,8 @@ class ui_mobileApp(App, UI_Interface):
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
             #self.viewController.clear_osmand_contacts()
+        elif (button.name == 'close_nobob'):
+            self.spawn_confirm_popup('Close NoBoB?', self.shutdown_nobob)
             
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
@@ -560,9 +562,9 @@ class ui_mobileApp(App, UI_Interface):
         self.clearOnSend = config.clearOnSend
         clear_widget.state = 'down' if self.clearOnSend else 'normal'
                 
-        scroll_widget = self.__get_child(settings, 'autoScroll')
+        #scroll_widget = self.__get_child(settings, 'autoScroll')
         self.autoScroll = config.autoScroll
-        scroll_widget.state = 'down' if self.autoScroll else 'normal'
+        #scroll_widget.state = 'down' if self.autoScroll else 'normal'
 
         dst_callsign_widget = self.__get_child(settings, 'dst_callsign')
         dst_callsign_widget.text = config.dst_callsign
@@ -627,14 +629,11 @@ class ui_mobileApp(App, UI_Interface):
         self.__apply_config(self.config_file)
    
     #gracefully shut everything down when the user exits
-    #def on_stop(self, **kwargs):
-    #def on_request_close(self, *args):
-        #import android
-       #android.stop_service(title='NoBoB Service')
-        #log.info('on_request_close()')
-       # from kivy.uix.popup import Popup
-       # self.textpopup(title='Exit', text='Are you sure?')
-       # self.viewController.service_stop_command() # send a message to stop the service threads
-       # time.sleep(0.5)
-       # self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller  
-       # return True
+    
+    def shutdown_nobob(self):
+        log.info('stop()')
+        self.viewController.service_stop_command() # send a message to stop the service threads
+        time.sleep(0.75)
+        self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller
+        App.get_running_app().stop()
+   
