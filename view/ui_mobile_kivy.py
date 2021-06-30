@@ -120,7 +120,7 @@ class ui_mobileApp(App, UI_Interface):
         self.dstCallsign = ''
         self.ackChecked = False
         self.doubleAckChecked = False
-        self.clearOnSend = False
+        self.enableForwarding = True
         self.autoScroll = True
         self.modulation_type = 2
         self.carrier_frequency = 1000
@@ -191,7 +191,6 @@ class ui_mobileApp(App, UI_Interface):
         menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
         menu_button.background_normal = './resources/icons/chat.png'
         
-    
     def sendMessage(self, text_input_widget): 
         #chunks = lambda str, n : [str[i:i+n] for i in range(0, len(str), n)]  
         #messages = chunks(text_input_widget.text, 1023) #split the string the user entered into strings of max length 1023
@@ -218,9 +217,9 @@ class ui_mobileApp(App, UI_Interface):
         self.viewController.send_txt_message(msg)
         self.addMessageToUI(msg, my_message=True)
 
-        if (self.clearOnSend == True):
-            text_input_widget.text = ''
-            text_input_widget.cursor = (0,0)
+        #clear the text input and reset the cursor
+        text_input_widget.text = ''
+        text_input_widget.cursor = (0,0)
             
     def sendGPSBeacon(self):
         log.info('at sendGPSBeacon()')
@@ -257,10 +256,9 @@ class ui_mobileApp(App, UI_Interface):
             settings = self.__get_child(self.settings_window(), 'settings_root')
             ack_button = self.__get_child(settings, 'ackChecked')
             ack_button.state = toggle_button.state 
-        elif (toggle_button.name == 'clearOnSend'):
-            self.clearOnSend = True if (toggle_button.state == 'down') else False
-        elif (toggle_button.name == 'autoScroll'):
-            self.autoScroll = True if (toggle_button.state == 'down') else False
+        elif (toggle_button.name == 'enableForwarding'):
+            self.enableForwarding = True if (toggle_button.state == 'down') else False
+            self.viewController.send_enable_forwarding_command(self.enableForwarding)
         elif (toggle_button.name == 'enableGPS'):
             self.gps_beacon_enable = True if (toggle_button.state == 'down') else False
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
@@ -306,39 +304,25 @@ class ui_mobileApp(App, UI_Interface):
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
     def updateStatusIndicator(self, status, *largs):
-        #log.info("updateStatusIndicator(%s)" % (str(status)))
-        def callback1(dt):
-            self.main_window().squelch_color = self.main_window().indicator_inactive_color
-            self.chat_window().squelch_color = self.chat_window().indicator_inactive_color
-
-        def callback2(dt):
-            self.main_window().receiver_color = self.main_window().indicator_inactive_color
-            self.chat_window().receiver_color = self.chat_window().indicator_inactive_color
-
-        def callback3(dt):
-            self.main_window().success_color = self.main_window().indicator_inactive_color
-            self.chat_window().success_color = self.chat_window().indicator_inactive_color
-
-        def callback4(dt):
-            self.main_window().transmitter_color = self.main_window().indicator_inactive_color
-            self.chat_window().transmitter_color = self.chat_window().indicator_inactive_color
-        
         if (status == common.SQUELCH_OPEN):
-            self.main_window().squelch_color = self.main_window().indicator_pre_rx_color
-            self.chat_window().squelch_color = self.chat_window().indicator_pre_rx_color
-            Clock.schedule_once(callback1, self.status_update_dwell_time)
+            name = 'squelch'
         elif (status == common.CARRIER_DETECTED):
-            self.main_window().receiver_color = self.main_window().indicator_rx_color
-            self.chat_window().receiver_color = self.chat_window().indicator_rx_color
-            Clock.schedule_once(callback2, self.status_update_dwell_time)
+            name = 'receiver'
         elif (status == common.MESSAGE_RECEIVED):
-            self.main_window().success_color = self.main_window().indicator_success_color
-            self.chat_window().success_color = self.chat_window().indicator_success_color
-            Clock.schedule_once(callback3, self.status_update_dwell_time)
+            name = 'receiver_success'
         elif (status == common.TRANSMITTING):
-            self.main_window().transmitter_color = self.main_window().indicator_tx_color
-            self.chat_window().transmitter_color = self.chat_window().indicator_tx_color
-            Clock.schedule_once(callback4, self.status_update_dwell_time)
+            name = 'transmitter'
+        else:
+            return
+            
+        mgif = self.__get_child_from_base(self.main_window(),('root_main','first_row','status_indicators'), name)
+        mgif._coreimage.anim_reset(True)
+        mgif.anim_delay = 0.1
+        
+        cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
+        cgif._coreimage.anim_reset(True)
+        cgif.anim_delay = 0.1
+        
  
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param msg A TextMessageObject containing the received message
@@ -558,9 +542,9 @@ class ui_mobileApp(App, UI_Interface):
         self.ackChecked = config.ackChecked
         ack_widget.state = 'down' if self.ackChecked else 'normal'
         
-        clear_widget = self.__get_child(settings, 'clearOnSend')
-        self.clearOnSend = config.clearOnSend
-        clear_widget.state = 'down' if self.clearOnSend else 'normal'
+        enable_widget = self.__get_child(settings, 'enableForwarding')
+        self.enableForwarding = config.enableForwarding
+        enable_widget.state = 'down' if self.enableForwarding else 'normal'
                 
         #scroll_widget = self.__get_child(settings, 'autoScroll')
         self.autoScroll = config.autoScroll
@@ -632,8 +616,10 @@ class ui_mobileApp(App, UI_Interface):
     
     def shutdown_nobob(self):
         log.info('stop()')
+        self.viewController.send_gps_beacon_command(False,30) #disable the gps beacon
+        #time.sleep(0.25)
         self.viewController.service_stop_command() # send a message to stop the service threads
-        time.sleep(0.75)
+        time.sleep(1.5)
         self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller
         App.get_running_app().stop()
    

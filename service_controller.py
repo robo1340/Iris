@@ -119,6 +119,8 @@ class ServiceController():
                         self.my_callsign_handler(payload)
                     elif (header == view_c.GPS_BEACON_CMD):
                         self.gps_beacon_handler(payload)
+                    elif (header == view_c.ENABLE_FORWARDING_CMD):
+                        self.enable_forwarding_handler(payload)
                     elif (header == view_c.GPS_ONE_SHOT):
                         self.gps_one_shot_handler()
                     elif (header == view_c.STOP):
@@ -182,6 +184,9 @@ class ServiceController():
             self.timer.cancel()
             for event in self.gps_beacon_sched.queue:
                 self.gps_beacon_sched.cancel(event)
+    
+    def enable_forwarding_handler(self, enable_forwarding):
+        self.il2p.enable_forwarding = enable_forwarding
     
     def gps_one_shot_handler(self):
         log.debug('gps one shot command received from View Controller')

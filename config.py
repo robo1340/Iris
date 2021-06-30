@@ -26,13 +26,13 @@ class Configuration:
     gps_beacon_enable = False
     gps_beacon_period = 60
     carrier_length = 750
+    enableForwarding = True
     
     master_timeout = 20
     tx_cooldown = 1
     rx_cooldown = 5
     
     ackChecked = False
-    clearOnSend = True
     autoScroll = True
         
     def __init__(self, **kwargs):

@@ -86,8 +86,10 @@
     text_size: self.size
 
 <MenuButton@Button>:
-    size_hint_x : None
-    width : self.height
+    size_hint_x : 0.15
+    #size_hint_x : None
+    #width : self.height
+    height : self.width
     border : (1,1,1,1)
     
 <ReturnButton@Button>:
@@ -353,11 +355,6 @@ WindowManager:
     indicator_rx_color          : [0,0,1,1]
     indicator_tx_color          : [1,0,0,1]
     indicator_success_color     : [0,1,0,1]
-    indicator_inactive_color    : [0,0,0,1]
-    squelch_color               : [0,0,0,1]
-    receiver_color              : [0,0,0,1]
-    transmitter_color           : [0,0,0,1]
-    success_color               : [0,0,0,1]
     
     signal_low_color            : [0.6,0,0,1]
     signal_high_color           : [1,0,0,1]
@@ -442,7 +439,7 @@ WindowManager:
                     root.manager.transition.direction = "right"
 
             Label:
-                #text : 'placeholder'
+                size_hint_x : 0.1
                 name : ''
                 color : root.black
                 canvas.before:
@@ -493,41 +490,37 @@ WindowManager:
                 size_hint_x : None
                 width : self.height
     
-                Label:
+                Image:
                     name : 'squelch'
-                    canvas: 
-                        Color: 
-                            rgba: root.squelch_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_pre_rx_color
     
-                Label:
+                Image:
                     name : 'receiver'
-                    canvas: 
-                        Color: 
-                            rgba: root.receiver_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_rx_color
     
-                Label:
+                Image:
                     name : 'transmitter'
-                    canvas: 
-                        Color: 
-                            rgba: root.transmitter_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_tx_color
     
-                Label:
+                Image:
                     name : 'receiver_success'
-                    canvas: 
-                        Color: 
-                            rgba: root.success_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_success_color
                            
     ########################### Second Row ####################################            
         BoxLayout: #next row
@@ -588,11 +581,6 @@ WindowManager:
     indicator_rx_color          : [0,0,1,1]
     indicator_tx_color          : [1,0,0,1]
     indicator_success_color     : [0,1,0,1]
-    indicator_inactive_color    : [0,0,0,1]
-    squelch_color               : [0,0,0,1]
-    receiver_color              : [0,0,0,1]
-    transmitter_color           : [0,0,0,1]
-    success_color               : [0,0,0,1]
     
     top_rowh : 0.1
     center_rowh : 0.6
@@ -649,41 +637,37 @@ WindowManager:
                 size_hint_x : None
                 width : self.height
     
-                Label:
+                Image:
                     name : 'squelch'
-                    canvas: 
-                        Color: 
-                            rgba: root.squelch_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_pre_rx_color
     
-                Label:
+                Image:
                     name : 'receiver'
-                    canvas: 
-                        Color: 
-                            rgba: root.receiver_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_rx_color
     
-                Label:
+                Image:
                     name : 'transmitter'
-                    canvas: 
-                        Color: 
-                            rgba: root.transmitter_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_tx_color
     
-                Label:
+                Image:
                     name : 'receiver_success'
-                    canvas: 
-                        Color: 
-                            rgba: root.success_color
-                        Rectangle: 
-                            pos: self.pos 
-                            size: self.size 
+                    source : './resources/indicator.gif'
+                    allow_stretch : True
+                    anim_delay : -1
+                    anim_loop : 1
+                    color : root.indicator_success_color
                 
                 
     ########################### Second Row ####################################            
@@ -772,7 +756,7 @@ WindowManager:
         
         MediumLabel:
             name : ''
-            text: 'Version: 0.94' 
+            text: 'Version: 0.95' 
             halign : 'center'
     
         SetablePropertyMyCallsign:
@@ -781,24 +765,19 @@ WindowManager:
         SetablePropertyDstCallsign:
             name : 'dst_callsign'
             
-        SmallToggleButton:
-            text: 'Clear On Send?'
-            id: clearOnSend
-            name : 'clearOnSend'
-            on_state: app.toggle_pressed(self)
+        #SmallToggleButton:
+        #    text: 'Clear On Send?'
+        #    id: clearOnSend
+        #    name : 'clearOnSend'
+        #    on_state: app.toggle_pressed(self)
          
-        SmallButton:
-            text: 'Close App'
-            name : 'close_nobob'
-            on_release: app.button_pressed(self)
-    
+        Spacer:
+
         #SmallToggleButton:
         #    text: 'Auto Scroll to Latest?'
         #    id: autoScroll
         #    name : 'autoScroll'
         #    on_state: app.toggle_pressed(self)
-
-        Spacer:
     
         MediumLabel:
             name : ''
@@ -834,6 +813,12 @@ WindowManager:
             name : 'doubleAckChecked'
             on_state: app.toggle_pressed(self)
     
+        SmallToggleButton:
+            text: 'Enable Forwarding?'
+            id: enableForwarding
+            name : 'enableForwarding'
+            on_state: app.toggle_pressed(self)
+    
         SetablePropertyCarrierLength:
             name : 'carrier_length'
         
@@ -855,6 +840,14 @@ WindowManager:
             option3_name : '2'
             option4_name : '3'
             name : 'num_hops'
+    
+        Spacer:
+        Spacer:
+    
+        SmallButton:
+            text: 'Close App'
+            name : 'close_nobob'
+            on_release: app.button_pressed(self)
     
 ###################################################################        
 ####################### Statistics Window #########################
@@ -997,7 +990,7 @@ WindowManager:
         
             name : 'gps_beacon_period'
             text_autoupdate : False
-            values: '15','30','60','90','120','360'
+            values: '30','60','90','120','180','240','300','360','600'
             halign: 'center'
             on_text: app.spinner_pressed(self)   
         

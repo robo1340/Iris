@@ -48,6 +48,7 @@ BASE_PORT = 8000
 TXT_MSG_TX = "/txt_msg_tx"
 MY_CALLSIGN = "/my_callsign"
 GPS_BEACON_CMD = "/gps_beacon"
+ENABLE_FORWARDING_CMD = "/enable_forwarding"
 GPS_ONE_SHOT = '/gps_one_shot'
 STOP = '/stop'
 HOPS = '/hops'
@@ -200,7 +201,15 @@ class ViewController():
         except queue.Full:
                 log.warning('view controller tx queue is full')
         log.info('sending a gps beacon command to the Service')
-        
+    
+    def send_enable_forwarding_command(self, enableForwarding):
+        try:
+            self.tx_queue.put((0,ENABLE_FORWARDING_CMD,enableForwarding), block=False)
+        except queue.Full:
+                log.warning('view controller tx queue is full')
+        log.info('sending an enable forwarding command to the service')
+
+
     ##@brief send the service a command to transmit one gps beacon immeadiatly
     def gps_one_shot_command(self):
         log.debug('sending a gps one shot command to the service')

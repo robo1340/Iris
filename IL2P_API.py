@@ -81,6 +81,7 @@ class IL2P_API:
         
         self.forward_acks_lock = threading.Lock()
         self.forward_acks = AckSequenceList()
+        self.enable_forwarding = True
         
         self.reader = IL2P_API.IL2P_Frame_Reader(verbose=verbose, frame_engine=self.engine)
         self.writer = IL2P_API.IL2P_Frame_Writer(verbose=verbose, frame_engine=self.engine)
@@ -115,7 +116,7 @@ class IL2P_API:
             #log.info('received my own message')
             return True
         
-        if (header.hops_remaining > 0): #if this message is to be forwarded
+        if ((header.hops_remaining > 0) and (self.enable_forwarding)): #if this message is to be forwarded
             forward_msg = True
         
         #handle any forwarded acks contained in this message
