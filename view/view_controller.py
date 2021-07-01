@@ -11,11 +11,6 @@ import functools
 import zmq
 from datetime import datetime
 
-from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import BlockingOSCUDPServer
-from pythonosc.osc_server import ThreadingOSCUDPServer
-from pythonosc.udp_client import SimpleUDPClient
-
 sys.path.insert(0,'..') #need to insert parent path to import something from message
 
 #import notification.AndroidNotification as notification
@@ -55,6 +50,7 @@ HOPS = '/hops'
 FORCE_SYNC_OSMAND = '/force_sync_osmand'
 CLEAR_OSMAND_CONTACTS = '/clear_osmand_contacts'
 INCLUDE_GPS_IN_ACK = '/include_gps_in_ack'
+ENABLE_VIBRATION = '/enable_vibration'
 
 #def generate_bind_addr(num, base_port):
 #def generate_connect_addr(num, base_port):
@@ -69,7 +65,7 @@ def exception_suppressor(func):
 
 class ViewController():
 
-    def __init__(self):
+    def __init__(self,config):
         self.tx_time = time.time()
         self.gps_tx_time = time.time()
         
@@ -87,8 +83,8 @@ class ViewController():
         #keys are the callsign string, values are a GPSMessaageObject
         
         self.stopped = False
+        self.enable_vibration = config.enable_vibration
     
-        #self.thread = common.StoppableThread(target = self.view_controller_func, args=(self.server,))
         self.thread = common.StoppableThread(target = self.view_controller_func, args=(0,))
         self.thread.start()
         
@@ -98,6 +94,10 @@ class ViewController():
     def stop(self):
         self.stopped = True
     
+    def __vibrate(self,pattern):
+        if self.enable_vibration:
+            vibrator.pattern(pattern=pattern)
+        
     #the thread function
     def view_controller_func(self,arg):
         #sub = self.context.socket(zmq.SUB)
@@ -250,6 +250,13 @@ class ViewController():
         except queue.Full:
             log.warning('view controller tx queue is full')
     
+    def send_enable_vibration(self, enable_vibration):
+        self.enable_vibration = enable_vibration
+        #try:
+        #    self.tx_queue.put((0,ENABLE_VIBRATION,enable_vibration), block=False)
+        #except queue.Full:
+        #    log.warning('view controller tx queue is full')  
+    
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
     ###############################################################################
@@ -271,8 +278,7 @@ class ViewController():
             self.contacts_dict[msg.header.src_callsign] = gps_msg
             
             toast('Text from ' + msg.header.src_callsign)
-            vibrator.pattern(pattern=text_msg_vibe_pattern)
-        
+            self.__vibrate(pattern=text_msg_vibe_pattern)
     
     ##@brief handler for when a GPSMessage object is received from the service that was received by the radio
     def gps_msg_handler(self, gps_msg):
@@ -281,11 +287,11 @@ class ViewController():
                 return
             
             if not gps_msg.src_callsign in self.contacts_dict:
-                vibrator.pattern(pattern=new_gps_contact_vibe_pattern)
+                self.__vibrate(pattern=new_gps_contact_vibe_pattern)
                 Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, gps_msg), 0)
             else:
                 Clock.schedule_once(functools.partial(self.ui.updateGPSContact, gps_msg), 0)
-                vibrator.pattern(pattern=gps_beacon_contact_vibe_pattern)
+                self.__vibrate(pattern=gps_beacon_contact_vibe_pattern)
             self.contacts_dict[gps_msg.src_callsign] = gps_msg
             toast('GPS Beacon from ' + gps_msg.src_callsign)
             
@@ -301,7 +307,7 @@ class ViewController():
         ack_callsign = args[0]
         ack_key = args[1]
         toast('Ack received from ' + str(ack_callsign))
-        vibrator.pattern(pattern=ack_vibe_pattern)
+        self.__vibrate(pattern=ack_vibe_pattern)
         Clock.schedule_once(functools.partial(self.ui.addAckToUI, ack_key), 0)  
         
     @exception_suppressor

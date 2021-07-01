@@ -38,7 +38,7 @@ if __name__ == "__main__":
             config = config.Configuration(Fs=8000, Npoints=2, frequencies=[2000])
             common.updateConfigFile(config)
 
-        viewController = ViewController()
+        viewController = ViewController(config)
         import view.ui_mobile_kivy
         ui = view.ui_mobile_kivy.ui_mobileApp(viewController, config)
         viewController.ui = ui

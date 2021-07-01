@@ -10,7 +10,6 @@ contains a root Widget.
 '''
 
 import kivy
-import plyer
 from kivy.config import Config
 from kivy.app import App
 from kivy.graphics import Color
@@ -133,13 +132,11 @@ class ui_mobileApp(App, UI_Interface):
         
         self.hops = 0
         
-        self.messagesLock = threading.Lock()
+        #self.messagesLock = threading.Lock()
         self.messages = [] # a list of message widgets
-        self.messages_dict = {} #a dictionary of message widgets where keys are (src_callsign, dst_callsign, ack_seq, hour received) and values are TextMessage objects
-        
+
         self.contact_widgets = {}
         
-        #self.main_window = lambda : self.__get_child(self.root, 'main')
         self.main_window        = lambda : self.root.ids.main_window
         self.chat_window        = lambda : self.root.ids.chat_window
         self.settings_window    = lambda : self.root.ids.settings_window
@@ -240,10 +237,11 @@ class ui_mobileApp(App, UI_Interface):
             hops = int(pressed_button.name)
             hops = min(3,max(hops,0))
             self.hops = hops
+            self.config_file.hops = hops
             self.viewController.update_hops(hops)
         else:
             return
-        #updateConfigFile(self.ini_config)
+        #updateConfigFile(self.config_file)
     
     def toggle_pressed(self, toggle_button):
         #print(toggle_button.name)
@@ -265,13 +263,15 @@ class ui_mobileApp(App, UI_Interface):
         elif (toggle_button.name == 'gpsAck'):
             self.include_gps_in_ack = True if (toggle_button.state == 'down') else False
             self.viewController.send_include_gps_in_ack(self.include_gps_in_ack)
+        elif (toggle_button.name == 'enableVibration'):
+            enable = True if (toggle_button.state == 'down') else False
+            self.viewController.send_enable_vibration(enable)
 
     def button_pressed(self, button):
         if (button.name == 'force_sync_osmand'):
             self.viewController.force_sync_osmand()
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
-            #self.viewController.clear_osmand_contacts()
         elif (button.name == 'close_nobob'):
             self.spawn_confirm_popup('Close NoBoB?', self.shutdown_nobob)
             
@@ -337,14 +337,7 @@ class ui_mobileApp(App, UI_Interface):
         
         if (self.root.current != "chat") and (not my_message):
             menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
-            menu_button.background_normal = './resources/icons/chat_pending.png'
-        
-        #if (msg.header.request_ack or msg.header.request_double_ack):
-        #    id_tuple = (msg.header.src_callsign,msg.header.dst_callsign,msg.header.getMyAckSequence(),datetime.now().hour)
-        #    if id_tuple in self.messages_dict.keys(): # we already received this, do not display it again
-        #        return
-        #    else:
-        #        self.messages_dict[id_tuple] = 1                
+            menu_button.background_normal = './resources/icons/chat_pending.png'          
         
         txt_msg_widget = TextMessage() #create the new widget
         
@@ -378,9 +371,9 @@ class ui_mobileApp(App, UI_Interface):
         txt_msg_widget.message_text = message_text
         message_container.add_widget(txt_msg_widget)
         
-        self.messagesLock.acquire()
+        #self.messagesLock.acquire()
         self.messages.append(UI_Message(msg, txt_msg_widget))
-        self.messagesLock.release()
+        #self.messagesLock.release()
 
         if (self.autoScroll == True):
             scroll_bar.scroll_to(txt_msg_widget)
@@ -388,7 +381,7 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
     ##@ack_key, the sequence number for the ack message
     def addAckToUI(self, ack_key, *largs):
-        self.messagesLock.acquire()
+        #self.messagesLock.acquire()
         for msg in self.messages:
             if (msg.ack_key is None):
                 continue
@@ -396,14 +389,14 @@ class ui_mobileApp(App, UI_Interface):
                 ack_time_str = ('Acked at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
                 msg.widget.time_text = ack_time_str
                 msg.widget.background_color = self.chat_window().text_msg_color_ack_received
-        self.messagesLock.release()
+        #self.messagesLock.release()
 
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
     ##@ack_key, a sequence number forming the ack this message expects
     ##@remaining_retries, the number of times this message will be re-transmitted if no ack is received
     def updateRetryCount(self, ack_key, remaining_retries, *largs):
         
-        self.messagesLock.acquire()
+        #self.messagesLock.acquire()
         for msg in self.messages:
             if (msg.ack_key is None):
                 continue
@@ -414,7 +407,7 @@ class ui_mobileApp(App, UI_Interface):
                     update_time_str = ('| {0:s} | ').format(datetime.now().strftime("%H:%M:%S"))
                     time_text = update_time_str + str(remaining_retries) + ' retries left'
                     msg.widget.time_text = time_text
-        self.messagesLock.release()
+        #self.messagesLock.release()
     
     def updateHeaderInfo(self, info, *largs):
         self.header_info = info
@@ -545,7 +538,10 @@ class ui_mobileApp(App, UI_Interface):
         enable_widget = self.__get_child(settings, 'enableForwarding')
         self.enableForwarding = config.enableForwarding
         enable_widget.state = 'down' if self.enableForwarding else 'normal'
-                
+        
+        vibrate_widget = self.__get_child(settings, 'enableVibration')
+        vibrate_widget.state = 'down' if config.enable_vibration else 'normal'
+        
         #scroll_widget = self.__get_child(settings, 'autoScroll')
         self.autoScroll = config.autoScroll
         #scroll_widget.state = 'down' if self.autoScroll else 'normal'
@@ -616,10 +612,8 @@ class ui_mobileApp(App, UI_Interface):
     
     def shutdown_nobob(self):
         log.info('stop()')
-        self.viewController.send_gps_beacon_command(False,30) #disable the gps beacon
-        #time.sleep(0.25)
         self.viewController.service_stop_command() # send a message to stop the service threads
-        time.sleep(1.5)
+        time.sleep(0.75)
         self.viewController.stop() ##ui has stopped (the user likely clicked exit), stop the view Controller
         App.get_running_app().stop()
    

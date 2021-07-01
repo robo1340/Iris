@@ -1,10 +1,7 @@
 import itertools
-import logging
-
 import numpy as np
 
 import common
-#import equalizer
 import dsp
 
 from kivy.logger import Logger as log

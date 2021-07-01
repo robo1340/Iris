@@ -27,6 +27,8 @@ class Configuration:
     gps_beacon_period = 60
     carrier_length = 750
     enableForwarding = True
+    enable_vibration = True
+    hops = 1
     
     master_timeout = 20
     tx_cooldown = 1

@@ -1,20 +1,14 @@
 import threading
 import time
-import random
 import logging
 import queue
-import random
+import numpy as np
 import time
 import sched
 import sys
 import functools
 import zmq
 from datetime import datetime
-
-from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import BlockingOSCUDPServer
-from pythonosc.osc_server import ThreadingOSCUDPServer
-from pythonosc.udp_client import SimpleUDPClient
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import *
@@ -75,12 +69,11 @@ class ServiceController():
         
         self.gps_beacon_enable = config.gps_beacon_enable
         self.gps_beacon_period = config.gps_beacon_period
-        
-        self.timer = threading.Timer(0.0, self.schedule_gps_beacon)
-        self.gps_beacon_sched = sched.scheduler(time.time, time.sleep)
+        self.gps_next_beacon = time.time() if self.gps_beacon_enable else -1
         self.carrier_length = config.carrier_length
         
         self.hops = 0
+        #self.enable_vibration = config.enable_vibration
         
         self.gps = gps
         if (self.gps != None):
@@ -91,6 +84,9 @@ class ServiceController():
         
         self.pub_thread = common.StoppableThread(target = self.service_pub_func, args=(0,))
         self.pub_thread.start()
+        
+        self.gps_thread = common.StoppableThread(target = self.gps_beacon_thread_func, args=(0,))
+        self.gps_thread.start()
         
     ###############################################################################
     ## Handlers for when the service receives a message from the View Controller ##
@@ -133,6 +129,8 @@ class ServiceController():
                         threading.Timer(0, self.clear_osmand_contacts_handler).start()   
                     elif (header == view_c.INCLUDE_GPS_IN_ACK):
                         self.include_gps_in_ack_handler(payload)
+                    #elif (header == view_c.ENABLE_VIBRATION):
+                    #    self.enable_vibration_handler(payload)
                     else:
                         log.info('No handler found for topic %s' % (header))
                 
@@ -176,14 +174,6 @@ class ServiceController():
         log.debug('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
-        
-        if (self.gps_beacon_enable == True):
-            self.timer = threading.Timer(0.0, self.schedule_gps_beacon)
-            self.timer.start()
-        else: #logic to cancel the beacon if self.gps_beacon_enable is False
-            self.timer.cancel()
-            for event in self.gps_beacon_sched.queue:
-                self.gps_beacon_sched.cancel(event)
     
     def enable_forwarding_handler(self, enable_forwarding):
         self.il2p.enable_forwarding = enable_forwarding
@@ -208,6 +198,9 @@ class ServiceController():
     
     def include_gps_in_ack_handler(self, include_gps):
         self.il2p.include_gps_in_ack = include_gps
+    
+    #def enable_vibration_handler(self, enable_vibration):
+    #    self.enable_vibration = enable_vibration
     
     ###############################################################################
     ## Handlers for when the service receives a GPS Message from the Transceiver ##
@@ -312,17 +305,19 @@ class ServiceController():
     def stopped(self):
         return self.isStopped
     
-    def schedule_gps_beacon(self):
-        log.debug('schedule_gps_beacon()')
-        T = self.gps_beacon_period
-        self.gps_beacon_sched.enter(T + 0.25*random.uniform(-T,T), 1, self.meta_transmit_gps_beacon, ())
-        self.gps_beacon_sched.run(blocking=True)
-        
-    def meta_transmit_gps_beacon(self):
-        self.transmit_gps_beacon()
-        if (self.gps_beacon_enable):
-            log.debug('reschedule the beacon')
-            self.schedule_gps_beacon()
+    def gps_beacon_thread_func(self, args):
+        while not self.stopped():
+            if (self.gps_beacon_enable):
+                if (self.gps_next_beacon == -1):
+                    T = self.gps_beacon_period
+                    self.gps_next_beacon = time.time() + T + 0.1*np.random.uniform(-T,T)
+                elif (time.time() > self.gps_next_beacon):
+                    self.transmit_gps_beacon()
+                    T = self.gps_beacon_period
+                    self.gps_next_beacon = time.time() + T + 0.1*np.random.uniform(-T,T)
+            else:
+                self.gps_next_beacon = -1
+            time.sleep(1)
     
     def transmit_gps_beacon(self):
         if (self.gps is None):

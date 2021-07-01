@@ -439,7 +439,7 @@ WindowManager:
                     root.manager.transition.direction = "right"
 
             Label:
-                size_hint_x : 0.1
+                size_hint_x : 0.15
                 name : ''
                 color : root.black
                 canvas.before:
@@ -744,7 +744,7 @@ WindowManager:
                 size: self.size
                 pos: self.pos        
         
-        AnchorLayout: #lower left tool panel
+        AnchorLayout: 
             anchor_x : 'left'
             anchor_y : 'top'
             name : ''
@@ -756,7 +756,7 @@ WindowManager:
         
         MediumLabel:
             name : ''
-            text: 'Version: 0.95' 
+            text: 'Version: 0.96' 
             halign : 'center'
     
         SetablePropertyMyCallsign:
@@ -765,11 +765,11 @@ WindowManager:
         SetablePropertyDstCallsign:
             name : 'dst_callsign'
             
-        #SmallToggleButton:
-        #    text: 'Clear On Send?'
-        #    id: clearOnSend
-        #    name : 'clearOnSend'
-        #    on_state: app.toggle_pressed(self)
+        SmallToggleButton:
+            text: 'Enable Vibration'
+            id: enableVibration
+            name : 'enableVibration'
+            on_state: app.toggle_pressed(self)
          
         Spacer:
 
@@ -778,23 +778,6 @@ WindowManager:
         #    id: autoScroll
         #    name : 'autoScroll'
         #    on_state: app.toggle_pressed(self)
-    
-        MediumLabel:
-            name : ''
-            text: 'Osmand Settings' 
-            halign : 'center'
-    
-        SmallButton:
-            text: 'Force Sync Osmand'
-            name : 'force_sync_osmand'
-            on_release: app.button_pressed(self)
-    
-        SmallButton:
-            text: 'Clear Osmand Contacts'
-            name : 'clear_osmand_contacts'
-            on_release: app.button_pressed(self)
-
-        Spacer:
         
         MediumLabel:
             name : ''
@@ -842,7 +825,16 @@ WindowManager:
             name : 'num_hops'
     
         Spacer:
-        Spacer:
+    
+        Label:
+            name : ''
+            color : root.black
+            canvas.before:
+                Color:
+                    rgba: root.gray
+                Line:
+                    width: 1
+                    rectangle: self.x, self.y, self.width, self.height
     
         SmallButton:
             text: 'Close App'
@@ -994,10 +986,27 @@ WindowManager:
             halign: 'center'
             on_text: app.spinner_pressed(self)   
         
+        Spacer:
+        
         MediumLabel:
             name : ''
-            text : 'GPS Message Log'
-            halign: 'center'
+            text: 'Osmand Settings' 
+            halign : 'center'
+    
+        SmallButton:
+            text: 'Force Sync Osmand'
+            name : 'force_sync_osmand'
+            on_release: app.button_pressed(self)
+    
+        SmallButton:
+            text: 'Clear Osmand Contacts'
+            name : 'clear_osmand_contacts'
+            on_release: app.button_pressed(self)
+    
+        #MediumLabel:
+        #    name : ''
+        #    text : 'GPS Message Log'
+        #    halign: 'center'
         
         ScrollView: 
             name : 'scroll_bar'

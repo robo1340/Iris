@@ -82,7 +82,7 @@ class CSMA_Controller():
 ##@dst a stream to send bytes to
 ##@param carrier_length specifies the carrier length (in milliseconds) to use
 ##@return returns true when src is sent successfully, returns false when an exception occurs
-@func_set_timeout(master_timeout)
+#@func_set_timeout(master_timeout)
 def send(config, src, dst, carrier_length):    
     sender = _send.Sender(dst, config=config, carrier_length=carrier_length)
     Fs = config.Fs
@@ -132,7 +132,7 @@ def playAudioData(player, pcmFileName):
 ##@dst a ReceiverPipe object to place outgoing bytes after they have been decoded
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
-@func_set_timeout(master_timeout)
+#@func_set_timeout(master_timeout)
 def recv(detector, receiver, signal, dst, stat_update, service_controller):
     try:
         log.debug('Waiting for carrier tone')
@@ -288,14 +288,10 @@ def transceiver_func(args, service_controller, stats, il2p, config):
     while (service_controller.stopped() == False):
 
         with args.interface:
-        #    args.interface.print_input_devices()
-
             #receiver objects
             detector = detect.Detector(config=config)
             receiver = _recv.Receiver(config=config)
 
-            #input_opener = common.FileType('rb', interface_factory)
-            #args.recv_src = input_opener(args.input) #receive data from the audio library
             args.recv_src = common.audioOpener('rb', interface_factory, csma.feedNewValue)
             reader = stream.Reader(args.recv_src, data_type=common.loads)
             signal = itertools.chain.from_iterable(reader)
@@ -334,7 +330,6 @@ def transceiver_func(args, service_controller, stats, il2p, config):
                                 stats.txs += 1
                                 service_controller.send_statistic('tx_success',stats.txs)
 
-                                #mplayer = AndroidMediaPlayer()
                                 #convert the intermediate pcm file to a wav file and play it with a java class
                                 args.sender_dst.close()   
                                 playAudioData(mplayer,'temp.pcm')
