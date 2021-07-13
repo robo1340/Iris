@@ -76,11 +76,17 @@ def exception_suppressor(func):
         except BaseException:
             pass
     return meta_function
-        
+
 class UI_Message():
-    def __init__(self, msg, widget):
+    def __init__(self, msg, background_color, header_text, time_text, message_text):
+        self.msg = msg
         self.ack_key = msg.get_ack_seq()
-        self.widget = widget
+        self.ui_time = time.time() #mark the time at which the UI element was originally created
+        
+        self.background_color = background_color
+        self.header_text = header_text
+        self.time_text = time_text
+        self.message_text = message_text
 
 class TextMessage(BoxLayout):
     pass
@@ -133,7 +139,8 @@ class ui_mobileApp(App, UI_Interface):
         self.hops = 0
         
         #self.messagesLock = threading.Lock()
-        self.messages = [] # a list of message widgets
+        #self.messages = [] # a list of message widgets
+        self.messages = {} # dictionary of widgets where the key is the widget and the items are the message data
 
         self.contact_widgets = {}
         
@@ -146,6 +153,8 @@ class ui_mobileApp(App, UI_Interface):
         self.gps_msg_widgets = deque(maxlen=5)
         
         self.status_update_dwell_time = 1.0 #the dwell time of status updates in seconds
+        
+        self.colors = {}
     
         super().__init__()
     
@@ -272,6 +281,8 @@ class ui_mobileApp(App, UI_Interface):
             self.viewController.force_sync_osmand()
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
+        elif (button.name == 'clear_messages'):
+            self.spawn_confirm_popup('Delete All Messages?' , self.clearReceivedMessages)
         elif (button.name == 'close_nobob'):
             self.spawn_confirm_popup('Close NoBoB?', self.shutdown_nobob)
             
@@ -322,8 +333,25 @@ class ui_mobileApp(App, UI_Interface):
         cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
         cgif._coreimage.anim_reset(True)
         cgif.anim_delay = 0.1
+    
+    def load_messages_from_file(self):
+        ui_messages = common.load_message_file()
+        #self.messages = common.load_message_file()
+        message_container = self.__get_child_from_base(self.chat_window(),('root_chat','second_row','scroll_bar'), 'message_container')
+        scroll_bar = self.__get_child_from_base(self.chat_window(), ('root_chat','second_row'), 'scroll_bar')
         
- 
+        for ui_message in ui_messages:
+            widget = TextMessage() #create the new widget
+            widget.background_color = self.colors[ui_message.background_color]
+            widget.header_text = ui_message.header_text
+            widget.time_text = ui_message.time_text
+            widget.message_text = ui_message.message_text
+            self.messages[widget] = ui_message
+            message_container.add_widget(widget)
+            
+        #if (self.autoScroll == True):
+        #    scroll_bar.scroll_to(txt_msg_widget)
+            
     ##@brief add a new message label to the main scroll panel on the gui
     ##@param msg A TextMessageObject containing the received message
     ##@param my_message, set to True when the method is coming from the local UI, set to False when the message is being received from the service
@@ -339,41 +367,43 @@ class ui_mobileApp(App, UI_Interface):
             menu_button = self.__get_child_from_base(self.main_window(), ('root_main','first_row'), 'chat_menu_button')
             menu_button.background_normal = './resources/icons/chat_pending.png'          
         
-        txt_msg_widget = TextMessage() #create the new widget
-        
         #get the strings the widget will be filled with
         if (msg.header.dst_callsign == 6*' '):
             header_text = msg.header.src_callsign
         else:
-            header_text = ('{0:s} to {1:s}').format(msg.header.src_callsign, msg.header.dst_callsign)
+            header_text = "%s to %s" % (msg.header.src_callsign, msg.header.dst_callsign)
         
-        time_text = ('{0:s}').format(datetime.now().strftime("%H:%M:%S"))
+        time_text = msg.time_str
         message_text = msg.payload_str.rstrip('\n')
         
-        txt_msg_widget.background_color = chat_window.text_msg_color
+        background_color = chat_window.text_msg_color
 
         if (msg.header.dst_callsign == self.my_callsign): #if the message was addressed to me
-            txt_msg_widget.background_color = chat_window.text_msg_at_color
+            background_color = chat_window.text_msg_at_color
             message_text = '@' + self.my_callsign + ' ' + message_text
             
         if ((my_message == True) and(msg.header.src_callsign == self.my_callsign)): #if the message was sent by me
             
             if (msg.header.request_ack == True):
-                txt_msg_widget.background_color = chat_window.text_msg_color_ack_pending
+                background_color = chat_window.text_msg_color_ack_pending
             else:
-                txt_msg_widget.background_color = chat_window.text_msg_color_no_ack_expect
-            sent_time_str = ('| {0:s}').format(datetime.now().strftime("%H:%M:%S"))
+                background_color = chat_window.text_msg_color_no_ack_expect
+            sent_time_str = "| %s" % (datetime.now().strftime("%H:%M:%S"),)
             ack_time_str = ' | Ack Pending' if (msg.header.request_ack == True) else ''
             time_text = sent_time_str + ack_time_str
         
+        txt_msg_widget = TextMessage() #create the new widget
+        txt_msg_widget.background_color = background_color
         txt_msg_widget.header_text = header_text
         txt_msg_widget.time_text = time_text
         txt_msg_widget.message_text = message_text
         message_container.add_widget(txt_msg_widget)
         
-        #self.messagesLock.acquire()
-        self.messages.append(UI_Message(msg, txt_msg_widget))
-        #self.messagesLock.release()
+        background_color_ind = [i for i,x in enumerate(self.colors) if x == background_color][0]
+        ui_message = UI_Message(msg, background_color_ind, header_text, time_text, message_text)
+        self.messages[txt_msg_widget] = ui_message
+        
+        common.update_message_file(list(self.messages.values()))
 
         if (self.autoScroll == True):
             scroll_bar.scroll_to(txt_msg_widget)
@@ -381,33 +411,33 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
     ##@ack_key, the sequence number for the ack message
     def addAckToUI(self, ack_key, *largs):
-        #self.messagesLock.acquire()
-        for msg in self.messages:
+        current = time.time()
+        for widget, msg in self.messages.items():
+            if ((current - msg.ui_time) > 3600): #don't bother looking for acks in messages more than an hour old
+                continue
             if (msg.ack_key is None):
                 continue
             if (msg.ack_key == ack_key):
-                ack_time_str = ('Acked at {0:s}').format(datetime.now().strftime("%H:%M:%S"))
-                msg.widget.time_text = ack_time_str
-                msg.widget.background_color = self.chat_window().text_msg_color_ack_received
-        #self.messagesLock.release()
+                widget.time_text = "Acked at %s" % (datetime.now().strftime("%H:%M:%S"),)
+                widget.background_color = self.chat_window().text_msg_color_ack_received
+                msg.background_color = [i for i,x in enumerate(self.colors) if x == widget.background_color][0]
+                msg.time_text = widget.time_text
+        common.update_message_file(list(self.messages.values()))
 
     ##@brief look through the current messages displayed on the ui and update any that have an ack_key matching the ack_key passed in
     ##@ack_key, a sequence number forming the ack this message expects
     ##@remaining_retries, the number of times this message will be re-transmitted if no ack is received
     def updateRetryCount(self, ack_key, remaining_retries, *largs):
-        
-        #self.messagesLock.acquire()
-        for msg in self.messages:
+        for widget, msg in self.messages.items():
             if (msg.ack_key is None):
                 continue
             if (msg.ack_key == ack_key):
                 if (remaining_retries == -1): #mark this message as having received no acknowledgments before timeout
-                    msg.widget.time_text = ' | No Ack Received'
+                    widget.time_text = ' | No Ack Received'
                 else: #update the remaining retries value
-                    update_time_str = ('| {0:s} | ').format(datetime.now().strftime("%H:%M:%S"))
-                    time_text = update_time_str + str(remaining_retries) + ' retries left'
-                    msg.widget.time_text = time_text
-        #self.messagesLock.release()
+                    widget.time_text = '| %s | %d retries left' % (datetime.now().strftime("%H:%M:%S"), remaining_retries)
+                msg.time_text = widget.time_text
+        common.update_message_file(list(self.messages.values()))
     
     def updateHeaderInfo(self, info, *largs):
         self.header_info = info
@@ -434,7 +464,17 @@ class ui_mobileApp(App, UI_Interface):
         property.value_text = new_val
     
     def clearReceivedMessages(self):
-        return False ###### Note: this isn't really implemented but isn't needed at the moment
+        #clear all messages from the UI first
+        message_container = self.__get_child_from_base(self.chat_window(),('root_chat','second_row','scroll_bar'), 'message_container')
+        
+        for widget in self.messages.keys():
+            message_container.remove_widget(widget)
+        
+        #now clear messages from disk
+        self.messages = {}
+        common.update_message_file(list(self.messages.values()))
+        
+        return True ###### Note: this isn't really implemented but isn't needed at the moment
     
     def isAckChecked(self):
         return self.ackChecked
@@ -607,6 +647,16 @@ class ui_mobileApp(App, UI_Interface):
     #callback is called when application is started
     def on_start(self, **kwargs):
         self.__apply_config(self.config_file)
+        
+        chat_window = self.chat_window()
+        self.colors = [chat_window.text_msg_color,
+                       chat_window.text_msg_at_color,
+                       chat_window.text_msg_color_ack_pending,
+                       chat_window.text_msg_color_ack_received,
+                       chat_window.text_msg_color_no_ack_expect
+                      ]
+        
+        self.load_messages_from_file() #load any pre-existing messages
    
     #gracefully shut everything down when the user exits
     

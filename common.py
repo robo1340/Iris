@@ -16,6 +16,7 @@ import numpy as np
 import kivy.utils
 
 CONFIG_FILE = 'config.pickle'
+MESSAGE_FILE = 'messages.pickle'
 
 from kivy.logger import Logger as log
 
@@ -70,6 +71,17 @@ CARRIER_DETECTED = "carrier_detected"
 SQUELCH_CLOSED = "squelch_closed"
 MESSAGE_RECEIVED = "message_received"
 TRANSMITTING = "transmitting"
+
+def load_message_file(return_if_empty=[]):
+    if os.path.isfile('./' + MESSAGE_FILE):
+        with open(MESSAGE_FILE, 'rb') as f:
+            return pickle.load(f)
+    else:
+        return return_if_empty
+
+def update_message_file(new_messages):
+    with open(MESSAGE_FILE, 'wb') as f:
+        pickle.dump(new_messages, f)
 
 def updateConfigFile(new_config):
     with open(CONFIG_FILE, 'wb') as f:

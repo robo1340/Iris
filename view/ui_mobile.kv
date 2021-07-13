@@ -756,7 +756,7 @@ WindowManager:
         
         MediumLabel:
             name : ''
-            text: 'Version: 0.96' 
+            text: 'Version: 0.97' 
             halign : 'center'
     
         SetablePropertyMyCallsign:
@@ -825,6 +825,11 @@ WindowManager:
             name : 'num_hops'
     
         Spacer:
+    
+        SmallButton:
+            text: 'Clear Messages'
+            name: 'clear_messages'
+            on_release: app.button_pressed(self)
     
         Label:
             name : ''
