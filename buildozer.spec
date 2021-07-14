@@ -1,10 +1,10 @@
 [app]
 
 # (str) Title of your application
-title = NoBoB
+title = Iris
 
 # (str) Package name
-package.name = nobob
+package.name = iris
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = com.projectx
