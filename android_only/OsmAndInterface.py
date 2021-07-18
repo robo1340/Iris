@@ -10,7 +10,7 @@ import pickle
 
 from kivy.logger import Logger as log
 
-CONTACT_CATEGORY = 'NoBoB Contacts'
+CONTACT_CATEGORY = 'Iris Contacts'
 
 OSM_COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
 

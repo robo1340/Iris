@@ -16,6 +16,7 @@ LGG6
 
 Radios Tested On:
 Baofeng UV-82hp
+Baofeng UV-5R
 Kenwood TH-K20A
 
 Cables Tested:

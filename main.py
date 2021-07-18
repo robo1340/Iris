@@ -51,7 +51,7 @@ if __name__ == "__main__":
         #service.start(mActivity, 'arg')
         
         import android
-        android.start_service(title='NoBoB Service',description='NoBoB Radio Service',arg='arg')
+        android.start_service(title='Iris Service',description='Iris Radio Service',arg='arg')
         
         #from inspect import getmembers, isfunction
         #log.info('------------------------------------')
