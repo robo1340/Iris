@@ -8,6 +8,7 @@ import sched
 import sys
 import functools
 import zmq
+import pickle
 from datetime import datetime
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
@@ -265,11 +266,14 @@ class ServiceController():
                 log.warning('service controller tx queue is full')
     
     def send_status(self, status):
-        log.debug('service sending status to View Controller')
-        try:
-            self.tx_queue.put((1,STATUS_INDICATOR,status), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        with open('./status_ind.pickle', 'wb') as f:
+            pickle.dump(status, f)
+        
+        #log.debug('service sending status to View Controller')
+        #try:
+        #    self.tx_queue.put((1,STATUS_INDICATOR,status), block=False)
+        #except queue.Full:
+        #        log.warning('service controller tx queue is full')
 
     def send_statistic(self, type_str, value):
         try:

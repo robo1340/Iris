@@ -1,4 +1,9 @@
+
 import numpy as np
+import os
+import pickle
+import random
+import string
     
 ##@brief configuration class
 class Configuration:
@@ -20,7 +25,19 @@ class Configuration:
     skip_start = 0.1
     timeout = 2.0 #timeout when looking for prefix symbols
 
-    my_callsign = 'BAYWAX'
+    #print ( ''.join(random.choice(string.ascii_uppercase) for i in range(6)) )
+    
+    my_callsign = ''
+    
+    #randomly generate a callsign if the program is being started for the first time
+    if os.path.isfile('./my_callsign_default.pickle'):
+        with open('./my_callsign_default.pickle', 'rb') as f:
+            my_callsign = pickle.load(f)
+    else:
+        my_callsign = ''.join(random.choice(string.ascii_uppercase) for i in range(6))
+        with open('./my_callsign_default.pickle', 'wb') as f:
+            pickle.dump(my_callsign, f)
+    
     dst_callsign = 'WAYWAX'
     
     gps_beacon_enable = False

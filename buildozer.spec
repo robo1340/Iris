@@ -163,7 +163,9 @@ android.add_src = OsmAndHelper.java, OsmAndAidlHelper.java
 #android.gradle_dependencies = androidx.annotation:annotation:1.1.0, com.github.osmandapp:Osmand:master-SNAPSHOT
 #android.gradle_dependencies = com.github.osmandapp:osmand:2.0.0
 #android.gradle_dependencies = com.github.osmandapp:osmand:2270d1c
-android.gradle_dependencies = com.github.osmandapp:Osmand:master-SNAPSHOT
+
+android.gradle_dependencies = com.github.osmandapp:osmand:master-SNAPSHOT
+#android.gradle_dependencies = com.github.osmandapp:Osmand:master-SNAPSHOT
 
 #, com.android.tools.build:gradle:3.4.2
 #, com.github.osmandapp:Osmand:master-SNAPSHOT

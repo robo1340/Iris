@@ -34,8 +34,10 @@ import threading, queue
 #import random
 import functools
 import textwrap
+import os
 import sys
 import logging
+import pickle
 from collections import deque
 
 Config.set('graphics', 'maxfps', '1')
@@ -284,7 +286,7 @@ class ui_mobileApp(App, UI_Interface):
         elif (button.name == 'clear_messages'):
             self.spawn_confirm_popup('Delete All Messages?' , self.clearReceivedMessages)
         elif (button.name == 'close_nobob'):
-            self.spawn_confirm_popup('Close NoBoB?', self.shutdown_nobob)
+            self.spawn_confirm_popup('Close Iris?', self.shutdown_nobob)
             
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
@@ -310,6 +312,34 @@ class ui_mobileApp(App, UI_Interface):
             
     
     ############## input functions implementing UI_Interface #################
+    
+    ##@brief the method called by the viewController that will schedule a status update, after the
+    ##       dwell time for the previous status update has ellapsed
+    ##@param status an integer value that maps to the new status to be added to the queue
+    def updateStatusIndicator2(self, *largs):
+        if os.path.isfile('./status_ind.pickle'):
+            with open('./status_ind.pickle', 'rb') as f:
+                status = pickle.load(f)
+
+                if (status == common.SQUELCH_OPEN):
+                    name = 'squelch'
+                elif (status == common.CARRIER_DETECTED):
+                    name = 'receiver'
+                elif (status == common.MESSAGE_RECEIVED):
+                    name = 'receiver_success'
+                elif (status == common.TRANSMITTING):
+                    name = 'transmitter'
+                else:
+                    return
+
+                mgif = self.__get_child_from_base(self.main_window(),('root_main','first_row','status_indicators'), name)
+                mgif._coreimage.anim_reset(True)
+                mgif.anim_delay = 0.1
+
+                cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
+                cgif._coreimage.anim_reset(True)
+                cgif.anim_delay = 0.1
+    
     
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
@@ -657,6 +687,8 @@ class ui_mobileApp(App, UI_Interface):
                       ]
         
         self.load_messages_from_file() #load any pre-existing messages
+        
+        Clock.schedule_interval(self.updateStatusIndicator2, 0.1)
    
     #gracefully shut everything down when the user exits
     
