@@ -47,7 +47,14 @@ class OsmAndInterface():
         #keys are the callsign string, values are a tuple are objects of type ContactPoint
         self.started = False
         self.start()
-            
+
+    def set_map_location(self, lat, lon):
+        try:
+            self.api.setMapLocation(lat, lon, 0, 0, True) #keep zoom level the same and set animated to true
+            self.api.refreshMap()
+        except BaseException:
+            log.error('Error: exception occurred in set_map_location()')
+        
     def isStarted(self):
         return self.started
     

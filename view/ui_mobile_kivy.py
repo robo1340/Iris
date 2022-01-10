@@ -316,53 +316,33 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief the method called by the viewController that will schedule a status update, after the
     ##       dwell time for the previous status update has ellapsed
     ##@param status an integer value that maps to the new status to be added to the queue
-    def updateStatusIndicator2(self, *largs):
-        if os.path.isfile('./status_ind.pickle'):
-            with open('./status_ind.pickle', 'rb') as f:
-                status = pickle.load(f)
+    def updateStatusIndicator(self, *largs):
+        if os.path.isfile('./' + common.STATUS_IND_FILE):
+            if ((time.time() - os.path.getmtime('./' + common.STATUS_IND_FILE)) < 0.2): #if only modified recently
+                with open('./' + common.STATUS_IND_FILE, 'rb') as f:
+                    try:
+                        status = pickle.load(f)
 
-                if (status == common.SQUELCH_OPEN):
-                    name = 'squelch'
-                elif (status == common.CARRIER_DETECTED):
-                    name = 'receiver'
-                elif (status == common.MESSAGE_RECEIVED):
-                    name = 'receiver_success'
-                elif (status == common.TRANSMITTING):
-                    name = 'transmitter'
-                else:
-                    return
+                        if (status == common.SQUELCH_OPEN):
+                            name = 'squelch'
+                        elif (status == common.CARRIER_DETECTED):
+                            name = 'receiver'
+                        elif (status == common.MESSAGE_RECEIVED):
+                            name = 'receiver_success'
+                        elif (status == common.TRANSMITTING):
+                            name = 'transmitter'
+                        else:
+                            return
 
-                mgif = self.__get_child_from_base(self.main_window(),('root_main','first_row','status_indicators'), name)
-                mgif._coreimage.anim_reset(True)
-                mgif.anim_delay = 0.1
+                        mgif = self.__get_child_from_base(self.main_window(),('root_main','first_row','status_indicators'), name)
+                        mgif._coreimage.anim_reset(True)
+                        mgif.anim_delay = 0.1
 
-                cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
-                cgif._coreimage.anim_reset(True)
-                cgif.anim_delay = 0.1
-    
-    
-    ##@brief the method called by the viewController that will schedule a status update, after the
-    ##       dwell time for the previous status update has ellapsed
-    ##@param status an integer value that maps to the new status to be added to the queue
-    def updateStatusIndicator(self, status, *largs):
-        if (status == common.SQUELCH_OPEN):
-            name = 'squelch'
-        elif (status == common.CARRIER_DETECTED):
-            name = 'receiver'
-        elif (status == common.MESSAGE_RECEIVED):
-            name = 'receiver_success'
-        elif (status == common.TRANSMITTING):
-            name = 'transmitter'
-        else:
-            return
-            
-        mgif = self.__get_child_from_base(self.main_window(),('root_main','first_row','status_indicators'), name)
-        mgif._coreimage.anim_reset(True)
-        mgif.anim_delay = 0.1
-        
-        cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
-        cgif._coreimage.anim_reset(True)
-        cgif.anim_delay = 0.1
+                        cgif = self.__get_child_from_base(self.chat_window(),('root_chat','first_row','status_indicators'), name)
+                        cgif._coreimage.anim_reset(True)
+                        cgif.anim_delay = 0.1
+                    except BaseException:
+                        pass
     
     def load_messages_from_file(self):
         ui_messages = common.load_message_file()
@@ -472,22 +452,17 @@ class ui_mobileApp(App, UI_Interface):
     def updateHeaderInfo(self, info, *largs):
         self.header_info = info
     
-    
-    #@exception_suppressor
-    def update_tx_success_cnt(self,val, *largs):
-        self.__update_property('tx_success_cnt',str(val))
-        
-    #@exception_suppressor
-    def update_tx_failure_cnt(self,val, *largs):
-        self.__update_property('tx_failure_cnt',str(val))
-        
-    #@exception_suppressor
-    def update_rx_success_cnt(self,val, *largs):
-        self.__update_property('rx_success_cnt',str(val))
-        
-    #@exception_suppressor
-    def update_rx_failure_cnt(self,val, *largs):
-        self.__update_property('rx_failure_cnt',str(val))
+    def updateStatistics(self, *largs):
+        if os.path.isfile('./' + common.STATISTICS_FILE):
+            with open('./' + common.STATISTICS_FILE, 'rb') as f:
+                try:
+                    stats = pickle.load(f)
+                    self.__update_property('tx_success_cnt',str(stats.txs))
+                    self.__update_property('tx_failure_cnt',str(stats.txf))
+                    self.__update_property('rx_success_cnt',str(stats.rxs))
+                    self.__update_property('rx_failure_cnt',str(stats.rxf))
+                except BaseException:
+                    pass
         
     def __update_property(self,property_name,new_val):
         property = self.__get_child_from_base(self.statistics_window(), ('root_stats',), property_name)
@@ -582,19 +557,29 @@ class ui_mobileApp(App, UI_Interface):
         
     ##@brief update the audio signal strength indicator on the main page of the app
     ##@param signal_strength, floating point value indicating the signal strength, should be between 0.05 and 0.6
-    def update_signal_strength(self, signal_strength, *largs):
-        main_window = self.main_window()
-        signal_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
-        
-        
-        main_window.signal_strength_color = main_window.white
-        
-        angle_deg = signal_strength*4
-        radius = signal_indicator.height/2
-        main_window.guage_x = -int(radius * np.cos(np.pi/180 * angle_deg))
-        main_window.guage_y = int(radius * np.sin(np.pi/180 * angle_deg))
-        
-        main_window.signal_strength = ''
+    #@exception_suppressor
+    def update_signal_strength(self, *largs):
+        try:
+            if os.path.isfile('./' + common.SIGNAL_STRENGTH_FILE):
+                with open('./' + common.SIGNAL_STRENGTH_FILE, 'rb') as f:
+                    signal_strength = pickle.load(f)
+
+                    main_window = self.main_window()
+                    signal_indicator = self.__get_child_from_base(self.main_window(), ('root_main', 'first_row'), 'signal_strength_indicator')
+
+
+                    main_window.signal_strength_color = main_window.white
+
+                    angle_deg = signal_strength*4
+                    radius = signal_indicator.height/2
+                    main_window.guage_x = -int(radius * np.cos(np.pi/180 * angle_deg))
+                    main_window.guage_y = int(radius * np.sin(np.pi/180 * angle_deg))
+
+                    main_window.signal_strength = ''
+        except EOFError:
+            pass
+        except BaseException:
+            log.error('error occurred in update_signal_strength()')
         
     ################### private functions ##############################
     
@@ -688,7 +673,9 @@ class ui_mobileApp(App, UI_Interface):
         
         self.load_messages_from_file() #load any pre-existing messages
         
-        Clock.schedule_interval(self.updateStatusIndicator2, 0.1)
+        Clock.schedule_interval(self.updateStatusIndicator, 0.1)
+        Clock.schedule_interval(self.updateStatistics, 1.0)
+        Clock.schedule_interval(self.update_signal_strength, 0.1)
    
     #gracefully shut everything down when the user exits
     

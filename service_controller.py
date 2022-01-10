@@ -76,6 +76,8 @@ class ServiceController():
         self.hops = 0
         #self.enable_vibration = config.enable_vibration
         
+        self.stats = common.Stats()
+        
         self.gps = gps
         if (self.gps != None):
             self.gps.start(self)
@@ -172,6 +174,7 @@ class ServiceController():
     
     #
     def gps_beacon_handler(self, args):
+        #self.osm.set_map_location(34,70)
         log.debug('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
@@ -266,20 +269,23 @@ class ServiceController():
                 log.warning('service controller tx queue is full')
     
     def send_status(self, status):
-        with open('./status_ind.pickle', 'wb') as f:
+        with open('./' + common.STATUS_IND_FILE, 'wb') as f:
             pickle.dump(status, f)
-        
-        #log.debug('service sending status to View Controller')
-        #try:
-        #    self.tx_queue.put((1,STATUS_INDICATOR,status), block=False)
-        #except queue.Full:
-        #        log.warning('service controller tx queue is full')
 
+        
+    #tx_failure, tx_success, rx_failure, rx_success
     def send_statistic(self, type_str, value):
-        try:
-            self.tx_queue.put((1,'/'+type_str,value), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        if (type_str == 'tx_success'):
+            self.stats.txs = value
+        elif (type_str == 'tx_failure'):
+            self.stats.txf = value
+        elif (type_str == 'rx_success'):
+            self.stats.rxs = value
+        elif (type_str == 'rx_failure'):
+            self.stats.rxf = value
+            
+        with open('./' + common.STATISTICS_FILE, 'wb') as f:
+            pickle.dump(self.stats, f)
     
     def send_gps_lock_achieved(self, isLockAchieved):
         try:
@@ -290,10 +296,9 @@ class ServiceController():
     def send_signal_strength(self, signal_strength):
         if (signal_strength < 0):
             return
-        try:
-            self.tx_queue.put((1,SIGNAL_STRENGTH,signal_strength), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        else:
+            with open('./' + common.SIGNAL_STRENGTH_FILE, 'wb') as f:
+                pickle.dump(signal_strength, f)
     
     def send_retry_message(self, ack_key, remaining_retries):
         log.debug('sending retry message to View Controller')

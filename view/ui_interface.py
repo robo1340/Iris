@@ -31,22 +31,6 @@ class UI_Interface(metaclass=abc.ABCMeta):
         raise NotImplementedError
     
     @abc.abstractmethod
-    def update_tx_success_cnt(self,val):
-        raise NotImplementedError
-        
-    @abc.abstractmethod
-    def update_tx_failure_cnt(self,val):
-        raise NotImplementedError
-        
-    @abc.abstractmethod
-    def update_rx_success_cnt(self,val):
-        raise NotImplementedError
-        
-    @abc.abstractmethod
-    def update_rx_failure_cnt(self,val):
-        raise NotImplementedError
-    
-    @abc.abstractmethod
     def clearReceivedMessages(self):
         raise NotImplementedError
     

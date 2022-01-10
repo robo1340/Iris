@@ -18,6 +18,10 @@ import kivy.utils
 CONFIG_FILE = 'config.pickle'
 MESSAGE_FILE = 'messages.pickle'
 
+STATUS_IND_FILE = 'status_ind.pickle'
+STATISTICS_FILE = 'statistics.pickle'
+SIGNAL_STRENGTH_FILE = 'signal_strength.pickle'
+
 from kivy.logger import Logger as log
 
 scaling = 32000.0  # out of 2**15
