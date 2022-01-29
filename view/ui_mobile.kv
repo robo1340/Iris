@@ -95,7 +95,7 @@
 <ReturnButton@Button>:
     name : 'return_button'
     text: "Return"
-    size_hint_y : 0.2
+    size_hint_y : 1.0
     size_hint_min_y : 100
     size_hint_max_y : 200
     size_hint_x : None
@@ -137,51 +137,14 @@
         id : value
         text: property.value_text
         halign : 'right' 
-  
-<SetablePropertyMyCallsign@BoxLayout>:
-    id : property
-    orientation: 'horizontal'
-    size_hint : (1, None)
-    height : key.height
-    text : '______'
-    MediumLabel:
-        id : key
-        text: 'My CallSgn:'
-    TextInput:
-        multiline : False
-        padding : [1,1,1,1]
-        font_size: '35dp'
-        id : value
-        text: property.text
-        halign : 'left'
-        valign : 'center'
-        on_text : app.uiSetMyCallsign(value)
 
-<SetablePropertyDstCallsign@BoxLayout>:
-    id : property
-    orientation: 'horizontal'
-    size_hint : (1, None)
-    height : key.height
-    text : '______'
-    MediumLabel:
-        id : key
-        text: 'Dst CallSgn:'
-    TextInput:
-        multiline : False
-        padding : [1,1,1,1]
-        font_size: '35dp'
-        id : value
-        text: property.text
-        halign : 'left'
-        valign : 'center'
-        on_text : app.uiSetDstCallsign(value)
-
-<SetablePropertyCarrierLength@BoxLayout>:
+<SetableProperty@BoxLayout>:
     id : property
     orientation: 'horizontal'
     size_hint : (1, None)
     height : key.height
     text : '750'
+    value: value
     MediumLabel:
         id : key
         text: 'Carrier(ms):'
@@ -193,7 +156,36 @@
         text: property.text
         halign : 'left'
         valign : 'center'
-        on_text : app.uiSetCarrierLength(value)
+        on_text : app.setable_property_changed(self.parent) 
+    
+<SetablePropertyWaypoint@BoxLayout>:
+    id : property
+    orientation: 'horizontal'
+    size_hint : (1, None)
+    height : paste.height
+    text : '750'
+    coordinates : coordinates
+    SmallButton:
+        id : paste
+        name : 'paste'
+        text: '>'
+        size_hint : (0.2,1)
+        on_release: 
+            app.waypoint_paste_pressed(self.parent, self)
+    MiniLabel:
+        size_hint : (1, None)
+        text : ''
+        id : coordinates
+        name : 'coordinates'
+    SmallButton:
+        id : clear
+        name : 'clear'
+        text: 'X'
+        color: 1,0,0,1
+        size_hint : (0.2,1)
+        on_release: 
+            app.waypoint_paste_pressed(self.parent, self)   
+ 
     
 <DiscreteSelector@BoxLayout>:
     id : selector
@@ -337,6 +329,8 @@ WindowManager:
         id : gps_window  
     ChatWindow :
         id : chat_window
+    WaypointWindow :
+        id : waypoint_window
 
 ###################################################################        
 ########################## Main Window ############################
@@ -420,15 +414,24 @@ WindowManager:
                     app.root.current = "chat"
                     root.manager.transition.direction = "right"
             
+            #MenuButton: 
+            #    name : 'stats_menu_button'
+            #    background_color : root.background_color
+            #    background_normal: './resources/icons/stats.png'
+            #    background_down: './resources/icons/stats_pressed.png'
+            #    on_release: 
+            #        app.root.current = "stats"
+            #        root.manager.transition.direction = "right"
+
             MenuButton: 
-                name : 'stats_menu_button'
+                name : 'waypoint_menu_button'
                 background_color : root.background_color
-                background_normal: './resources/icons/stats.png'
-                background_down: './resources/icons/stats_pressed.png'
+                background_normal: './resources/icons/waypoint.png'
+                background_down: './resources/icons/waypoint_pressed.png'
                 on_release: 
-                    app.root.current = "stats"
+                    app.root.current = "waypoint"
                     root.manager.transition.direction = "right"
-                    
+    
             MenuButton: 
                 name : 'gps_menu_button'
                 background_color : root.background_color
@@ -612,7 +615,6 @@ WindowManager:
             orientation: 'horizontal'
             
             ReturnButton:
-                size_hint_y : 1.0
                 on_release:
                     app.root.current = "main"
                     root.manager.transition.direction = "left" 
@@ -749,7 +751,6 @@ WindowManager:
             anchor_y : 'top'
             name : ''
             ReturnButton:
-                size_hint_y : 1.0
                 on_release:
                     app.root.current = "main"
                     root.manager.transition.direction = "left" 
@@ -759,10 +760,10 @@ WindowManager:
             text: 'Version: 1.0.0' 
             halign : 'center'
     
-        SetablePropertyMyCallsign:
+        SetableProperty:
             name : 'my_callsign'
             
-        SetablePropertyDstCallsign:
+        SetableProperty:
             name : 'dst_callsign'
             
         SmallToggleButton:
@@ -802,7 +803,7 @@ WindowManager:
             name : 'enableForwarding'
             on_state: app.toggle_pressed(self)
     
-        SetablePropertyCarrierLength:
+        SetableProperty:
             name : 'carrier_length'
         
         Spacer:
@@ -874,7 +875,6 @@ WindowManager:
             anchor_y : 'top'
             name : ''
             ReturnButton:
-                size_hint_y : 1.0
                 on_release:
                     app.root.current = "main"
                     root.manager.transition.direction = "left" 
@@ -902,6 +902,115 @@ WindowManager:
         #    name : 'testTxVar'
         #    on_state: app.toggle_pressed(self)
 
+###################################################################        
+######################## Waypoint Window ##########################
+###################################################################
+
+<WaypointWindow>:
+    name: 'waypoint'
+    
+    ### Define colors ###
+    background_color    : [1,1,1,1]
+    black               : [0,0,0,1]
+    gray                : [0.5, 0.5, 0.5, 1]
+    
+    BoxLayout: #waypoint widgets container
+        name : 'root_waypoint'
+        orientation: 'vertical'  
+        size_hint : (1,1)
+        spacer_height : 30
+
+        canvas.before:
+            Color:
+                rgba: root.background_color
+            Rectangle:
+                size: self.size
+                pos: self.pos        
+        
+        ReturnButton:
+            on_release:
+                app.root.current = "main"
+                root.manager.transition.direction = "left" 
+        
+        SmallToggleButton:
+            text: 'Enable Waypoint Beacon'
+            name : 'enableWaypoint'
+            on_state: app.toggle_pressed(self)
+    
+        MediumLabel:
+            name : ''
+            text : 'Current Waypoints Set'
+            halign: 'center'
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SetablePropertyWaypoint:
+            name : "coordinates1"
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SetablePropertyWaypoint:
+            name : "coordinates2"
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SetablePropertyWaypoint:
+            name : "coordinates3"
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SmallButton:
+            text: 'Send Waypoint Now'
+            name : 'tx_waypoint_manual'
+            #on_release: app.sendGPSBeacon()
+ 
+        PropertyLabel:
+            name : 'current_waypoint_period'
+            key_text : 'period(sec)'
+            value_text : '0'
+ 
+        Spinner:
+            size_hint : (1, None)
+            height : self.texture_size[1] #make the label just tall enough to fit all the text
+            text_size: (self.width, None)
+            font_size: '32dp'
+            text_size: self.size
+        
+            name : 'waypoint_period'
+            text_autoupdate : False
+            values: '30','60','90','120','180','240','300','360','600'
+            halign: 'center'
+            on_text: app.spinner_pressed(self)   
+        
+        Spacer:
+        
+        Label:
+            name : ''
+            color : root.black
+            canvas.before:
+                Color:
+                    rgba: root.gray
+                Line:
+                    width: 1
+                    rectangle: self.x, self.y, self.width, self.height
+    
+        MediumLabel:
+            name : ''
+            text: 'Osmand Settings' 
+            halign : 'center'
+    
+        SmallButton:
+            text: 'Force Sync Osmand'
+            name : 'force_sync_osmand_waypoints'
+            on_release: app.button_pressed(self)
+    
+        SmallButton:
+            text: 'Clear Osmand Waypoints'
+            name : 'clear_osmand_waypoints'
+            on_release: app.button_pressed(self)
+    
+
+    
 ###################################################################        
 ########################## GPS Window #############################
 ###################################################################

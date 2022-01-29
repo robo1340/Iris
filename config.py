@@ -47,6 +47,8 @@ class Configuration:
     enable_vibration = True
     hops = 1
     
+    waypoint_beacon_period = 60
+    
     master_timeout = 20
     tx_cooldown = 1
     rx_cooldown = 5

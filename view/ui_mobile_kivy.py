@@ -22,6 +22,7 @@ from kivy.uix.popup import Popup
 from kivy.core.window import Window
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.core.clipboard import Clipboard
 from kivy.clock import Clock
 kivy.require('1.11.1')
 
@@ -66,6 +67,9 @@ class GPSWindow(Screen):
     pass
 
 class ChatWindow(Screen):
+    pass
+
+class WaypointWindow(Screen):
     pass
 
 class WindowManager(ScreenManager):
@@ -151,6 +155,7 @@ class ui_mobileApp(App, UI_Interface):
         self.settings_window    = lambda : self.root.ids.settings_window
         self.statistics_window  = lambda : self.root.ids.statistics_window
         self.gps_window         = lambda : self.root.ids.gps_window
+        self.waypoint_window    = lambda : self.root.ids.waypoint_window
         
         self.gps_msg_widgets = deque(maxlen=5)
         
@@ -164,6 +169,15 @@ class ui_mobileApp(App, UI_Interface):
 
     def goToSettingsScreen(self):
         log.debug('transitioning to settings screen')
+    
+    ##@param property_widget the setable property widget
+    def setable_property_changed(self, property_widget):
+        if (property_widget.name == 'my_callsign'):
+            self.uiSetMyCallsign(property_widget.value)
+        elif (property_widget.name == 'dst_callsign'):
+            self.uiSetDstCallsign(property_widget.value)
+        elif (property_widget.name == 'carrier_length'):
+            self.uiSetCarrierLength(property_widget.value)
     
     def uiSetMyCallsign(self, text_input_widget):
         self.my_callsign = text_input_widget.text.upper().ljust(6,' ')[0:6] #the callsign after being massaged
@@ -287,7 +301,17 @@ class ui_mobileApp(App, UI_Interface):
             self.spawn_confirm_popup('Delete All Messages?' , self.clearReceivedMessages)
         elif (button.name == 'close_nobob'):
             self.spawn_confirm_popup('Close Iris?', self.shutdown_nobob)
+        
+    ##@param waypoint, the setable property waypoint widget
+    ##@param button, the button that was pressed
+    def waypoint_paste_pressed(self, waypoint, button):
+        if (button.name == 'clear'):
+            waypoint.coordinates.text = ''
+        elif (button.name == 'paste'):
+            waypoint.coordinates.text = Clipboard.paste()
             
+        #log.info(waypoint_widget.name)
+    
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
             #update the property containing current beacon period
@@ -628,6 +652,11 @@ class ui_mobileApp(App, UI_Interface):
         gps_period = self.__get_child(gps,'gps_beacon_period')
         self.gps_beacon_period = config.gps_beacon_period
         gps_period.text = str(self.gps_beacon_period)
+        
+        waypoint = self.__get_child(self.waypoint_window(), 'root_waypoint')
+        waypoint_period = self.__get_child(waypoint,'waypoint_period')
+        self.waypoint_beacon_period = config.waypoint_beacon_period
+        waypoint_period.text = str(self.waypoint_beacon_period)
 
     def __get_child(self, widget, name):
         for child in widget.children:
