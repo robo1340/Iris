@@ -21,6 +21,7 @@ MESSAGE_FILE = 'messages.pickle'
 STATUS_IND_FILE = 'status_ind.pickle'
 STATISTICS_FILE = 'statistics.pickle'
 SIGNAL_STRENGTH_FILE = 'signal_strength.pickle'
+MY_WAYPOINTS_FILE = 'my_waypoints.pickle'
 
 from kivy.logger import Logger as log
 

@@ -39,6 +39,7 @@ import os
 import sys
 import logging
 import pickle
+import re
 from collections import deque
 
 Config.set('graphics', 'maxfps', '1')
@@ -147,8 +148,10 @@ class ui_mobileApp(App, UI_Interface):
         #self.messagesLock = threading.Lock()
         #self.messages = [] # a list of message widgets
         self.messages = {} # dictionary of widgets where the key is the widget and the items are the message data
-
+        self.my_waypoints = {}
+        
         self.contact_widgets = {}
+        
         
         self.main_window        = lambda : self.root.ids.main_window
         self.chat_window        = lambda : self.root.ids.chat_window
@@ -304,13 +307,43 @@ class ui_mobileApp(App, UI_Interface):
         
     ##@param waypoint, the setable property waypoint widget
     ##@param button, the button that was pressed
-    def waypoint_paste_pressed(self, waypoint, button):
+    def waypoint_paste_pressed(self, waypoint, button):   
         if (button.name == 'clear'):
             waypoint.coordinates.text = ''
+            if (waypoint.name in self.my_waypoints):
+                self.my_waypoints.pop(waypoint.name)  #delete the entry
         elif (button.name == 'paste'):
             waypoint.coordinates.text = Clipboard.paste()
-            
-        #log.info(waypoint_widget.name)
+            new_coordinates = self.validate_coordinate_string(Clipboard.paste())
+            if (new_coordinates is not None): #the string is valid coordinates
+                self.my_waypoints[waypoint.name] = new_coordinates
+                waypoint.coordinates.color = self.waypoint_window().black
+                log.info(self.my_waypoints)
+            else: #the string is not valid coordinates
+                waypoint.coordinates.color = self.waypoint_window().red
+        
+        with open('./' + common.MY_WAYPOINTS_FILE, 'wb') as f:
+            pickle.dump(self.my_waypoints,f) #write an empty dictionary object to the file
+        
+        #if this is the first time this function is being called
+        #if not os.path.isfile('./' + common.MY_WAYPOINTS_FILE): 
+
+        
+    ##@brief validate a string containing gps coordinates the expected format is like so
+    ## -38.7, 105.6
+    ##@param coord_str the string to be validated
+    ##return returns None if the coordinates could not be validated, returns a tuple of (lat,lon) on success
+    def validate_coordinate_string(self, coord_str):
+        result = re.match('^[-+]?([1-8]?\d\.\d+?|90\.0+?)[ ,]*\s*[-+]?(180\.0+?|1[0-7]\d|[1-9]?\d\.\d+?)$', coord_str)
+        if (result is None):
+            return None
+        if (len(result.groups()) != 2):
+            return None
+        else:
+            try:
+                return (result.groups()[0], result.groups()[1])
+            except BaseException:
+                return None
     
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
