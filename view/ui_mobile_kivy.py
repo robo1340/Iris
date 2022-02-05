@@ -76,14 +76,6 @@ class WaypointWindow(Screen):
 class WindowManager(ScreenManager):
     pass
 
-def exception_suppressor(func):
-    def meta_function(*args, **kwargs):
-        try:
-            func(*args,**kwargs)
-        except BaseException:
-            pass
-    return meta_function
-
 class UI_Message():
     def __init__(self, msg, background_color, header_text, time_text, message_text):
         self.msg = msg
@@ -140,6 +132,9 @@ class ui_mobileApp(App, UI_Interface):
         
         self.gps_beacon_enable = False
         self.gps_beacon_period = 0
+        
+        self.waypoint_beacon_enable = False
+        self.waypoint_beacon_period = 0
         
         self.include_gps_in_ack = False
         
@@ -245,11 +240,6 @@ class ui_mobileApp(App, UI_Interface):
         #clear the text input and reset the cursor
         text_input_widget.text = ''
         text_input_widget.cursor = (0,0)
-            
-    def sendGPSBeacon(self):
-        log.info('at sendGPSBeacon()')
-
-        self.viewController.gps_one_shot_command()
     
     def selector_pressed(self, selector, pressed_button):
         if (pressed_button.state == 'normal'):
@@ -288,6 +278,9 @@ class ui_mobileApp(App, UI_Interface):
         elif (toggle_button.name == 'enableGPS'):
             self.gps_beacon_enable = True if (toggle_button.state == 'down') else False
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+        elif (toggle_button.name == 'enableWaypoint'):
+            self.waypoint_beacon_enable = True if (toggle_button.state == 'down') else False
+            self.viewController.send_waypoint_beacon_command(self.waypoint_beacon_enable,self.waypoint_beacon_period)
         elif (toggle_button.name == 'gpsAck'):
             self.include_gps_in_ack = True if (toggle_button.state == 'down') else False
             self.viewController.send_include_gps_in_ack(self.include_gps_in_ack)
@@ -298,6 +291,12 @@ class ui_mobileApp(App, UI_Interface):
     def button_pressed(self, button):
         if (button.name == 'force_sync_osmand'):
             self.viewController.force_sync_osmand()
+        elif (button.name == 'tx_gps_manual'):
+            log.debug('Send GPS Beacon Now pressed')
+            self.viewController.gps_one_shot_command()
+        elif (button.name == 'tx_waypoint_manual'):
+            log.debug('Send Waypoints Now pressed')
+            self.viewController.waypoint_one_shot_command()
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
         elif (button.name == 'clear_messages'):
@@ -318,12 +317,12 @@ class ui_mobileApp(App, UI_Interface):
             if (new_coordinates is not None): #the string is valid coordinates
                 self.my_waypoints[waypoint.name] = new_coordinates
                 waypoint.coordinates.color = self.waypoint_window().black
-                log.info(self.my_waypoints)
+                #log.debug(self.my_waypoints)
             else: #the string is not valid coordinates
                 waypoint.coordinates.color = self.waypoint_window().red
         
         with open('./' + common.MY_WAYPOINTS_FILE, 'wb') as f:
-            pickle.dump(self.my_waypoints,f) #write an empty dictionary object to the file
+            pickle.dump(self.my_waypoints,f)
         
         #if this is the first time this function is being called
         #if not os.path.isfile('./' + common.MY_WAYPOINTS_FILE): 
@@ -332,7 +331,7 @@ class ui_mobileApp(App, UI_Interface):
     ##@brief validate a string containing gps coordinates the expected format is like so
     ## -38.7, 105.6
     ##@param coord_str the string to be validated
-    ##return returns None if the coordinates could not be validated, returns a tuple of (lat,lon) on success
+    ##return returns None if the coordinates could not be validated, returns a list of [lat,lon] on success
     def validate_coordinate_string(self, coord_str):
         result = re.match('^[-+]?([1-8]?\d\.\d+?|90\.0+?)[ ,]*\s*[-+]?(180\.0+?|1[0-7]\d|[1-9]?\d\.\d+?)$', coord_str)
         if (result is None):
@@ -341,17 +340,22 @@ class ui_mobileApp(App, UI_Interface):
             return None
         else:
             try:
-                return (result.groups()[0], result.groups()[1])
+                return [result.groups()[0], result.groups()[1]]
             except BaseException:
                 return None
     
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
             #update the property containing current beacon period
-            property = self.__get_child_from_base(self.gps_window(), ('root_gps',), 'current_gps_beacon_period')
-            property.value_text = spinner.text
+            prop = self.__get_child_from_base(self.gps_window(), ('root_gps',), 'current_gps_beacon_period')
+            prop.value_text = spinner.text
             self.gps_beacon_period = int(spinner.text)
             self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
+        if (spinner.name == 'waypoint_period'):
+            prop = self.__get_child_from_base(self.waypoint_window(), ('root_waypoint',), 'current_waypoint_period')
+            prop.value_text = spinner.text
+            self.waypoint_beacon_period = int(spinner.text)
+            self.viewController.send_waypoint_beacon_command(self.waypoint_beacon_enable,self.waypoint_beacon_period)
 
     def spawn_confirm_popup(self, message, yes_func):
         self.box_popup = BoxLayout(orientation = 'vertical')

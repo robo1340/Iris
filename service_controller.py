@@ -8,12 +8,14 @@ import sched
 import sys
 import functools
 import zmq
+import os
 import pickle
 from datetime import datetime
 
 sys.path.insert(0,'..') #need to insert parent path to import something from messages
 from messages import *
 import common
+from common import exception_suppressor
 import queue
 import IL2P_API
 from IL2P import IL2P_Frame_Header
@@ -26,6 +28,7 @@ BASE_PORT = 5555
 
 TXT_MSG_RX = "/txt_msg_rx"
 GPS_MSG = "/gps_msg"
+WAYPOINT_MSG = "/waypoint_msg"
 MY_GPS_MSG = '/my_gps_msg'
 ACK_MSG = '/ack_msg'
 STATUS_INDICATOR = '/status_indicator'
@@ -37,14 +40,6 @@ GPS_LOCK_ACHIEVED = '/gps_lock_achieved'
 SIGNAL_STRENGTH = '/signal_strength'
 RETRY_MSG = '/retry_msg'
 HEADER_INFO = '/header_info'
-
-def exception_suppressor(func):
-    def meta_function(*args, **kwargs):
-        try:
-            func(*args,**kwargs)
-        except BaseException:
-            pass
-    return meta_function
 
 class ServiceController():
 
@@ -71,6 +66,11 @@ class ServiceController():
         self.gps_beacon_enable = config.gps_beacon_enable
         self.gps_beacon_period = config.gps_beacon_period
         self.gps_next_beacon = time.time() if self.gps_beacon_enable else -1
+        
+        self.waypoint_beacon_enable = config.waypoint_beacon_enable
+        self.waypoint_beacon_period = config.waypoint_beacon_period
+        self.waypoint_next_beacon = time.time() if self.waypoint_beacon_enable else -1
+        
         self.carrier_length = config.carrier_length
         
         self.hops = 0
@@ -90,6 +90,9 @@ class ServiceController():
         
         self.gps_thread = common.StoppableThread(target = self.gps_beacon_thread_func, args=(0,))
         self.gps_thread.start()
+        
+        self.waypoint_thread = common.StoppableThread(target = self.waypoint_beacon_thread_func, args=(0,))
+        self.waypoint_thread.start()
         
     ###############################################################################
     ## Handlers for when the service receives a message from the View Controller ##
@@ -118,10 +121,14 @@ class ServiceController():
                         self.my_callsign_handler(payload)
                     elif (header == view_c.GPS_BEACON_CMD):
                         self.gps_beacon_handler(payload)
+                    elif (header == view_c.WAYPOINT_BEACON_CMD):
+                        self.waypoint_beacon_handler(payload)
                     elif (header == view_c.ENABLE_FORWARDING_CMD):
                         self.enable_forwarding_handler(payload)
                     elif (header == view_c.GPS_ONE_SHOT):
                         self.gps_one_shot_handler()
+                    elif (header == view_c.WAYPOINT_ONE_SHOT):
+                        self.waypoint_one_shot_handler()
                     elif (header == view_c.STOP):
                         self.stop_handler()
                     elif (header == view_c.HOPS):
@@ -172,12 +179,16 @@ class ServiceController():
         log.debug('my callsign received from View Controller')
         self.il2p.setMyCallsign(my_callsign)
     
-    #
     def gps_beacon_handler(self, args):
         #self.osm.set_map_location(34,70)
         log.debug('gps beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
         self.gps_beacon_enable = args[0]
         self.gps_beacon_period = args[1]
+    
+    def waypoint_beacon_handler(self, args):
+        log.debug('waypoint beacon settings received from View Controller: %s, %d' % (str(args[0]), args[1]))
+        self.waypoint_beacon_enable = args[0]
+        self.waypoint_beacon_period = args[1]
     
     def enable_forwarding_handler(self, enable_forwarding):
         self.il2p.enable_forwarding = enable_forwarding
@@ -185,7 +196,11 @@ class ServiceController():
     def gps_one_shot_handler(self):
         log.debug('gps one shot command received from View Controller')
         self.transmit_gps_beacon()
-        
+    
+    def waypoint_one_shot_handler(self):
+        log.info('waypoint one shot command received from View Controller')
+        self.transmit_waypoint_beacon()
+    
     def stop_handler(self):
         log.debug('stopping the service threads')
         self.isStopped = True
@@ -219,16 +234,13 @@ class ServiceController():
     ########## Methods for sending messages to the View Controller ################
     ###############################################################################
     
-    
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_txt_message(self, msg):
         log.debug('sending text message to the View Controller')
         msg.mark_time()
-        
-        try:
-            self.tx_queue.put((0,TXT_MSG_RX,msg), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,TXT_MSG_RX,msg), block=False)
     
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_gps_message(self, msg):
         log.debug('sending gps message to View Controller')
         gps_msg = msg.get_location()
@@ -236,43 +248,55 @@ class ServiceController():
             log.warning('a non-gps message ended up in a gps message handler')
         else:
             gps_msg.mark_time() #record the current time into the gps message
-            try:
-                self.tx_queue.put((0,GPS_MSG,gps_msg), block=False)
-            except queue.Full:
-                    log.warning('service controller tx queue is full')
+            self.tx_queue.put((0,GPS_MSG,gps_msg), block=False)
 
             if (self.osm.isStarted() and (gps_msg.src_callsign != self.il2p.my_callsign)):
             #if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
                 self.osm.placeContact(gps_msg.lat(), gps_msg.lon(), gps_msg.src_callsign, gps_msg.time_str+'\n'+gps_msg.getInfoString())
     
+    ##@param msg a MessageObject whose payload contains a waypoint
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
+    def send_waypoint_message(self, msg):
+        log.debug('sending waypoint to View Controller')
+        waypoint_msg = msg.get_waypoints()
+        
+        if waypoint_msg is None:
+            log.warning('a non-waypoint message ended up in a waypoint message handler')
+        else:
+            waypoint_msg.mark_time() #record the current time into the message
+            self.tx_queue.put((0,WAYPOINT_MSG,waypoint_msg), block=False)
+
+            if (self.osm.isStarted() and (waypoint_msg.src_callsign != self.il2p.my_callsign)): #place the waypoints in OsmAnd
+            #if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
+                log.info('here')
+                log.info(waypoint_msg.waypoints)
+                log.info(isinstance(waypoint_msg.waypoints,dict))
+                log.info(isinstance(waypoint_msg.waypoints['c1'],list))
+                log.info(isinstance(waypoint_msg.waypoints['c1'][0],float)) #need this to be a float
+                log.info(isinstance(waypoint_msg.waypoints['c1'][0],str))
+                self.osm.place_waypoints(waypoint_msg.src_callsign, waypoint_msg.waypoints)
+    
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_header_info(self, info):
         log.debug('updating header info')
-        try:
-            self.tx_queue.put((0,HEADER_INFO,info), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,HEADER_INFO,info), block=False)
     
     ##@brief send the View Controller my current gps location contained in a GPSMessage object
     ##@param gps_msg a GPSMessage object
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_my_gps_message(self, gps_msg):
         log.debug('sending my gps message to View Controller')
-        try:
-            self.tx_queue.put((0,MY_GPS_MSG,gps_msg), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,MY_GPS_MSG,gps_msg), block=False)
 
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_ack_message(self, ack_callsign, ack_key):
         log.debug('sending message acknowledgment to View Controller')
-        try:
-            self.tx_queue.put((0,ACK_MSG, (ack_callsign, ack_key)), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,ACK_MSG, (ack_callsign, ack_key)), block=False)
     
     def send_status(self, status):
         with open('./' + common.STATUS_IND_FILE, 'wb') as f:
             pickle.dump(status, f)
-
-        
+  
     #tx_failure, tx_success, rx_failure, rx_success
     def send_statistic(self, type_str, value):
         if (type_str == 'tx_success'):
@@ -287,11 +311,9 @@ class ServiceController():
         with open('./' + common.STATISTICS_FILE, 'wb') as f:
             pickle.dump(self.stats, f)
     
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_gps_lock_achieved(self, isLockAchieved):
-        try:
-            self.tx_queue.put((0,GPS_LOCK_ACHIEVED,isLockAchieved), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,GPS_LOCK_ACHIEVED,isLockAchieved), block=False)
     
     def send_signal_strength(self, signal_strength):
         if (signal_strength < 0):
@@ -300,15 +322,15 @@ class ServiceController():
             with open('./' + common.SIGNAL_STRENGTH_FILE, 'wb') as f:
                 pickle.dump(signal_strength, f)
     
+    @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
     def send_retry_message(self, ack_key, remaining_retries):
         log.debug('sending retry message to View Controller')
-        try:
-            self.tx_queue.put((0,RETRY_MSG,(ack_key, remaining_retries)), block=False)
-        except queue.Full:
-                log.warning('service controller tx queue is full')
+        self.tx_queue.put((0,RETRY_MSG,(ack_key, remaining_retries)), block=False)
     
     ###############################################################################
     ############### Methods for controlling the il2p link layer ###################
+    ###############################################################################
+    ############################### GPS Beacons ###################################
     ###############################################################################
     
     def stopped(self):
@@ -328,6 +350,7 @@ class ServiceController():
                 self.gps_next_beacon = -1
             time.sleep(1)
     
+    @exception_suppressor
     def transmit_gps_beacon(self):
         if (self.gps is None):
             log.warning('WARNING: No GPS hardware detected')
@@ -353,5 +376,50 @@ class ServiceController():
             self.send_my_gps_message(GPSMessageObject(src_callsign=self.il2p.my_callsign, location=loc)) #send my gps location to the View Controller so it can be displayed
             
             self.il2p.msg_send_queue.put(gps_msg) #send my gps location to the il2p transceiver so that it can be transmitted
-       
+     
+    ###############################################################################
+    ############################ Waypoint Beacons #################################
+    ###############################################################################
 
+    def waypoint_beacon_thread_func(self, args):
+        while not self.stopped():
+            if (self.waypoint_beacon_enable):
+                if (self.waypoint_next_beacon == -1):
+                    T = self.waypoint_beacon_period
+                    self.waypoint_next_beacon = time.time() + T + 0.1*np.random.uniform(-T,T)
+                elif (time.time() > self.waypoint_next_beacon):
+                    self.transmit_waypoint_beacon()
+                    T = self.waypoint_beacon_period
+                    self.waypoint_next_beacon = time.time() + T + 0.1*np.random.uniform(-T,T)
+            else:
+                self.waypoint_next_beacon = -1
+            time.sleep(1)
+    
+    #@exception_suppressor
+    def transmit_waypoint_beacon(self):
+        if not os.path.isfile('./' + common.MY_WAYPOINTS_FILE):
+            log.info('WARNINGS: No Waypoints Set yet')
+        else:
+            with open('./' + common.MY_WAYPOINTS_FILE, 'rb') as f:
+                waypoints = pickle.load(f)
+                if (waypoints is None):
+                    log.warning('WARNING: Failed to load waypoints file')
+                    return
+
+                waypoints_str = str(waypoints).replace('\'','\"')
+                log.info('WAYPOINTS to send: \"%s\"' % (waypoints_str,))
+                
+                waypoint_header = IL2P_Frame_Header(src_callsign='BAYWAX', dst_callsign='', \
+                #waypoint_header = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \
+                                           hops_remaining=self.hops, hops=self.hops, is_text_msg=False, is_beacon=False, is_waypoint=True, \
+                                           #hops_remaining=0, hops=0, is_text_msg=False, is_beacon=True, \
+                                           my_seq = self.il2p.forward_acks.my_ack,\
+                                           acks=self.il2p.forward_acks.getAcksBool(), \
+                                           request_ack=False, request_double_ack=False, \
+                                           payload_size=len(waypoints_str), \
+                                           data=self.il2p.forward_acks.getAcksData())
+
+                waypoint_msg = MessageObject(header=waypoint_header, payload_str=waypoints_str, priority=IL2P_API.GPS_PRIORITY)
+
+                self.il2p.msg_send_queue.put(waypoint_msg) #send my gps location to the il2p transceiver so that it can be transmitted
+                

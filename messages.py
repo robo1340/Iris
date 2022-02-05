@@ -104,6 +104,20 @@ class MessageObject():
                 log.warning('WARNING: failed to extract a gps location')
                 return None 
     
+    ##@brief extract a dictionary of waypoints from the payload if this message is a waypoint beacon
+    def get_waypoints(self):
+        if (self.header.is_waypoint == False):
+            return None
+        else:
+            try:
+                #convert payload bytes to a dictionary while ignoring all non-ascii characters
+                waypoints = json.loads(self.payload_str) 
+                log.info(waypoints)
+                return WaypointMessageObject(src_callsign=self.header.src_callsign, waypoints=waypoints)  
+            except BaseException:
+                log.warning('WARNING: failed to extract a waypoints from payload')
+                return None 
+    
     def get_dummy_beacon(self):
         return GPSMessageObject(src_callsign=self.header.src_callsign, time_str=self.time_str)
     
@@ -168,4 +182,22 @@ class GPSMessageObject():
     def marshal(self):
         return pickle.dumps(self)
     
+class WaypointMessageObject():
+    @staticmethod
+    def unmarshal(tup):
+        return pickle.loads(tup)
     
+    def __init__(self, src_callsign='',waypoints=None, time_str=''):
+        self.src_callsign = src_callsign
+        self.waypoints = waypoints #a dictionary object containg waypoints
+        self.time_str = time_str
+    
+    def getInfoString(self):
+        return str(self.waypoints)
+
+    #set the time string
+    def mark_time(self):
+        self.time_str = datetime.now().strftime("%H:%M:%S")
+    
+    def marshal(self):
+        return pickle.dumps(self)   

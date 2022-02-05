@@ -103,7 +103,7 @@ class IL2P_Frame_Header:
     ##@param my_seq when request ack is true contains my ack's sequence number, when false contains most recent acknowledgement
     ##@param dst_callsign the destination callsign for this frame, a 6 character string
     def __init__(self, src_callsign='GAYWAX', link_src_callsign=None, dst_callsign='BAYWAX', \
-               hops_remaining=1, hops=1, is_text_msg=True, is_beacon=False, \
+               hops_remaining=1, hops=1, is_text_msg=True, is_beacon=False, is_waypoint=False,\
                my_seq = np.uint16(0), \
                acks=[False,False,False,False], \
                request_ack=True, request_double_ack=False, \
@@ -115,6 +115,7 @@ class IL2P_Frame_Header:
         self.hops_remaining = hops_remaining
         self.is_text_msg = is_text_msg
         self.is_beacon = is_beacon
+        self.is_waypoint = is_waypoint
         self.acks = acks
         self.request_ack = request_ack
         self.request_double_ack = request_double_ack
@@ -181,6 +182,7 @@ class IL2P_Frame_Header:
         toReturn[i] |= np.uint8(0x10) if (self.acks[2]) else np.uint8(0x00)
         toReturn[i] |= np.uint8(0x08) if (self.acks[1]) else np.uint8(0x00)
         toReturn[i] |= np.uint8(0x04) if (self.acks[0]) else np.uint8(0x00)
+        toReturn[i] |= np.uint8(0x02) if (self.is_waypoint) else np.uint8(0x00)
         i=i+1
         
         toReturn[i] |= np.uint8(0x20) if (self.hops >= 2) else np.uint8(0x00)
@@ -231,7 +233,7 @@ class IL2P_Frame_Header:
         
     def print_header(self):
         log.info("src %s dst %s hops %d hopsr %d" % (self.src_callsign, self.dst_callsign, self.hops, self.hops_remaining))
-        log.info("is text %s is beacon %s" % (str(self.is_text_msg), str(self.is_beacon)))
+        log.info("is text %s is beacon %s is waypoint %s" % (str(self.is_text_msg), str(self.is_beacon), str(self.is_waypoint)))
         log.info("acks bool %s acks data %s" % (str(self.acks), str(self.data)))
         log.info("requests ack %s requests double ack %s" % (str(self.request_ack), str(self.request_double_ack)))
         log.info("payload size %d" % (self.payload_size))
@@ -245,7 +247,7 @@ class IL2P_Frame_Header:
             return False
         if not (header.hops_remaining == self.hops_remaining):
             return False
-        if not ((header.hops == self.hops) and (header.is_text_msg == self.is_text_msg) and (header.is_beacon == self.is_beacon)):
+        if not ((header.hops == self.hops) and (header.is_text_msg == self.is_text_msg) and (header.is_beacon == self.is_beacon) and (header.is_waypoint == self.is_waypoint) ):
             return False
         if not (header.acks == self.acks):
             return False
@@ -289,6 +291,7 @@ class IL2P_Frame_Header:
         ack[2]             = True if (header_bytes[18] & np.uint(0x10)) != 0 else False
         ack[1]             = True if (header_bytes[18] & np.uint(0x08)) != 0 else False
         ack[0]             = True if (header_bytes[18] & np.uint(0x04)) != 0 else False
+        is_waypoint        = True if (header_bytes[18] & np.uint(0x02)) != 0 else False
         
         hops               = (header_bytes[19] >>4) & np.uint8(0x03)
         is_beacon          = True if (header_bytes[19] & np.uint(0x08)) != 0 else False
@@ -307,7 +310,7 @@ class IL2P_Frame_Header:
                                  link_src_callsign = lnk_cs.tobytes().decode(), \
                                  dst_callsign = dst_cs.tobytes().decode(), \
                                  hops_remaining=hops_remaining, hops=hops, \
-                                 is_text_msg=is_text_msg, is_beacon=is_beacon, \
+                                 is_text_msg=is_text_msg, is_beacon=is_beacon, is_waypoint=is_waypoint, \
                                  acks=ack, my_seq = my_seq, \
                                  request_ack=request_ack, request_double_ack=request_double_ack, \
                                  payload_size=payload_size, data=data)

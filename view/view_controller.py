@@ -24,6 +24,7 @@ gps_beacon_contact_vibe_pattern = (0, 0.25)
 
 from messages import *
 import common
+from common import exception_suppressor
 import service_controller as service
 
 from kivy.logger import Logger as log
@@ -43,8 +44,10 @@ BASE_PORT = 8000
 TXT_MSG_TX = "/txt_msg_tx"
 MY_CALLSIGN = "/my_callsign"
 GPS_BEACON_CMD = "/gps_beacon"
+WAYPOINT_BEACON_CMD = "/waypoint_beacon"
 ENABLE_FORWARDING_CMD = "/enable_forwarding"
 GPS_ONE_SHOT = '/gps_one_shot'
+WAYPOINT_ONE_SHOT = '/waypoint_one_shot'
 STOP = '/stop'
 HOPS = '/hops'
 FORCE_SYNC_OSMAND = '/force_sync_osmand'
@@ -54,14 +57,6 @@ ENABLE_VIBRATION = '/enable_vibration'
 
 #def generate_bind_addr(num, base_port):
 #def generate_connect_addr(num, base_port):
-
-def exception_suppressor(func):
-    def meta_function(*args, **kwargs):
-        try:
-            func(*args,**kwargs)
-        except BaseException:
-            pass
-    return meta_function
 
 class ViewController():
 
@@ -127,6 +122,8 @@ class ViewController():
                         self.my_gps_msg_handler(payload)
                     elif (header == service.GPS_MSG):
                         self.gps_msg_handler(payload)
+                    elif (header == service.WAYPOINT_MSG):
+                        self.waypoint_msg_handler(payload)
                     elif (header == service.ACK_MSG):
                         self.ack_msg_handler(payload)
                     elif (header == service.STATUS_INDICATOR):
@@ -178,77 +175,69 @@ class ViewController():
     ###############################################################################
     
     ## @brief send a text message to the service to be transmitted
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_txt_message(self, txt_msg):
-        try:
-            self.tx_queue.put((0,TXT_MSG_TX,txt_msg), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,TXT_MSG_TX,txt_msg), block=False)
         log.info('view ctrl send_txt_message()')
     
     ## @brief send a new callsign entered by the user to the service
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_my_callsign(self, my_callsign):
-        try:
-            self.tx_queue.put((0,MY_CALLSIGN,my_callsign), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,MY_CALLSIGN,my_callsign), block=False)
     
     ##@brief send the service a new gps beacon state and gps beacon period
     ##@param gps_beacon_enable True if the gps beacon should be enabled, False otherwise
     ##@param gps_beacon_period, the period of the gps beacon (in seconds)
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_gps_beacon_command(self, gps_beacon_enable, gps_beacon_period):
-        try:
-            self.tx_queue.put((0,GPS_BEACON_CMD,(gps_beacon_enable, gps_beacon_period)), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,GPS_BEACON_CMD,(gps_beacon_enable, gps_beacon_period)), block=False)
         log.info('sending a gps beacon command to the Service')
     
+    ##@brief send the service a new waypoint beacon state and period
+    ##@param waypoint_beacon_enable True is the waypoint beacon should be enabled, False otherwise
+    ##@param waypoint_beacon_period, the period of the waypoint beacon (in seconds)
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
+    def send_waypoint_beacon_command(self, waypoint_beacon_enable, waypoint_beacon_period):
+        self.tx_queue.put((0,WAYPOINT_BEACON_CMD,(waypoint_beacon_enable, waypoint_beacon_period)), block=False)
+        log.info('sending a waypoint beacon command to the Service')
+    
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_enable_forwarding_command(self, enableForwarding):
-        try:
-            self.tx_queue.put((0,ENABLE_FORWARDING_CMD,enableForwarding), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,ENABLE_FORWARDING_CMD,enableForwarding), block=False)
         log.info('sending an enable forwarding command to the service')
 
-
     ##@brief send the service a command to transmit one gps beacon immeadiatly
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def gps_one_shot_command(self):
         log.debug('sending a gps one shot command to the service')
-        try:
-            self.tx_queue.put((0,GPS_ONE_SHOT,''), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
-        
+        self.tx_queue.put((0,GPS_ONE_SHOT,''), block=False)
+    
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
+    def waypoint_one_shot_command(self):
+        log.debug('sending a waypoint one shot command to the service')
+        self.tx_queue.put((0,WAYPOINT_ONE_SHOT,''), block=False)
+    
     ##@brief send the service a command to shutdown
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def service_stop_command(self):
-        try:
-            self.tx_queue.put((0,STOP,''), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,STOP,''), block=False)
         log.debug('view controller shutting down the service')
     
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def update_hops(self, hops):
-        try:
-            self.tx_queue.put((0,HOPS,hops), block=False)
-        except queue.Full:
-            log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,HOPS,hops), block=False)
     
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def force_sync_osmand(self):
-        try:
-            self.tx_queue.put((0,FORCE_SYNC_OSMAND,''), block=False)
-        except queue.Full:
-            log.warning('view controller tx queue is full')
-        
-    def clear_osmand_contacts(self):
-        try:
-            self.tx_queue.put((0,CLEAR_OSMAND_CONTACTS,''), block=False)
-        except queue.Full:
-                log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,FORCE_SYNC_OSMAND,''), block=False)
     
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
+    def clear_osmand_contacts(self):
+        self.tx_queue.put((0,CLEAR_OSMAND_CONTACTS,''), block=False)
+    
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_include_gps_in_ack(self, include_gps_in_ack):
-        try:
-            self.tx_queue.put((0,INCLUDE_GPS_IN_ACK,include_gps_in_ack), block=False)
-        except queue.Full:
-            log.warning('view controller tx queue is full')
+        self.tx_queue.put((0,INCLUDE_GPS_IN_ACK,include_gps_in_ack), block=False)
     
     def send_enable_vibration(self, enable_vibration):
         self.enable_vibration = enable_vibration
@@ -297,6 +286,22 @@ class ViewController():
             
             log.debug('received gps message from the service: ' + gps_msg.src_callsign)
             #Clock.schedule_once(functools.partial(self.ui.addGPSMessageToUI, gps_msg), 0)
+    
+    def waypoint_msg_handler(self, msg):
+        if (msg is not None):
+            if (msg.src_callsign == self.ui.my_callsign): #return immeadiatly, this is my own waypoint
+                return
+            
+            if not msg.src_callsign in self.contacts_dict:
+                self.__vibrate(pattern=new_gps_contact_vibe_pattern)
+                Clock.schedule_once(functools.partial(self.ui.addNewGPSContactToUI, msg), 0)
+            else:
+                Clock.schedule_once(functools.partial(self.ui.updateGPSContact, msg), 0)
+                self.__vibrate(pattern=gps_beacon_contact_vibe_pattern)
+            self.contacts_dict[msg.src_callsign] = msg
+            toast('Waypoint(s) from ' + msg.src_callsign)
+            
+            log.debug('received waypoint from the service: ' + msg.src_callsign)         
     
     ##@brief handler for when a GPSMessage object is received from the service this is my current location
     def my_gps_msg_handler(self, gps_msg):

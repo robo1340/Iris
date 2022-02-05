@@ -27,6 +27,36 @@ from kivy.logger import Logger as log
 
 scaling = 32000.0  # out of 2**15
 
+##@brief a specific version of exception_suppressor
+## that will only catch a specific type of exception and
+## prints a user defined error message upon catching it as a warning
+##@param func the function to run
+##@param e the exception to catch
+##@param msg the error message to print if the exception is caught
+def exception_suppressor(e=BaseException, msg=None):
+    def decorator(func):
+        def meta_function(*args, **kwargs):
+            try:
+                func(*args,**kwargs)
+            except e as ex:
+                if (msg is not None):
+                    log.error(msg)
+                else:
+                    log.error('Exception caught by exception_suppressor()')
+                    log.error(ex)
+        return meta_function
+    return decorator
+
+'''
+def exception_suppressor(func):
+    def meta_function(*args, **kwargs):
+        try:
+            func(*args,**kwargs)
+        except BaseException as ex:
+            log.error(ex)
+    return meta_function
+'''
+
 ##@brief platform type constants
 class Platform():
     #platform types

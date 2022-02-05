@@ -946,24 +946,34 @@ WindowManager:
         Spacer:
             height: self.parent.spacer_height
         SetablePropertyWaypoint:
-            name : "coordinates1"
+            name : "c1"
     
         Spacer:
             height: self.parent.spacer_height
         SetablePropertyWaypoint:
-            name : "coordinates2"
+            name : "c2"
     
         Spacer:
             height: self.parent.spacer_height
         SetablePropertyWaypoint:
-            name : "coordinates3"
+            name : "c3"
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SetablePropertyWaypoint:
+            name : "c4"
+    
+        Spacer:
+            height: self.parent.spacer_height
+        SetablePropertyWaypoint:
+            name : "c5"
     
         Spacer:
             height: self.parent.spacer_height
         SmallButton:
-            text: 'Send Waypoint Now'
+            text: 'Send Waypoints Now'
             name : 'tx_waypoint_manual'
-            #on_release: app.sendGPSBeacon()
+            on_release: app.button_pressed(self)
  
         PropertyLabel:
             name : 'current_waypoint_period'
@@ -1081,7 +1091,7 @@ WindowManager:
         SmallButton:
             text: 'Send Beacon Now'
             name : 'tx_gps_manual'
-            on_release: app.sendGPSBeacon()
+            on_release: app.button_pressed(self)
  
         PropertyLabel:
             name : 'current_gps_beacon_period'

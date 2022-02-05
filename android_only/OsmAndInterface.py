@@ -11,10 +11,12 @@ import pickle
 from kivy.logger import Logger as log
 
 CONTACT_CATEGORY = 'Iris Contacts'
+WAYPOINT_CATEGORY = 'Iris Waypoints'
 
 OSM_COLORS = ["blue", "red", "green", "brown", "orange", "yellow", "lightblue", "lightgreen", "purple", "pink"]
 
 CONTACTS_FILE_NAME = 'contacts.pickle'
+WAYPOINTS_FILE_NAME = 'recieved_waypoints.pickle'
 
 class ContactPoint():
     def __init__(self,callsign,lat,lon,time,index):
@@ -33,6 +35,23 @@ class ContactPoint():
         self.time = time.time()
         return self.__name
 
+class Waypoint():
+    def __init__(self, name, lat, lon, time, index):
+        self.name = name
+        self.lat = lat
+        self.lon = lon
+        self.time = time
+        self.index = index
+        self.__name = '%s | %s' % (self.name, datetime.now().strftime("%H:%M:%S"))
+        
+    def getCurrentName(self):
+        return self.__name
+    
+    def getNewName(self):
+        self.__name = '%s | %s' % (self.name, datetime.now().strftime("%H:%M:%S"))
+        self.time = time.time()
+        return self.__name
+    
 class OsmAndInterface():
 
     def __init__(self):
@@ -41,6 +60,12 @@ class OsmAndInterface():
                 self.contact_points_dict = pickle.load(f)
         else:
             self.contact_points_dict = {} #a dictionary describing the current contact points that have been placed
+            
+        if os.path.isfile('./' + WAYPOINTS_FILE_NAME):
+            with open(WAYPOINTS_FILE_NAME, 'rb') as f:
+                self.waypoints_dict = pickle.load(f)
+        else:
+            self.waypoints_dict = {} #a dictionary describing the current waypoints that have been placed
         
         #log.info(self.contact_points_dict)
         
@@ -112,7 +137,7 @@ class OsmAndInterface():
             self.saveContacts()
         except BaseException:
             log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
-
+            
     def refreshContacts(self):
         self.clearContacts()
         self.populateContacts()
@@ -143,6 +168,69 @@ class OsmAndInterface():
             #self.api.removeFavoriteGroup(CONTACT_CATEGORY)
         except BaseException:
             log.error('An exception occurred while deleting a favorites marker in OsmAnd')
+            
+    ##@brief place a set of waypoints in osmand represending waypoints send from another Iris unit
+    ## that send the waypoints, If the waypoints have been sent previously, update them
+    ##@param callsign the callsign of the Iris unit sending the waypoints
+    ##@param waypoints a dictionary object containing the waypoints that were sent
+    def place_waypoints(self, callsign='', waypoints=None):
+        log.info('Placing Waypoints')
+        
+        if not isinstance(waypoints, dict):
+            return
+        
+        self.clear_waypoints()
+        for wname,waypoint in waypoints.items():
+            if not isinstance(waypoint,list):
+                continue
+            if (len(waypoint) != 2): #this should be a list of length 2
+                continue
+            try:
+                name = '%s.%s' % (callsign,wname)
+                if name in self.waypoints_dict:
+                    wpt = self.waypoints_dict[name]
+                    wpt.getNewName()
+                    wpt.lat = waypoint[0]
+                    wpt.lon = waypoint[1]
+                else:
+                    wpt = Waypoint(name, waypoint[0], waypoint[1], time.time(), (len(self.waypoints_dict) % len(OSM_COLORS)) )
+                    self.waypoints_dict[name] = wpt
+ 
+            except BaseException:
+                log.error('An exception occurred while placing/updating a favorites marker in OsmAnd')
+                
+        self.populate_waypoints()
+        self.save_waypoints()
+           
+    def refresh_waypoints(self):
+        self.clear_waypoints()
+        self.populate_waypoints()
+    
+    def populate_waypoints(self):
+        try:
+            for wpt in self.waypoints_dict.values():
+                self.api.addFavorite(wpt.lat, wpt.lon, wpt.getCurrentName(), '', '', WAYPOINT_CATEGORY, OSM_COLORS[wpt.index], True) 
+        except BaseException:
+            log.error('An exception occurred while populating waypoints in OsmAnd')        
+    
+    def save_waypoints(self):
+        with open(WAYPOINTS_FILE_NAME, 'wb') as f:
+            pickle.dump(self.waypoints_dict, f)
+    
+    def erase_waypoints(self):
+        self.clear_waypoints()
+        self.waypoints_dict.clear()
+        self.save_waypoints()
+    
+    ##@brief remove all contact markers that are in OsmAnd
+    def clear_waypoints(self):
+        try:
+            for wpt in self.waypoints_dict.values():
+                self.api.removeFavorite(wpt.lat, wpt.lon, wpt.getCurrentName(), WAYPOINT_CATEGORY)
+            #self.api.removeFavoriteGroup(WAYPOINT_CATEGORY)
+        except BaseException:
+            log.error('An exception occurred while deleting a waypoint in OsmAnd')
+
 
 '''
 osm.placeContact(35.0078, -97.0929, '000001', str(time.time()))
