@@ -44,7 +44,6 @@ HEADER_INFO = '/header_info'
 class ServiceController():
 
     def __init__(self, il2p, config, gps=None, osm=None):
-        #log.info('service controller constructor')
         self.il2p = il2p
         self.osm = osm
         self.isStopped = False
@@ -172,7 +171,6 @@ class ServiceController():
                 log.error(ex)
         
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
-    #@
     def txt_msg_handler(self, txt_msg):
         log.debug('service ctrl txt_msg_handler()')
         self.il2p.msg_send_queue.put(txt_msg)

@@ -48,15 +48,6 @@ def exception_suppressor(e=BaseException, msg=None):
     return decorator
 
 '''
-def exception_suppressor(func):
-    def meta_function(*args, **kwargs):
-        try:
-            func(*args,**kwargs)
-        except BaseException as ex:
-            log.error(ex)
-    return meta_function
-'''
-
 ##@brief platform type constants
 class Platform():
     #platform types
@@ -77,6 +68,7 @@ def getPlatform():
     else:
         log.info(sys.platform)
         raise Exception('ERROR: This system is not recognized')
+'''
 
 ## @brief simple container to put relevant statics and log items as the program runs
 class Stats():
@@ -149,28 +141,6 @@ def audioOpener(mode, interface_factory, callback):
         return async_reader.AsyncReader(stream=s, bufsize=s.bufsize, mean_abs_callback=callback)
     if 'w' in mode:
         return audio_interface.player()
-
-'''
-def FileType(mode, interface_factory=None):
-    def opener(fname, callback):
-        audio_interface = interface_factory() if interface_factory else None
-
-        assert 'r' in mode or 'w' in mode
-        if audio_interface is None and fname is None:
-            fname = '-'
-
-        if fname is None:
-            assert audio_interface is not None
-            if 'r' in mode:
-                s = audio_interface.recorder()
-                return async_reader.AsyncReader(stream=s, bufsize=s.bufsize, mean_abs_callback=callback)
-            if 'w' in mode:
-                return audio_interface.player()
-
-        return open(fname, mode)
-
-    return opener
-    '''
 
 class BitPacker:
     def __init__(self):

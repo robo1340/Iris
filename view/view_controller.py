@@ -33,13 +33,6 @@ from kivy.clock import Clock
 NUM_PUBS = 1
 BASE_PORT = 8000
 
-#VIEW_PUB_IND = 0
-#    service_stop_command
-#    send_my_callsign
-#    send_txt_message
-#    gps_one_shot_command
-#    send_gps_beacon_command
-
 #pub topics
 TXT_MSG_TX = "/txt_msg_tx"
 MY_CALLSIGN = "/my_callsign"
@@ -55,9 +48,6 @@ CLEAR_OSMAND_CONTACTS = '/clear_osmand_contacts'
 CLEAR_OSMAND_WAYPOINTS = '/clear_osmand_waypoints'
 INCLUDE_GPS_IN_ACK = '/include_gps_in_ack'
 ENABLE_VIBRATION = '/enable_vibration'
-
-#def generate_bind_addr(num, base_port):
-#def generate_connect_addr(num, base_port):
 
 class ViewController():
 
@@ -245,12 +235,9 @@ class ViewController():
     def send_include_gps_in_ack(self, include_gps_in_ack):
         self.tx_queue.put((0,INCLUDE_GPS_IN_ACK,include_gps_in_ack), block=False)
     
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_enable_vibration(self, enable_vibration):
         self.enable_vibration = enable_vibration
-        #try:
-        #    self.tx_queue.put((0,ENABLE_VIBRATION,enable_vibration), block=False)
-        #except queue.Full:
-        #    log.warning('view controller tx queue is full')  
     
     ###############################################################################
     ## Handlers for when the View Controller receives a message from the Service ##
@@ -354,7 +341,6 @@ class ViewController():
     def retry_msg_handler(self, args):
         Clock.schedule_once(functools.partial(self.ui.updateRetryCount, args[0], args[1]), 0)
         log.debug('received a retry message from the service controller')
-        #Clock.schedule_once(functools.partial(self.ui.updateRetryCount, int(args[0]), int(args[1]) ), 0) 
         
     def header_info_handler(self, header_info):
         Clock.schedule_once(functools.partial(self.ui.updateHeaderInfo, header_info), 0)

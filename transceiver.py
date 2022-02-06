@@ -87,13 +87,9 @@ def send(config, src, dst, carrier_length):
     sender = _send.Sender(dst, config=config, carrier_length=carrier_length)
     Fs = config.Fs
 
-    #try: 
     sender.write(np.zeros(int(Fs * (config.silence_start)))) # pre-padding audio with silence (priming the audio sending queue)
 
     sender.start()
-
-    #training_duration = sender.offset
-    #log.debug('Sending %.3f seconds of training audio', training_duration / Fs)
 
     reader = stream.Reader(src, eof=True)
     data = itertools.chain.from_iterable(reader)
@@ -102,11 +98,7 @@ def send(config, src, dst, carrier_length):
     log.debug('Sent %.3f kB @ %.3f seconds', reader.total / 1e3, sender.offset / Fs)
 
     sender.write(np.zeros(int(Fs * config.silence_stop))) # post-padding audio with silence
-    #log.info('sender complete')
     return True 
-    #except BaseException:
-    #    log.warning('WARNING: the sender failed, message may have not been fully sent')
-    #    return False
 
 ##@brief method that uses android.media.MediaPlayer to play a .pcm audio file
 ##@param player an Android Media Player instance
@@ -224,7 +216,7 @@ class ReceiverPipe():
         self.recv_cnt = 0
         self.header = None
         self.recv_queue.queue.clear()
-
+'''
 def setAudioOutputRadio(manager, AudioManager):
     manager.setMode(AudioManager.MODE_NORMAL)
     manager.setSpeakerphoneOn(False)
@@ -236,7 +228,8 @@ def setAudioOutputSpeaker(manager, AudioManager):
     manager.setMode(AudioManager.MODE_IN_COMMUNICATION)
     manager.setSpeakerphoneOn(True)
     manager.setMicrophoneMute(True)
-        
+'''
+
 def transceiver_func(args, service_controller, stats, il2p, config):
     master_timeout = config.master_timeout
     tx_cooldown = config.tx_cooldown
@@ -253,12 +246,8 @@ def transceiver_func(args, service_controller, stats, il2p, config):
     def interface_factory():
         return args.interface
     
-    AndroidMediaPlayer = None
-    AudioManager = None
-    if (args.platform == common.Platform.ANDROID):
-        AndroidMediaPlayer = autoclass('android.media.MediaPlayer')
-        AudioManager = autoclass('android.media.AudioManager')
-    
+    AndroidMediaPlayer = autoclass('android.media.MediaPlayer')
+    AudioManager = autoclass('android.media.AudioManager')
     mplayer = AndroidMediaPlayer()
     '''
     log.info('Trying to do audio things')
@@ -270,8 +259,6 @@ def transceiver_func(args, service_controller, stats, il2p, config):
     
     log.info('Did audio things')
     '''
-    
-    #setAudioOutputRadio(audioManager, AudioManager)
 
     link_layer_pipe = ReceiverPipe(il2p)
     args.recv_dst = link_layer_pipe
@@ -342,8 +329,9 @@ def transceiver_func(args, service_controller, stats, il2p, config):
                             time.sleep(0)
                 except FunctionTimedOut:
                     log.error('\nERROR!:  recv or send timed out\n')
-                #except:
-                #    print('uncaught exception or keyboard interrupt')
+                except BaseException as ex:
+                    log.error('Exception caught in Main Transceiver Loop')
+                    log.error(ex)
                 finally:
                     if mplayer is not None:
                         mplayer.reset()

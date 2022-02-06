@@ -43,10 +43,10 @@ tx_cooldown = 1 #cooldown period after the sending in seconds, the program may n
 rx_cooldown = 0.5 #cooldown period after receiving in seconds, the program may not receive or transmit for this period of time after receiving a frame
 
 # Python 3 has `buffer` attribute for byte-based I/O
-_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
-_stdout = getattr(sys.stdout, 'buffer', sys.stdout)
+#_stdin = getattr(sys.stdin, 'buffer', sys.stdin)
+#_stdout = getattr(sys.stdout, 'buffer', sys.stdout)
 
-## @brief simple contain to put arguments used throughout the program in 
+## @brief simple container to put arguments used throughout the program in 
 class Args():
     def __init__(self, interface=None):
         self.recv_src = None
@@ -87,9 +87,9 @@ if __name__ == "__main__":
     stats = common.Stats()
 
     il2p = IL2P_API.IL2P_API(config=config, verbose=False)
-    args.platform = common.Platform.ANDROID
-    from android_only.gps import GPS
-    from android_only.OsmAndInterface import OsmAndInterface
+    #args.platform = common.Platform.ANDROID
+    from gps import GPS
+    from OsmAndInterface import OsmAndInterface
 
     service_controller = ServiceController(il2p, config, GPS(), OsmAndInterface())
     il2p.service_controller = service_controller

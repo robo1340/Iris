@@ -4,7 +4,23 @@ import os
 import pickle
 import random
 import string
-    
+
+def generate_callsign():
+    #this array is used to randomly generate a callsign upon startup
+    words = ['LADY','DEBT','POET','WOOD','GENE','EXAM','KING','BIRD','WEEK','CITY','ROAD', \
+                  'OVEN','CELL','LOVE','GIRL','BATH','FOOD','DATA','HALL','MEAT','USER','SONG', \
+                  'BUYER','BONUS','DRAMA','SALAD','POWER','PHOTO','TOPIC','UNION','MUSIC','UNCLE','NIGHT', \
+                  'APPLE','GUEST','HEART','HONEY','PIANO','STORY','PIZZA','WOMAN','QUEEN','PHONE','OWNER', \
+                  'CHILD','SHIRT','STEAK','ERROR','PAPER','HOTEL','ECHO','LIMA','SCENE','SKILL','BLOOD', \
+                  'MIXED','BROAD','MACHO','TACKY','FRAIL','PIXY','FAIRY','SCHIZ','HEAVY','ANGRY','BASIC', \
+                  'DUSTY','SHARP','SHORT','JOLLY','ACRID','SABLE','IRATE','BAWDY','DRUNK','NEEDY','NAIVE', \
+                  'GIDDY','SASSY','RASPY','ROYAL','ROUND','SALTY','STALE','FREED','RIPE','WARY','FAST', \
+                  'RUDE','TAME','PALE','MUTE','LEWD','KEEN','DEAR','ZANY','LAZY','SOUR','LUCH', \
+                  'FAIR','POOR','SLOW','SEXY','DEAD','HURT','NEAT','ACID','GAMY','LOUD','UGLY']
+    #return ''.join(random.choice(string.ascii_uppercase) for i in range(6))
+    return random.choice(words) + str(random.randint(1,9))
+
+
 ##@brief configuration class
 class Configuration:
     Fs = 8000.0  # sampling frequency [Hz]
@@ -24,8 +40,6 @@ class Configuration:
     # receiver config
     skip_start = 0.1
     timeout = 2.0 #timeout when looking for prefix symbols
-
-    #print ( ''.join(random.choice(string.ascii_uppercase) for i in range(6)) )
     
     my_callsign = ''
     
@@ -34,13 +48,13 @@ class Configuration:
         with open('./my_callsign_default.pickle', 'rb') as f:
             my_callsign = pickle.load(f)
     else:
-        my_callsign = ''.join(random.choice(string.ascii_uppercase) for i in range(6))
+        my_callsign = generate_callsign()
         with open('./my_callsign_default.pickle', 'wb') as f:
             pickle.dump(my_callsign, f)
     
     dst_callsign = 'WAYWAX'
     
-    gps_beacon_enable = False
+    gps_beacon_enable = True
     gps_beacon_period = 60
     carrier_length = 750
     enableForwarding = True
@@ -93,13 +107,3 @@ class Configuration:
         symbols = np.array(symbols)
         symbols = symbols - symbols[-1]/2
         self.symbols = symbols / np.max(np.abs(symbols))
-
-'''
-bitrates = {
-    1: Configuration(Fs=8e3, Npoints=2, frequencies=[2e3]),
-    2: Configuration(Fs=8e3, Npoints=4, frequencies=[2e3]),
-    4: Configuration(Fs=8e3, Npoints=16, frequencies=[2e3]),
-    12: Configuration(Fs=16e3, Npoints=16, frequencies=[3e3, 5e3]),
-    42: Configuration(Fs=32e3, Npoints=64, frequencies=[4e3, 10e3]),
-    80: Configuration(Fs=32e3, Npoints=256, frequencies=[2e3, 11e3]),
-}'''

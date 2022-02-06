@@ -32,7 +32,6 @@ import time
 import numpy as np
 from datetime import datetime
 import threading, queue
-#import random
 import functools
 import textwrap
 import os
@@ -140,8 +139,6 @@ class ui_mobileApp(App, UI_Interface):
         
         self.hops = 0
         
-        #self.messagesLock = threading.Lock()
-        #self.messages = [] # a list of message widgets
         self.messages = {} # dictionary of widgets where the key is the widget and the items are the message data
         self.my_waypoints = {}
         
@@ -324,10 +321,7 @@ class ui_mobileApp(App, UI_Interface):
                 waypoint.coordinates.color = self.waypoint_window().red
         
         with open('./' + common.MY_WAYPOINTS_FILE, 'wb') as f:
-            pickle.dump(self.my_waypoints,f)
-        
-        #if this is the first time this function is being called
-        #if not os.path.isfile('./' + common.MY_WAYPOINTS_FILE): 
+            pickle.dump(self.my_waypoints,f) 
 
         
     ##@brief validate a string containing gps coordinates the expected format is like so
