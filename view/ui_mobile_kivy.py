@@ -694,6 +694,7 @@ class ui_mobileApp(App, UI_Interface):
         gps_period = self.__get_child(gps,'gps_beacon_period')
         self.gps_beacon_period = config.gps_beacon_period
         gps_period.text = str(self.gps_beacon_period)
+        self.viewController.send_gps_beacon_command(self.gps_beacon_enable,self.gps_beacon_period)
         
         waypoint = self.__get_child(self.waypoint_window(), 'root_waypoint')
         waypoint_period = self.__get_child(waypoint,'waypoint_period')
