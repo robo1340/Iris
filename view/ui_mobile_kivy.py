@@ -292,10 +292,10 @@ class ui_mobileApp(App, UI_Interface):
         if (button.name == 'force_sync_osmand'):
             self.viewController.force_sync_osmand()
         elif (button.name == 'tx_gps_manual'):
-            log.debug('Send GPS Beacon Now pressed')
+            log.info('Send GPS Beacon Now pressed')
             self.viewController.gps_one_shot_command()
         elif (button.name == 'tx_waypoint_manual'):
-            log.debug('Send Waypoints Now pressed')
+            log.info('Send Waypoints Now pressed')
             self.viewController.waypoint_one_shot_command()
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)

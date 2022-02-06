@@ -344,7 +344,7 @@ class ServiceController():
                 self.gps_next_beacon = -1
             time.sleep(1)
     
-    @exception_suppressor
+    @exception_suppressor(msg='exception caught in transmit_gps_beacon()')
     def transmit_gps_beacon(self):
         if (self.gps is None):
             log.warning('WARNING: No GPS hardware detected')
@@ -389,7 +389,7 @@ class ServiceController():
                 self.waypoint_next_beacon = -1
             time.sleep(1)
     
-    #@exception_suppressor
+    @exception_suppressor(msg='exception caught in transmit_waypoint_beacon()')
     def transmit_waypoint_beacon(self):
         if not os.path.isfile('./' + common.MY_WAYPOINTS_FILE):
             log.info('WARNINGS: No Waypoints Set yet')
