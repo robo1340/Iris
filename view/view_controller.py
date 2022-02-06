@@ -52,6 +52,7 @@ STOP = '/stop'
 HOPS = '/hops'
 FORCE_SYNC_OSMAND = '/force_sync_osmand'
 CLEAR_OSMAND_CONTACTS = '/clear_osmand_contacts'
+CLEAR_OSMAND_WAYPOINTS = '/clear_osmand_waypoints'
 INCLUDE_GPS_IN_ACK = '/include_gps_in_ack'
 ENABLE_VIBRATION = '/enable_vibration'
 
@@ -235,6 +236,10 @@ class ViewController():
     @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def clear_osmand_contacts(self):
         self.tx_queue.put((0,CLEAR_OSMAND_CONTACTS,''), block=False)
+    
+    @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
+    def clear_osmand_waypoints(self):
+        self.tx_queue.put((0,CLEAR_OSMAND_WAYPOINTS,''), block=False)
     
     @exception_suppressor(e=queue.Full, msg='view controller tx queue is full')
     def send_include_gps_in_ack(self, include_gps_in_ack):

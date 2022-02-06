@@ -137,6 +137,8 @@ class ServiceController():
                         threading.Timer(0, self.force_sync_osmand_handler).start()
                     elif (header == view_c.CLEAR_OSMAND_CONTACTS):
                         threading.Timer(0, self.clear_osmand_contacts_handler).start()   
+                    elif (header == view_c.CLEAR_OSMAND_WAYPOINTS):
+                        threading.Timer(0, self.clear_osmand_waypoints_handler).start()
                     elif (header == view_c.INCLUDE_GPS_IN_ACK):
                         self.include_gps_in_ack_handler(payload)
                     #elif (header == view_c.ENABLE_VIBRATION):
@@ -212,9 +214,13 @@ class ServiceController():
     
     def force_sync_osmand_handler(self):
         self.osm.refreshContacts()
+        self.osm.refresh_waypoints()
         
     def clear_osmand_contacts_handler(self):
         self.osm.eraseContacts()
+    
+    def clear_osmand_waypoints_handler(self):
+        self.osm.erase_waypoints()
     
     def include_gps_in_ack_handler(self, include_gps):
         self.il2p.include_gps_in_ack = include_gps
@@ -401,7 +407,7 @@ class ServiceController():
                     return
 
                 waypoints_str = str(waypoints).replace('\'','\"')
-                log.info('WAYPOINTS to send: \"%s\"' % (waypoints_str,))
+                #log.info('WAYPOINTS to send: \"%s\"' % (waypoints_str,))
                 
                 #waypoint_header = IL2P_Frame_Header(src_callsign='BAYWAX', dst_callsign='', \
                 waypoint_header = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \

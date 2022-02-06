@@ -289,7 +289,7 @@ class ui_mobileApp(App, UI_Interface):
             self.viewController.send_enable_vibration(enable)
 
     def button_pressed(self, button):
-        if (button.name == 'force_sync_osmand'):
+        if (button.name == 'force_sync_osmand' or button.name == 'force_sync_osmand_waypoints'):
             self.viewController.force_sync_osmand()
         elif (button.name == 'tx_gps_manual'):
             log.info('Send GPS Beacon Now pressed')
@@ -299,6 +299,8 @@ class ui_mobileApp(App, UI_Interface):
             self.viewController.waypoint_one_shot_command()
         elif (button.name == 'clear_osmand_contacts'):
             self.spawn_confirm_popup('Delete Osmand Contacts?', self.viewController.clear_osmand_contacts)
+        elif (button.name == 'clear_osmand_waypoints'):
+            self.spawn_confirm_popup('Delete Osmand Waypoints?', self.viewController.clear_osmand_waypoints)
         elif (button.name == 'clear_messages'):
             self.spawn_confirm_popup('Delete All Messages?' , self.clearReceivedMessages)
         elif (button.name == 'close_nobob'):

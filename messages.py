@@ -74,7 +74,9 @@ class MessageObject():
     __gt__ = lambda self, other : (self.priority > other.priority)
     __ge__ = lambda self, other : (self.priority >= other.priority)
     __eq__ = lambda self, other : (self.priority == other.priority)
-    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
+    
+    def mark_time(self):
+        self.time_str = datetime.now().strftime("%H:%M:%S")
         
     def get_ack_seq(self):
         if (self.header.request_double_ack or self.header.request_ack):
@@ -127,11 +129,13 @@ class GPSMessageObject():
         
     get_location = lambda self : self.location
     getInfoString = lambda self : 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
-    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
     marshal = lambda self : pickle.dumps(self)
     lat = lambda self : self.location['lat']
     lon = lambda self : self.location['lon']
     altitude = lambda self : self.location['altitude']
+    
+    def mark_time(self):
+        self.time_str = datetime.now().strftime("%H:%M:%S")
     
 class WaypointMessageObject():
     
@@ -145,6 +149,10 @@ class WaypointMessageObject():
         self.waypoints = waypoints #a dictionary object containg waypoints
         
     getInfoString = lambda self : str(self.waypoints)
-    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
     marshal = lambda self : pickle.dumps(self)
+    
+    def mark_time(self):
+        self.time_str = datetime.now().strftime("%H:%M:%S")
+        
+    
         
