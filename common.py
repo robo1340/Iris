@@ -47,29 +47,6 @@ def exception_suppressor(e=BaseException, msg=None):
         return meta_function
     return decorator
 
-'''
-##@brief platform type constants
-class Platform():
-    #platform types
-    WIN32 = 1
-    WIN64 = 2
-    LINUX = 3
-    ANDROID = 4
-
-def getPlatform():
-    if ((sys.platform == 'win32') and (sys.maxsize > 2**32)): #true if this is a windows 64 bit system
-        return Platform.WIN64
-    elif ((sys.platform == 'win32') and not (sys.maxsize > 2**32)): #true if this is a windows 32 bit system
-        return Platform.WIN32
-    elif ((sys.platform == 'linux') and (kivy.utils.platform == 'android')): #true if this is an android system
-        return Platform.ANDROID
-    elif (sys.platform == 'linux'):
-        return Platform.LINUX
-    else:
-        log.info(sys.platform)
-        raise Exception('ERROR: This system is not recognized')
-'''
-
 ## @brief simple container to put relevant statics and log items as the program runs
 class Stats():
     def __init__(self):
@@ -127,20 +104,6 @@ class StoppableThread(threading.Thread):
 
     def stopped(self):
         return self._stop_event.is_set()
-
-    
-def audioOpener(mode, interface_factory, callback):
-    assert 'r' in mode or 'w' in mode
-    
-    audio_interface = interface_factory() if interface_factory else None
-    if (audio_interface is None):
-        raise BaseException
-
-    if 'r' in mode:
-        s = audio_interface.recorder()
-        return async_reader.AsyncReader(stream=s, bufsize=s.bufsize, mean_abs_callback=callback)
-    if 'w' in mode:
-        return audio_interface.player()
 
 class BitPacker:
     def __init__(self):
@@ -219,7 +182,7 @@ def take(iterable, n):
     return np.array(list(itertools.islice(iterable, n)))
     
 def takeOne(iterable):
-    """ Take n elements from iterable, and return them as a numpy array. """
+    """ Take 1 element from iterable, and return it """
     return (np.array(list(itertools.islice(iterable, 1)))[0])
 
 

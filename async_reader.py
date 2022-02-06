@@ -11,11 +11,11 @@ import math
 from kivy.logger import Logger as log
 
 class AsyncReader:
-    def __init__(self, stream, bufsize, mean_abs_callback):
+    def __init__(self, stream, mean_abs_callback):
         self.stream = stream
         self.queue = queue.Queue()
         self.stop = threading.Event()
-        args = (stream, bufsize, self.queue, self.stop, mean_abs_callback)
+        args = (stream, stream.bufsize, self.queue, self.stop, mean_abs_callback)
         self.thread = threading.Thread(target=AsyncReader._thread, args=args, name='AsyncReader')
         self.thread.start()
         self.buf = b''

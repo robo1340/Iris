@@ -20,7 +20,7 @@ from jnius import autoclass
 from jnius import cast
 
 import pkg_resources
-#import async_reader
+import async_reader
 import audio
 import common
 import send as _send
@@ -32,8 +32,6 @@ import exceptions
 import config
 
 import IL2P_API
-
-master_timeout = 30 #sets the timeout for the last line of defense when the program is stuck
 
 from kivy.logger import Logger as log
 
@@ -125,7 +123,7 @@ def playAudioData(player, pcmFileName):
 ##@stat_update a pointer to the StatusUpdater obejct
 ##@return returns 0 when no frame is received, returns -1 when an error occurs while receiving, returns 1 when frame was received successfully
 #@func_set_timeout(master_timeout)
-def recv(detector, receiver, signal, dst, stat_update, service_controller):
+def recv(detector, receiver, signal, dst, stat_update):
     try:
         log.debug('Waiting for carrier tone')
         
@@ -135,8 +133,6 @@ def recv(detector, receiver, signal, dst, stat_update, service_controller):
             raise exceptions.NoBarkerCodeDetectedError
         
         stat_update.update_status(common.SQUELCH_OPEN)
-            
-        #service_controller.send_signal_strength(1.0/gain)
         
         log.debug('Gain correction: %.3f', gain)
 
@@ -231,23 +227,16 @@ def setAudioOutputSpeaker(manager, AudioManager):
 '''
 
 def transceiver_func(args, service_controller, stats, il2p, config):
-    master_timeout = config.master_timeout
     tx_cooldown = config.tx_cooldown
-    base_rx_cooldown = config.rx_cooldown
     
-    log.info("tx/rx cooldown: %f/%f\n" % (tx_cooldown,base_rx_cooldown))
-    rx_cooldown_randomizer = Cooldown(base_rx_cooldown, 0.3)
+    log.info("tx/rx cooldowns: %f/%f\n" % (tx_cooldown,config.rx_cooldown))
+    rx_cooldown_randomizer = Cooldown(config.rx_cooldown, 0.3)
     rx_cooldown = rx_cooldown_randomizer.get()
 
-    fmt = ('{0:.1f} kb/s ({1:d}-QAM x {2:d} carriers) Fs={3:.1f} kHz')
-    description = fmt.format(config.modem_bps / 1e3, len(config.symbols), config.Nfreq, config.Fs / 1e3)
-    log.info(description)
-
-    def interface_factory():
-        return args.interface
+    log.info('%2.1f kb/s %d-QAM %d carriers Fs=%2.1f kHz' % (config.modem_bps/1e3, len(config.symbols), config.Nfreq, config.Fs/1e3))
     
     AndroidMediaPlayer = autoclass('android.media.MediaPlayer')
-    AudioManager = autoclass('android.media.AudioManager')
+    #AudioManager = autoclass('android.media.AudioManager')
     mplayer = AndroidMediaPlayer()
     '''
     log.info('Trying to do audio things')
@@ -260,9 +249,8 @@ def transceiver_func(args, service_controller, stats, il2p, config):
     log.info('Did audio things')
     '''
 
-    link_layer_pipe = ReceiverPipe(il2p)
-    args.recv_dst = link_layer_pipe
-    il2p.reader.setSource(link_layer_pipe)
+    args.recv_dst = ReceiverPipe(il2p)
+    il2p.reader.setSource(args.recv_dst)
     
     csma = CSMA_Controller(service_controller)
     
@@ -278,8 +266,8 @@ def transceiver_func(args, service_controller, stats, il2p, config):
             #receiver objects
             detector = detect.Detector(config=config)
             receiver = _recv.Receiver(config=config)
-
-            args.recv_src = common.audioOpener('rb', interface_factory, csma.feedNewValue)
+            
+            args.recv_src = async_reader.AsyncReader(stream=args.interface.recorder(), mean_abs_callback=csma.feedNewValue)
             reader = stream.Reader(args.recv_src, data_type=common.loads)
             signal = itertools.chain.from_iterable(reader)
 
@@ -288,7 +276,7 @@ def transceiver_func(args, service_controller, stats, il2p, config):
             while (service_controller.stopped() == False): #main transceiver loop, keep going so long as the service controller thread is running
                 try:
 
-                    ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update, service_controller)
+                    ret_val = recv(detector, receiver, signal, args.recv_dst, stat_update)
 
                     if (ret_val == 1):
                         stats.rxs += 1
