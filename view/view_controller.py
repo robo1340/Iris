@@ -150,9 +150,10 @@ class ViewController():
             
             except zmq.ZMQError:
                 log.error("A ZMQ specific error occurred in the view controller receiver thread")
-            except BaseException:
+            except BaseException as ex:
                 log.error("Error in view controller zmq receiver thread")
-                log.info("header %s, payload %s" % (header, str(payload)))
+                log.error(ex)
+                #log.info("header %s, payload %s" % (header, str(payload)))
         log.info('view controller receiver ended==========================')
 
     def view_pub_func(self, arg):

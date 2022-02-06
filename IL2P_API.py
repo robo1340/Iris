@@ -203,8 +203,9 @@ class IL2P_API:
             try:
                 self.service_controller.send_waypoint_message(MessageObject(header=header, payload_str=payload.tobytes().decode('ascii','ignore')))
                 return True   
-            except BaseException:
-                log.warning('WARNING: failed to decode payload of a GPS message')
+            except BaseException as ex:
+                log.warning('WARNING: failed to decode payload of a waypoint beacon message')
+                log.warning(ex)
                 return False 
     
     ## @brief convert a MessageObject to a Frame and return the raw frame to be transmitted

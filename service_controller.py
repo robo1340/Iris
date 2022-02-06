@@ -165,8 +165,9 @@ class ServiceController():
             except queue.Empty:
                 pass
             
-            except BaseException:
+            except BaseException as ex:
                 log.error("Error in service controller zmq publisher thread")
+                log.error(ex)
         
     ## @brief callback for when the View Controller sends a UDP datagram containing a text message to be transmitted
     #@
@@ -267,13 +268,6 @@ class ServiceController():
             self.tx_queue.put((0,WAYPOINT_MSG,waypoint_msg), block=False)
 
             if (self.osm.isStarted() and (waypoint_msg.src_callsign != self.il2p.my_callsign)): #place the waypoints in OsmAnd
-            #if ((self.osm is not None) and (gps_msg.src_callsign != self.il2p.my_callsign)):
-                log.info('here')
-                log.info(waypoint_msg.waypoints)
-                log.info(isinstance(waypoint_msg.waypoints,dict))
-                log.info(isinstance(waypoint_msg.waypoints['c1'],list))
-                log.info(isinstance(waypoint_msg.waypoints['c1'][0],float)) #need this to be a float
-                log.info(isinstance(waypoint_msg.waypoints['c1'][0],str))
                 self.osm.place_waypoints(waypoint_msg.src_callsign, waypoint_msg.waypoints)
     
     @exception_suppressor(e=queue.Full, msg='service controller tx queue is full')
@@ -409,8 +403,8 @@ class ServiceController():
                 waypoints_str = str(waypoints).replace('\'','\"')
                 log.info('WAYPOINTS to send: \"%s\"' % (waypoints_str,))
                 
-                waypoint_header = IL2P_Frame_Header(src_callsign='BAYWAX', dst_callsign='', \
-                #waypoint_header = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \
+                #waypoint_header = IL2P_Frame_Header(src_callsign='BAYWAX', dst_callsign='', \
+                waypoint_header = IL2P_Frame_Header(src_callsign=self.il2p.my_callsign, dst_callsign='', \
                                            hops_remaining=self.hops, hops=self.hops, is_text_msg=False, is_beacon=False, is_waypoint=True, \
                                            #hops_remaining=0, hops=0, is_text_msg=False, is_beacon=True, \
                                            my_seq = self.il2p.forward_acks.my_ack,\

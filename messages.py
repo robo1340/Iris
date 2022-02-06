@@ -31,16 +31,6 @@ class AckSequenceList():
             self.acks.pop()
         self.acks.insert(0,new_seq)
         return True
-    '''
-    def append(self, new_seq, force=False):
-        for seq in self.acks:
-            if (seq == new_seq) and (force == False):
-                return False
-        if (len(self.acks) >= self.length):
-            self.acks.pop()
-        self.acks.insert(0,new_seq)
-        return True
-    '''
         
     def getAcksBool(self):
         to_return = len(self.acks)*[True] + (self.length-len(self.acks))*[False]
@@ -77,15 +67,20 @@ class MessageObject():
         
         self.src_callsign = self.header.src_callsign
         
+    get_dummy_beacon = lambda self : GPSMessageObject(src_callsign=self.header.src_callsign, time_str=self.time_str)
+    marshal = lambda self : pickle.dumps(self)
+    __lt__ = lambda self, other : (self.priority < other.priority)
+    __le__ = lambda self, other : (self.priority <= other.priority)
+    __gt__ = lambda self, other : (self.priority > other.priority)
+    __ge__ = lambda self, other : (self.priority >= other.priority)
+    __eq__ = lambda self, other : (self.priority == other.priority)
+    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
+        
     def get_ack_seq(self):
         if (self.header.request_double_ack or self.header.request_ack):
             return self.header.getMyAckSequence()
         else:
             return None
-    
-    #set the time string
-    def mark_time(self):
-        self.time_str = datetime.now().strftime("%H:%M:%S")
     
     #extract location from the payload if this message is a gps beacon
     def get_location(self):
@@ -96,9 +91,9 @@ class MessageObject():
                 #convert payload bytes to a dictionary while ignoring all non-ascii characters
                 gps_dict = json.loads(self.payload_str) 
                 #gps_dict = json.loads(self.payload_str.tobytes().decode('ascii','ignore')) 
-                log.debug(gps_dict['lat'])
-                log.debug(gps_dict['lon'])
-                log.debug(gps_dict['altitude'])
+                gps_dict['lat'] = float(gps_dict['lat'])
+                gps_dict['lon'] = float(gps_dict['lon'])
+                gps_dict['altitude'] = float(gps_dict['altitude'])
                 return GPSMessageObject(src_callsign=self.header.src_callsign, location=gps_dict)  
             except BaseException:
                 log.warning('WARNING: failed to extract a gps location')
@@ -110,36 +105,17 @@ class MessageObject():
             return None
         else:
             try:
-                #convert payload bytes to a dictionary while ignoring all non-ascii characters
                 waypoints = json.loads(self.payload_str) 
-                log.info(waypoints)
+                for key,val in waypoints.items():
+                    waypoints[key] = [float(val[0]),float(val[1])]
+                #log.info(waypoints)
                 return WaypointMessageObject(src_callsign=self.header.src_callsign, waypoints=waypoints)  
             except BaseException:
                 log.warning('WARNING: failed to extract a waypoints from payload')
                 return None 
     
-    def get_dummy_beacon(self):
-        return GPSMessageObject(src_callsign=self.header.src_callsign, time_str=self.time_str)
-    
-    def marshal(self):
-        return pickle.dumps(self) 
-    
-    def __lt__(self, other):
-        return self.priority < other.priority
-
-    def __le__(self, other):
-        return self.priority <= other.priority
-        
-    def __gt__(self, other):
-        return self.priority > other.priority
-        
-    def __ge__(self, other):
-        return self.priority >= other.priority
-        
-    def __eq__(self, other):
-        return self.priority == other.priority
-    
 class GPSMessageObject():
+
     @staticmethod
     def unmarshal(tup):
         return pickle.loads(tup)
@@ -148,56 +124,27 @@ class GPSMessageObject():
         self.src_callsign = src_callsign
         self.location = location
         self.time_str = time_str
-    
-    #extract location from the payload if this message is a gps beacon
-    def get_location(self):
-        return self.location
-    
-    def getInfoString(self):
-        fmt = 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
-        return fmt
-    
-    def lat(self):
-        try:
-            return float(self.location['lat'])
-        except BaseException:
-            return 0.0
-            
-    def lon(self):
-        try:
-            return float(self.location['lon'])
-        except BaseException:
-            return 0.0
-
-    def altitude(self):
-        try:
-            return float(self.location['altitude'])
-        except BaseException:
-            return 0.0
-
-    #set the time string
-    def mark_time(self):
-        self.time_str = datetime.now().strftime("%H:%M:%S")
-    
-    def marshal(self):
-        return pickle.dumps(self)
+        
+    get_location = lambda self : self.location
+    getInfoString = lambda self : 'lat: %8.4f deg, lon: %8.4f deg\nalt: %4.0f m\n' % (self.lat(),self.lon(),self.altitude())
+    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
+    marshal = lambda self : pickle.dumps(self)
+    lat = lambda self : self.location['lat']
+    lon = lambda self : self.location['lon']
+    altitude = lambda self : self.location['altitude']
     
 class WaypointMessageObject():
+    
     @staticmethod
     def unmarshal(tup):
         return pickle.loads(tup)
     
     def __init__(self, src_callsign='',waypoints=None, time_str=''):
         self.src_callsign = src_callsign
-        self.waypoints = waypoints #a dictionary object containg waypoints
         self.time_str = time_str
-    
-    def getInfoString(self):
-        return str(self.waypoints)
-
-    #set the time string
-    def mark_time(self):
-        self.time_str = datetime.now().strftime("%H:%M:%S")
-    
-    def marshal(self):
-        return pickle.dumps(self)   
+        self.waypoints = waypoints #a dictionary object containg waypoints
+        
+    getInfoString = lambda self : str(self.waypoints)
+    mark_time = lambda self : datetime.now().strftime("%H:%M:%S")
+    marshal = lambda self : pickle.dumps(self)
+        

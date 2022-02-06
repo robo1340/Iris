@@ -317,7 +317,7 @@ class ui_mobileApp(App, UI_Interface):
             if (new_coordinates is not None): #the string is valid coordinates
                 self.my_waypoints[waypoint.name] = new_coordinates
                 waypoint.coordinates.color = self.waypoint_window().black
-                #log.debug(self.my_waypoints)
+                #log.info(self.my_waypoints)
             else: #the string is not valid coordinates
                 waypoint.coordinates.color = self.waypoint_window().red
         
@@ -333,7 +333,16 @@ class ui_mobileApp(App, UI_Interface):
     ##@param coord_str the string to be validated
     ##return returns None if the coordinates could not be validated, returns a list of [lat,lon] on success
     def validate_coordinate_string(self, coord_str):
-        result = re.match('^[-+]?([1-8]?\d\.\d+?|90\.0+?)[ ,]*\s*[-+]?(180\.0+?|1[0-7]\d|[1-9]?\d\.\d+?)$', coord_str)
+        result = re.match('^[-+]?([1-8]?\d\.\d+?|90\.0+?)([ ,]*)\s*[-+]?(180\.0+?|1[0-7]\d|[1-9]?\d\.\d+?)$', coord_str)
+        if (result is None):
+            return None
+        if (len(result.groups()) != 3):
+            return None
+        to_return = coord_str.split(result.groups()[1]) #split using the middle group
+        return to_return
+        '''
+        log.info(result)
+        log.info(result.groups())
         if (result is None):
             return None
         if (len(result.groups()) != 2):
@@ -342,7 +351,7 @@ class ui_mobileApp(App, UI_Interface):
             try:
                 return [result.groups()[0], result.groups()[1]]
             except BaseException:
-                return None
+                return None'''
     
     def spinner_pressed(self, spinner):
         if (spinner.name == 'gps_beacon_period'):
